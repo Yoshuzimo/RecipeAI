@@ -49,6 +49,8 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const [error, setError] = useState<string | null>(null);
   const [itemToAdd, setItemToAdd] = useState<Omit<ShoppingListItem, 'id' | 'checked'> | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [itemToRemove, setItemToRemove] = useState<ShoppingListItem | null>(null);
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
   const [hiddenSections, setHiddenSections] = useState<string[]>([]);
 
   useEffect(() => {
@@ -85,12 +87,21 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     reset();
   };
   
-  const handleRemoveItem = (id: string) => {
-    const newList = myShoppingList.filter(item => item.id !== id);
-    setMyShoppingList(newList);
-    localStorage.setItem('myShoppingList', JSON.stringify(newList));
+  const handleRemoveClick = (item: ShoppingListItem) => {
+    setItemToRemove(item);
+    setIsRemoveConfirmOpen(true);
   };
   
+  const handleConfirmRemove = () => {
+    if (itemToRemove) {
+      const newList = myShoppingList.filter(item => item.id !== itemToRemove.id);
+      setMyShoppingList(newList);
+      localStorage.setItem('myShoppingList', JSON.stringify(newList));
+    }
+    setIsRemoveConfirmOpen(false);
+    setItemToRemove(null);
+  }
+
   const handleToggleCheck = (id: string) => {
     const newList = myShoppingList.map(item => item.id === id ? {...item, checked: !item.checked } : item);
     setMyShoppingList(newList);
@@ -140,7 +151,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                             <label htmlFor={`check-${item.id}`} className={`flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
                                 {item.item}
                             </label>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)} aria-label="Remove item">
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveClick(item)} aria-label="Remove item">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
@@ -318,6 +329,21 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
             <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setItemToAdd(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAdd}>Add</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={isRemoveConfirmOpen} onOpenChange={setIsRemoveConfirmOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently remove "{itemToRemove?.item}" from your shopping list.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setItemToRemove(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
