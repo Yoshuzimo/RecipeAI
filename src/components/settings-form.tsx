@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { getSettings, saveSettings } from "@/lib/data";
-import type { Settings } from "@/lib/types";
+import { getSettings, saveSettings, getStorageLocations } from "@/lib/data";
+import type { Settings, StorageLocation } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { List, PlusCircle, Trash2 } from "lucide-react";
 
 export function SettingsForm() {
   const { toast } = useToast();
@@ -25,13 +26,16 @@ export function SettingsForm() {
     e2eEncryption: true,
     expiryNotifications: true,
   });
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   
   useEffect(() => {
-    async function loadSettings() {
+    async function loadData() {
       const savedSettings = await getSettings();
       setSettings(savedSettings);
+      const locations = await getStorageLocations();
+      setStorageLocations(locations);
     }
-    loadSettings();
+    loadData();
   }, []);
 
   const handleSettingChange = (key: keyof Settings, value: any) => {
@@ -41,6 +45,7 @@ export function SettingsForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await saveSettings(settings);
+    // In a real app, we'd also save the storage locations here
     toast({
       title: "Settings Saved",
       description: "Your preferences have been updated.",
@@ -73,6 +78,33 @@ export function SettingsForm() {
             </RadioGroup>
           </CardContent>
         </Card>
+
+        <Card>
+            <CardHeader>
+                 <CardTitle>Storage Locations</CardTitle>
+                <CardDescription>Manage your fridges, freezers, and pantries.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    {storageLocations.map(location => (
+                        <div key={location.id} className="flex items-center justify-between rounded-lg border p-4">
+                            <div>
+                                <p className="font-medium">{location.name}</p>
+                                <p className="text-sm text-muted-foreground">{location.type}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" disabled>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+                <Button variant="outline" className="w-full" disabled>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add New Location (Coming Soon)
+                </Button>
+            </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Preferences</CardTitle>

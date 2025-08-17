@@ -6,7 +6,7 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros } from "@/lib/data";
-import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution } from "@/lib/types";
 import { addDays } from "date-fns";
 import { z } from "zod";
 
@@ -246,8 +246,8 @@ export async function handleLogCookedMeal(
     recipe: Recipe,
     servingsEaten: number,
     servingsEatenByOthers: number,
-    fridgeLeftovers: number,
-    freezerLeftovers: number,
+    fridgeLeftovers: LeftoverDestination[],
+    freezerLeftovers: LeftoverDestination[],
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const inventory = await getInventory();
@@ -278,8 +278,8 @@ export async function handleLogCookedMeal(
             for (const leftover of result.leftoverItems) {
                 if (leftover.quantity > 0) {
                     const expiryDate = new Date();
-                    const locationId = leftover.storage === 'Freezer' ? 'freezer-1' : 'fridge-1';
-                    expiryDate.setDate(expiryDate.getDate() + (leftover.storage === 'Freezer' ? 60 : 3)); // 3 days for fridge, 60 for freezer
+                    const isFreezer = leftover.locationId.includes('freezer');
+                    expiryDate.setDate(expiryDate.getDate() + (isFreezer ? 60 : 3)); // 3 days for fridge, 60 for freezer
                     
                     await addInventoryItem({
                         name: leftover.name,
@@ -287,7 +287,7 @@ export async function handleLogCookedMeal(
                         packageCount: 1,
                         unit: 'pcs', // Leftovers are in "pieces" or servings
                         expiryDate,
-                        locationId: locationId, // Simplified for now
+                        locationId: leftover.locationId,
                     });
                 }
             }

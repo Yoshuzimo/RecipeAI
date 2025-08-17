@@ -88,6 +88,16 @@ export function AddInventoryItemDialog({
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
 
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      packageSize: 1,
+      packageCount: 1,
+      unit: "lbs",
+    },
+  });
+
   useEffect(() => {
     async function fetchData() {
       const system = await getUnitSystem();
@@ -103,20 +113,16 @@ export function AddInventoryItemDialog({
     }
     if (isOpen) {
         fetchData();
-        // Set default expiry date to 7 days from now
-        form.setValue('expiryDate', addDays(new Date(), 7));
+        form.reset({
+            name: "",
+            packageSize: 1,
+            packageCount: 1,
+            unit: unitSystem === 'us' ? 'lbs' : 'kg',
+            expiryDate: addDays(new Date(), 7),
+            locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
+        });
     }
-  }, [isOpen]);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      packageSize: 1,
-      packageCount: 1,
-      unit: "lbs",
-    },
-  });
+  }, [isOpen, form, storageLocations, unitSystem]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -127,14 +133,6 @@ export function AddInventoryItemDialog({
         description: `${newItem.name} has been added to your inventory.`,
       });
       setIsOpen(false);
-      form.reset({
-        name: "",
-        packageSize: 1,
-        packageCount: 1,
-        unit: unitSystem === 'us' ? 'lbs' : 'kg',
-        expiryDate: addDays(new Date(), 7),
-        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
-      });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -188,7 +186,7 @@ export function AddInventoryItemDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Unit</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a unit" />

@@ -29,6 +29,7 @@ export type InventoryItemGroup = {
 export type PersonalDetails = {
   healthGoals?: string;
   dietaryRestrictions?: string;
+
   allergies?: string;
   favoriteFoods?: string;
   dislikedFoods?: string;
@@ -71,4 +72,9 @@ export type DailyMacros = {
     meal: "Breakfast" | "Lunch" | "Dinner" | "Snack";
     dishes: LoggedDish[];
     totals: Macros;
+};
+
+export type LeftoverDestination = {
+    locationId: string;
+    servings: number;
 };
