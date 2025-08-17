@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
+import React, { useEffect, useRef, useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
@@ -26,7 +26,6 @@ const initialState = {
     promptInput: "AI prompt will appear here...",
     rawResponse: "Raw AI response will appear here...",
   },
-  inventory: [],
 };
 
 function SubmitButton() {
@@ -52,39 +51,33 @@ const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp",
 
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+  const [inventory] = useState<InventoryItem[]>(initialInventory);
   const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
 
   const [state, formAction] = useActionState(handleGenerateSuggestionsWithInventory, initialState);
-  const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
+  
+  const [suggestions, setSuggestions] = useState<Recipe[] | null>(initialState.suggestions);
+  const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
+
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
-
-  // Debugging state
-  const [promptInput, setPromptInput] = useState<string>(initialState.debugInfo.promptInput);
-  const [rawResponse, setRawResponse] = useState<string>(initialState.debugInfo.rawResponse);
-
+  
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
 
   useEffect(() => {
-    if (state.suggestions) {
-      setSuggestions(state.suggestions);
-    }
-    if (state.inventory && state.inventory.length > 0) {
-      setInventory(state.inventory);
-    }
-    if (state.adjustedRecipe && state.originalRecipeTitle) {
-      setSuggestions(prev => 
-        prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
-      );
-    }
-    if (state.debugInfo) {
-      setPromptInput(state.debugInfo.promptInput);
-      setRawResponse(state.debugInfo.rawResponse);
+    if (state) {
+      setSuggestions(state.suggestions ?? null);
+      setDebugInfo(state.debugInfo);
+       if (state.adjustedRecipe && state.originalRecipeTitle) {
+        setSuggestions(prev => 
+            prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
+        );
+       }
     }
   }, [state]);
+
 
   const handleSaveRecipe = (recipe: Recipe) => {
     // In a real app, this would save to a database.
@@ -280,11 +273,11 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         <h3 className="text-xl font-bold">Debug Info</h3>
         <div className="space-y-2">
           <Label htmlFor="prompt-input">Prompt Input</Label>
-          <Textarea id="prompt-input" readOnly value={promptInput || ""} className="h-64 font-mono text-xs" />
+          <Textarea id="prompt-input" readOnly value={debugInfo.promptInput || ""} className="h-64 font-mono text-xs" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="raw-response">Raw AI Response</Label>
-          <Textarea id="raw-response" readOnly value={rawResponse || ""} className="h-64 font-mono text-xs" />
+          <Textarea id="raw-response" readOnly value={debugInfo.rawResponse || ""} className="h-64 font-mono text-xs" />
         </div>
       </div>
     </div>

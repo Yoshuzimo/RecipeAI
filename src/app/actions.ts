@@ -135,7 +135,6 @@ export async function handleGenerateSuggestions(
     return { 
         suggestions: result.suggestions, 
         error: null, 
-        inventory,
         debugInfo: {
             promptInput: log,
             rawResponse: result.rawOutput
