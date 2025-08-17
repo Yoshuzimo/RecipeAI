@@ -48,6 +48,8 @@ export async function handleGenerateSuggestions(
   prevState: any,
   formData: FormData
 ) {
+  let log = "Button clicked.\n";
+  log += "Request received by server action.\n";
   const validatedFields = suggestionSchema.safeParse({
     cravingsOrMood: formData.get("cravingsOrMood"),
     recipeToAdjust: formData.get("recipeToAdjust"),
@@ -57,7 +59,11 @@ export async function handleGenerateSuggestions(
   if (!validatedFields.success) {
     return {
       error: validatedFields.error.flatten().fieldErrors,
-      suggestions: null
+      suggestions: null,
+      debugInfo: {
+        promptInput: log + "Field validation failed.",
+        rawResponse: ""
+      }
     };
   }
 
@@ -83,7 +89,11 @@ export async function handleGenerateSuggestions(
             suggestions: null, // No new suggestions
             adjustedRecipe: adjustedRecipe,
             originalRecipeTitle: recipe.title,
-            error: null
+            error: null,
+             debugInfo: {
+                promptInput: result.promptInput ? JSON.stringify(result.promptInput, null, 2) : "Prompt for recipe adjustment.",
+                rawResponse: result.rawOutput
+            }
         };
     } catch(e) {
         console.error("Error adjusting recipe", e);
@@ -117,6 +127,8 @@ export async function handleGenerateSuggestions(
       personalDetails: personalDetailsString,
       todaysMacros: mockTodaysMacros,
     };
+  
+  log += "Prompt compiled.\n\n" + JSON.stringify(promptInput, null, 2);
 
   try {
     const result = await generateMealSuggestions(promptInput);
@@ -125,13 +137,21 @@ export async function handleGenerateSuggestions(
         error: null, 
         inventory,
         debugInfo: {
-            promptInput: JSON.stringify(result.promptInput, null, 2),
+            promptInput: log,
             rawResponse: result.rawOutput
         }
     };
   } catch (error) {
     console.error(error);
-    return { error: { form: "Failed to generate suggestions. Please try again." }, suggestions: null };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { 
+        error: { form: "Failed to generate suggestions. Please try again." }, 
+        suggestions: null,
+        debugInfo: {
+            promptInput: log,
+            rawResponse: "Error occurred:\n" + errorMessage
+        }
+    };
   }
 }
 
