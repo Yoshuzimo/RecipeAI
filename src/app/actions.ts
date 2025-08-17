@@ -10,7 +10,7 @@ import { z } from "zod";
 
 const suggestionSchema = z.object({
   cravingsOrMood: z.string().optional(),
-  recipeToAdjust: z.string().optional(),
+  recipeToAdjust: z.string().optional().nullable(),
   newServingSize: z.coerce.number().optional(),
 });
 
