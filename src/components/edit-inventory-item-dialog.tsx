@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { Progress } from "./ui/progress";
+import { Label } from "./ui/label";
 
 const formSchema = z.object({
   totalQuantity: z.coerce.number().gte(0, {
