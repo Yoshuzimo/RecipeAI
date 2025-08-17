@@ -42,6 +42,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { useEffect, useState } from "react";
 import type { Unit, StorageLocation } from "@/lib/types";
+import { Checkbox } from "./ui/checkbox";
 
 const itemSchema = z.object({
   name: z.string(),
@@ -49,13 +50,16 @@ const itemSchema = z.object({
     message: "Quantity must be a positive number.",
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
-  expiryDate: z.date({
-    required_error: "An expiry date is required.",
-  }),
+  expiryDate: z.date().optional(),
   locationId: z.string({
       required_error: "A storage location is required."
-  })
+  }),
+  doesNotExpire: z.boolean().default(false),
+}).refine(data => data.doesNotExpire || !!data.expiryDate, {
+    message: "An expiry date is required.",
+    path: ["expiryDate"],
 });
+
 
 const formSchema = z.object({
   items: z.array(itemSchema),
@@ -111,7 +115,8 @@ export function BuyItemsDialog({
         totalQuantity: 1,
         unit: 'pcs',
         expiryDate: addDays(new Date(), 7),
-        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || ""
+        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || "",
+        doesNotExpire: false,
       })),
     },
   });
@@ -125,6 +130,7 @@ export function BuyItemsDialog({
             unit: 'pcs',
             expiryDate: addDays(new Date(), 7),
             locationId: pantryId,
+            doesNotExpire: false,
         }));
         form.setValue('items', defaultItems);
     }
@@ -134,10 +140,19 @@ export function BuyItemsDialog({
     control: form.control,
     name: "items",
   });
+  
+  const watchedItems = form.watch("items");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await Promise.all(values.items.map(item => addInventoryItem(item)));
+      await Promise.all(values.items.map(item => addInventoryItem({
+        name: item.name,
+        totalQuantity: item.totalQuantity,
+        originalQuantity: item.totalQuantity, // Assuming original quantity is the same as purchased quantity
+        unit: item.unit,
+        expiryDate: item.doesNotExpire ? null : item.expiryDate!,
+        locationId: item.locationId
+      })));
       
       toast({
         title: "Inventory Updated",
@@ -167,7 +182,9 @@ export function BuyItemsDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <ScrollArea className="h-96 pr-6">
                 <div className="space-y-6">
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                  const doesNotExpire = watchedItems?.[index]?.doesNotExpire;
+                  return (
                     <div key={field.id} className="space-y-4 rounded-lg border p-4">
                          <h3 className="font-semibold text-lg">{form.getValues(`items.${index}.name`)}</h3>
                          <Separator />
@@ -245,6 +262,7 @@ export function BuyItemsDialog({
                                         "w-full pl-3 text-left font-normal",
                                         !field.value && "text-muted-foreground"
                                     )}
+                                    disabled={doesNotExpire}
                                     >
                                     {field.value ? (
                                         format(field.value, "PPP")
@@ -260,7 +278,7 @@ export function BuyItemsDialog({
                                     mode="single"
                                     selected={field.value}
                                     onSelect={field.onChange}
-                                    disabled={(date) => date < new Date()}
+                                    disabled={(date) => date < new Date() || doesNotExpire}
                                     initialFocus
                                 />
                                 </PopoverContent>
@@ -269,8 +287,27 @@ export function BuyItemsDialog({
                             </FormItem>
                         )}
                         />
+                         <FormField
+                          control={form.control}
+                          name={`items.${index}.doesNotExpire`}
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  Item does not expire
+                                </FormLabel>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
                     </div>
-                ))}
+                )}})}
                 </div>
             </ScrollArea>
             <DialogFooter>
