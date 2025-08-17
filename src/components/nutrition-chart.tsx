@@ -35,19 +35,19 @@ const MOCK_DATA = {
     { meal: "Snacks", dishes: [{name: "Protein Shake"}, {name: "Apple"}], protein: 15, carbs: 25, fat: 10 },
   ],
   weekly: [
-    { day: "Mon", protein: 120, carbs: 200, fat: 80 },
-    { day: "Tue", protein: 110, carbs: 190, fat: 70 },
-    { day: "Wed", protein: 130, carbs: 210, fat: 90 },
-    { day: "Thu", protein: 100, carbs: 180, fat: 60 },
-    { day: "Fri", protein: 140, carbs: 220, fat: 85 },
-    { day: "Sat", protein: 150, carbs: 240, fat: 95 },
-    { day: "Sun", protein: 135, carbs: 215, fat: 75 },
+    { day: "Mon", date: "Apr 8", protein: 120, carbs: 200, fat: 80 },
+    { day: "Tue", date: "Apr 9", protein: 110, carbs: 190, fat: 70 },
+    { day: "Wed", date: "Apr 10", protein: 130, carbs: 210, fat: 90 },
+    { day: "Thu", date: "Apr 11", protein: 100, carbs: 180, fat: 60 },
+    { day: "Fri", date: "Apr 12", protein: 140, carbs: 220, fat: 85 },
+    { day: "Sat", date: "Apr 13", protein: 150, carbs: 240, fat: 95 },
+    { day: "Sun", date: "Apr 14", protein: 135, carbs: 215, fat: 75 },
   ],
   monthly: [
-      { week: "Week 1", protein: 855, carbs: 1455, fat: 555 },
-      { week: "Week 2", protein: 830, carbs: 1400, fat: 520 },
-      { week: "Week 3", protein: 880, carbs: 1500, fat: 580 },
-      { week: "Week 4", protein: 860, carbs: 1470, fat: 560 },
+      { week: "Week 1", dateRange: "Apr 1 - Apr 7", protein: 855, carbs: 1455, fat: 555 },
+      { week: "Week 2", dateRange: "Apr 8 - Apr 14", protein: 830, carbs: 1400, fat: 520 },
+      { week: "Week 3", dateRange: "Apr 15 - Apr 21", protein: 880, carbs: 1500, fat: 580 },
+      { week: "Week 4", dateRange: "Apr 22 - Apr 28", protein: 860, carbs: 1470, fat: 560 },
   ]
 };
 
@@ -141,17 +141,21 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
     
     // The label for the tick (e.g., "Breakfast", "Mon", "Week 1")
     const tickLabel = data.meal || data.day || data.week;
-
-    if (!showDishes || !data.dishes) {
-        return <text x={x} y={y} dy={16} textAnchor="middle" fill="#666" fontSize={12}>{tickLabel}</text>
-    }
+    const subLabel = data.date || data.dateRange;
 
     return (
       <g transform={`translate(${x},${y})`}>
         <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
           {tickLabel}
         </text>
-        {data.dishes.map((dish: any, index: number) => (
+        
+        {subLabel && (
+            <text x={0} y={16} dy={15} textAnchor="middle" fill="#888" fontSize={12}>
+                {subLabel}
+            </text>
+        )}
+
+        {showDishes && data.dishes && data.dishes.map((dish: any, index: number) => (
            <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
@@ -181,7 +185,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px]">
-          <BarChart data={data} margin={{ top: 20, right: 20, bottom: showDishes ? 60 : 20, left: 20 }}>
+          <BarChart data={data} margin={{ top: 20, right: 20, bottom: showDishes ? 60 : 40, left: 20 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={dataKey}
@@ -190,6 +194,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
               tickMargin={8}
               tick={<CustomTick />}
               interval={0}
+              height={showDishes ? 80 : 60}
             />
             <YAxis
                 tickLine={false}
