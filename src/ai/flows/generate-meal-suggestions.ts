@@ -12,9 +12,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateMealSuggestionsInputSchema = z.object({
-  dietaryPreferences: z
+  cravingsOrMood: z
     .string()
-    .describe('The dietary preferences of the user (e.g., vegetarian, keto, gluten-free).'),
+    .describe('What the user is in the mood for (e.g., "something spicy", "a quick snack").'),
   currentInventory: z
     .string()
     .describe('A list of ingredients currently in the user\'s inventory, including quantities and expiration dates.'),
@@ -46,9 +46,9 @@ const prompt = ai.definePrompt({
   name: 'generateMealSuggestionsPrompt',
   input: {schema: GenerateMealSuggestionsInputSchema},
   output: {schema: GenerateMealSuggestionsOutputSchema},
-  prompt: `You are a meal planning assistant. Your task is to suggest 3-5 meal or snack options based on the user's dietary preferences, current inventory, and ingredients that are about to expire.
+  prompt: `You are a meal planning assistant. Your task is to suggest 3-5 meal or snack options based on the user's cravings, current inventory, and ingredients that are about to expire.
 
-Dietary Preferences: {{{dietaryPreferences}}}
+User is in the mood for: {{{cravingsOrMood}}}
 Current Inventory: {{{currentInventory}}}
 Expiring Ingredients: {{{expiringIngredients}}}
 

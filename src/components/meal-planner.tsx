@@ -4,7 +4,7 @@ import { useActionState, useFormStatus } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles } from "lucide-react";
@@ -44,22 +44,23 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
       <Card>
         <CardHeader>
           <CardTitle>What are you in the mood for?</CardTitle>
+          <CardDescription>Describe what you're feeling like eating, and we'll suggest some ideas based on your inventory.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-4">
             <div>
-              <Label htmlFor="dietaryPreferences">
-                Dietary Preferences or Cravings
+              <Label htmlFor="cravingsOrMood">
+                Cravings or Meal Ideas
               </Label>
               <Input
-                id="dietaryPreferences"
-                name="dietaryPreferences"
-                placeholder="e.g., vegetarian, low-carb, spicy thai curry"
+                id="cravingsOrMood"
+                name="cravingsOrMood"
+                placeholder="e.g., 'something quick and easy', 'spicy thai curry', 'a healthy snack'"
                 className="mt-1"
               />
-              {state?.error?.dietaryPreferences && (
+              {state?.error?.cravingsOrMood && (
                 <p className="text-sm font-medium text-destructive mt-1">
-                  {state.error.dietaryPreferences[0]}
+                  {state.error.cravingsOrMood[0]}
                 </p>
               )}
             </div>
@@ -109,7 +110,7 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
             </p>
           </div>
         )}
-        {state.error && !state.error.dietaryPreferences && (
+        {state.error && !state.error.cravingsOrMood && (
            <p className="text-sm font-medium text-destructive mt-2">{state.error.toString()}</p>
         )}
       </div>

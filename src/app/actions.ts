@@ -5,7 +5,7 @@ import type { InventoryItem } from "@/lib/types";
 import { z } from "zod";
 
 const suggestionSchema = z.object({
-  dietaryPreferences: z.string().min(1, "Dietary preferences are required."),
+  cravingsOrMood: z.string().min(1, "This field is required."),
 });
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
@@ -19,7 +19,7 @@ export async function handleGenerateSuggestions(
   formData: FormData
 ) {
   const validatedFields = suggestionSchema.safeParse({
-    dietaryPreferences: formData.get("dietaryPreferences"),
+    cravingsOrMood: formData.get("cravingsOrMood"),
   });
 
   if (!validatedFields.success) {
@@ -28,7 +28,7 @@ export async function handleGenerateSuggestions(
     };
   }
 
-  const dietaryPreferences = validatedFields.data.dietaryPreferences;
+  const cravingsOrMood = validatedFields.data.cravingsOrMood;
   
   const now = new Date();
   const expiringSoonThreshold = new Date();
@@ -43,7 +43,7 @@ export async function handleGenerateSuggestions(
 
   try {
     const result = await generateMealSuggestions({
-      dietaryPreferences,
+      cravingsOrMood,
       currentInventory: currentInventoryString,
       expiringIngredients: expiringIngredientsString,
     });
