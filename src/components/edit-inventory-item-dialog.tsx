@@ -104,9 +104,9 @@ export function EditInventoryItemDialog({
 
   return (
     <Form {...form}>
-    <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 rounded-lg border p-4">
+    <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 rounded-lg border p-4 bg-background">
          <div>
-            <Label>Package Fill Level ({item.originalQuantity} {item.unit})</Label>
+            <Label>Package Fill Level</Label>
             <Progress value={percentage} className="mt-2"/>
             <p className="text-sm text-muted-foreground mt-1">{`~${percentage.toFixed(0)}% full (${item.totalQuantity.toFixed(2)} / ${item.originalQuantity} ${item.unit})`}</p>
         </div>
@@ -116,7 +116,7 @@ export function EditInventoryItemDialog({
                 name="totalQuantity"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Remaining Quantity ({item.unit})</FormLabel>
+                    <FormLabel>Remaining Qty</FormLabel>
                     <FormControl>
                         <Input type="number" {...field} step="0.1" />
                     </FormControl>
@@ -167,13 +167,12 @@ export function EditInventoryItemDialog({
         <div className="flex justify-between items-center">
             <Button size="icon" type="button" variant="destructive" onClick={onRemove}>
                 <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Remove Package</span>
             </Button>
             <div className="flex gap-2">
-                <DialogClose asChild>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting ? "Saving..." : "Save"}
-                    </Button>
-                </DialogClose>
+                <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                    {form.formState.isSubmitting ? "Saving..." : "Save"}
+                </Button>
             </div>
         </div>
     </form>
