@@ -39,6 +39,7 @@ import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import type { Unit, StorageLocation } from "@/lib/types";
+import { Checkbox } from "./ui/checkbox";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -48,13 +49,16 @@ const formSchema = z.object({
     message: "Package size must be a positive number.",
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
-  expiryDate: z.date({
-    required_error: "An expiry date is required.",
-  }),
+  expiryDate: z.date().optional(),
   locationId: z.string({
     required_error: "A storage location is required.",
-  })
+  }),
+  doesNotExpire: z.boolean().default(false),
+}).refine(data => data.doesNotExpire || !!data.expiryDate, {
+    message: "An expiry date is required.",
+    path: ["expiryDate"],
 });
+
 
 const metricUnits: { value: Unit, label: string }[] = [
     { value: 'g', label: 'Grams (g)' },
@@ -92,8 +96,11 @@ export function AddInventoryItemDialog({
       name: "",
       quantity: 1,
       unit: "lbs",
+      doesNotExpire: false,
     },
   });
+
+  const doesNotExpire = form.watch("doesNotExpire");
 
   useEffect(() => {
     async function fetchData() {
@@ -115,7 +122,8 @@ export function AddInventoryItemDialog({
             quantity: 1,
             unit: unitSystem === 'us' ? 'lbs' : 'kg',
             expiryDate: addDays(new Date(), 7),
-            locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
+            locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id,
+            doesNotExpire: false,
         });
     }
   }, [isOpen, form, storageLocations, unitSystem]);
@@ -127,7 +135,7 @@ export function AddInventoryItemDialog({
         totalQuantity: values.quantity, // When adding, total and original are the same
         originalQuantity: values.quantity,
         unit: values.unit,
-        expiryDate: values.expiryDate,
+        expiryDate: values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
       });
       onItemAdded(newItem);
@@ -243,6 +251,7 @@ export function AddInventoryItemDialog({
                             "w-full pl-3 text-left font-normal",
                             !field.value && "text-muted-foreground"
                           )}
+                          disabled={doesNotExpire}
                         >
                           {field.value ? (
                             format(field.value, "PPP")
@@ -258,12 +267,31 @@ export function AddInventoryItemDialog({
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date < new Date()}
+                        disabled={(date) => date < new Date() || doesNotExpire}
                         initialFocus
                       />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="doesNotExpire"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Item does not expire
+                    </FormLabel>
+                  </div>
                 </FormItem>
               )}
             />

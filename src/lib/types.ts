@@ -16,7 +16,7 @@ export type InventoryItem = {
   // The current remaining quantity in the package
   totalQuantity: number; 
   unit: Unit;
-  expiryDate: Date;
+  expiryDate: Date | null;
   locationId: string;
 };
 

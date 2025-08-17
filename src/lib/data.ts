@@ -32,6 +32,7 @@ let MOCK_INVENTORY: InventoryItem[] = [
   { id: '6a', name: 'Ground Beef', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: threeDaysFromNow, locationId: 'freezer-1' },
   { id: '7', name: 'Cheddar Cheese', originalQuantity: 8, totalQuantity: 6, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
   { id: '8', name: 'Lettuce', originalQuantity: 1, totalQuantity: 1, unit: 'pcs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
+  { id: '9', name: 'Salt', originalQuantity: 1, totalQuantity: 1, unit: 'kg', expiryDate: null, locationId: 'pantry-1' },
 ];
 
 let MOCK_PERSONAL_DETAILS: PersonalDetails = {
@@ -117,7 +118,7 @@ export async function removeStorageLocation(locationId: string): Promise<{id: st
 export async function getInventory(): Promise<InventoryItem[]> {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
-  return MOCK_INVENTORY;
+  return MOCK_INVENTORY.map(item => ({...item, expiryDate: item.expiryDate ? new Date(item.expiryDate) : null}));
 }
 
 type AddItemData = {
@@ -125,7 +126,7 @@ type AddItemData = {
     totalQuantity: number;
     originalQuantity: number;
     unit: Unit;
-    expiryDate: Date;
+    expiryDate: Date | null;
     locationId: string;
 }
 

@@ -102,7 +102,11 @@ export default function InventoryClient({
           }
 
 
-          const sortedItems = items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
+          const sortedItems = items.sort((a, b) => {
+            if (a.expiryDate === null) return 1;
+            if (b.expiryDate === null) return -1;
+            return a.expiryDate.getTime() - b.expiryDate.getTime();
+          });
           const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
 
           return {
@@ -115,8 +119,8 @@ export default function InventoryClient({
         });
 
         return finalGroups.sort((a, b) => {
-          if (!a.nextExpiry) return 1;
-          if (!b.nextExpiry) return -1;
+          if (a.nextExpiry === null) return 1;
+          if (b.nextExpiry === null) return -1;
           return a.nextExpiry.getTime() - b.nextExpiry.getTime();
         });
       };

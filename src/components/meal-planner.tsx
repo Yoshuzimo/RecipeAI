@@ -110,6 +110,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       // Find any inventory item whose name is a substring of the ingredient string
       const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
       if (inventoryItem) {
+          if (!inventoryItem.expiryDate) return 'fresh';
           const expiryDate = new Date(inventoryItem.expiryDate);
           expiryDate.setHours(0,0,0,0);
           if (expiryDate < now) {
@@ -153,7 +154,11 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                     name: ingredientName,
                     items: items,
                     packageInfo: '', // Not needed for this view
-                    nextExpiry: items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null,
+                    nextExpiry: items.length > 0 ? items.sort((a,b) => {
+                        if (a.expiryDate === null) return 1;
+                        if (b.expiryDate === null) return -1;
+                        return a.expiryDate.getTime() - b.expiryDate.getTime()
+                    })[0].expiryDate : null,
                     unit: items[0]?.unit || 'pcs'
                 };
                 setGroupToView(group);
@@ -443,8 +448,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             setIsViewInventoryDialogOpen(open);
           }}
           group={groupToView}
-          onItemUpdated={handleInventoryUpdateAndCheckSubstitutions}
-          onItemRemoved={handleInventoryUpdateAndCheckSubstitutions}
+          onUpdateComplete={handleInventoryUpdateAndCheckSubstitutions}
         />
       )}
       {isLogMealDialogOpen && recipeToLog && (

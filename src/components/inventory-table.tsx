@@ -16,11 +16,11 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
 function getItemStatus(expiryDate: Date | null): {
-  label: "Expired" | "Expiring Soon" | "Fresh";
+  label: "Expired" | "Expiring Soon" | "Fresh" | "N/A";
   className: string;
 } {
-  if (!expiryDate) {
-    return { label: "Fresh", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300 border-gray-200 dark:border-gray-900/80" };
+  if (expiryDate === null) {
+    return { label: "N/A", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300 border-gray-200 dark:border-gray-900/80" };
   }
 
   const today = new Date();

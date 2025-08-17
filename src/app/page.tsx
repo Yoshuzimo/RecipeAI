@@ -10,11 +10,15 @@ export default async function OverviewPage() {
 
   const now = new Date();
   const expiringSoon = inventory.filter(item => {
+    if (!item.expiryDate) return false;
     const days = differenceInDays(item.expiryDate, now);
     return days >= 0 && days <= 3;
   }).length;
 
-  const expired = inventory.filter(item => differenceInDays(item.expiryDate, now) < 0).length;
+  const expired = inventory.filter(item => {
+    if (!item.expiryDate) return false;
+    return differenceInDays(item.expiryDate, now) < 0
+  }).length;
 
   return (
     <MainLayout>

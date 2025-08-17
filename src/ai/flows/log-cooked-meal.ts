@@ -23,7 +23,7 @@ const InventoryItemSchema = z.object({
     name: z.string(),
     totalQuantity: z.number(),
     unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
-    expiryDate: z.string(),
+    expiryDate: z.string().nullable(),
     locationId: z.string(),
 });
 

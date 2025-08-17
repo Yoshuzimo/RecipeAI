@@ -54,11 +54,11 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
     if (!inventory || inventory.length === 0) return "None";
 
     const aggregatedInventory = inventory.reduce((acc, item) => {
-        const itemExpiryDate = new Date(item.expiryDate);
+        const itemExpiryDate = item.expiryDate ? new Date(item.expiryDate) : null;
         const key = `${item.name} (${item.unit})`;
         if (acc[key]) {
             acc[key].totalQuantity += item.totalQuantity;
-            if (itemExpiryDate < acc[key].earliestExpiry) {
+            if (itemExpiryDate && (!acc[key].earliestExpiry || itemExpiryDate < acc[key].earliestExpiry)) {
                 acc[key].earliestExpiry = itemExpiryDate;
             }
         } else {
@@ -70,11 +70,11 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
             };
         }
         return acc;
-    }, {} as Record<string, {name: string, totalQuantity: number; unit: string; earliestExpiry: Date }>);
+    }, {} as Record<string, {name: string, totalQuantity: number; unit: string; earliestExpiry: Date | null }>);
 
     return Object.values(aggregatedInventory)
         .map(data => 
-            `${data.name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${new Date(data.earliestExpiry).toLocaleDateString()})`
+            `${data.name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${data.earliestExpiry ? new Date(data.earliestExpiry).toLocaleDateString() : 'N/A'})`
         )
         .join(', ');
 }
@@ -155,6 +155,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
 
   const expiringIngredients = inventory.filter(
     (item) => {
+        if (!item.expiryDate) return false;
         const itemExpiryDate = new Date(item.expiryDate);
         return itemExpiryDate > now && itemExpiryDate <= expiringSoonThreshold
     }
@@ -276,7 +277,7 @@ export async function handleLogCookedMeal(
 
     const inventoryForAI = inventory.map(item => ({
         ...item,
-        expiryDate: item.expiryDate.toISOString(),
+        expiryDate: item.expiryDate ? item.expiryDate.toISOString() : null,
     }));
 
     try {
@@ -424,7 +425,7 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
     const threeDaysFromNow = new Date(today.setDate(today.getDate() + 3));
     
     // The new expiry date is 3 days from now or the original expiry date, whichever is sooner.
-    const newExpiryDate = new Date(Math.min(threeDaysFromNow.getTime(), new Date(item.expiryDate).getTime()));
+    const newExpiryDate = item.expiryDate ? new Date(Math.min(threeDaysFromNow.getTime(), new Date(item.expiryDate).getTime())) : threeDaysFromNow;
 
     const updatedItem: InventoryItem = {
         ...item,
