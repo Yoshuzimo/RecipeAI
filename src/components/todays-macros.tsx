@@ -6,7 +6,6 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardFooter,
@@ -68,8 +67,7 @@ export function TodaysMacros() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today's Macros</CardTitle>
-        <CardDescription>Your consumption vs. your daily goals.</CardDescription>
+        <CardTitle>Todays Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4">
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">

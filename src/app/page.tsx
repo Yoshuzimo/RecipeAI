@@ -20,6 +20,7 @@ export default async function OverviewPage() {
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+        <TodaysMacros />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -78,7 +79,6 @@ export default async function OverviewPage() {
             </CardContent>
           </Card>
         </div>
-        <TodaysMacros />
       </div>
     </MainLayout>
   );
