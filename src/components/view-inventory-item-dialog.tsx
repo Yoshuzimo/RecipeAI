@@ -59,7 +59,7 @@ export function ViewInventoryItemDialog({
         if (item.totalQuantity === item.originalQuantity) {
             acc[size].fullPackages.push(item);
         } else {
-            // Assuming only one partial package per size for simplicity in this UI model
+            // Assuming only one partial container per size for simplicity in this UI model
             acc[size].partialPackage = item;
         }
         return acc;
@@ -100,7 +100,7 @@ export function ViewInventoryItemDialog({
   const getSliderLabel = (size: number) => {
       const partialValue = watchedValues[size]?.partial ?? 0;
       if (group.unit === 'pcs') {
-        return `${partialValue.toFixed(0)} / ${size} pcs`;
+        return `${Math.round(partialValue)} / ${size} pcs`;
       }
       const percentage = (partialValue / size * 100).toFixed(0);
       return `${partialValue.toFixed(2)} ${group.unit} (~${percentage}%)`;
@@ -129,7 +129,7 @@ export function ViewInventoryItemDialog({
                                     render={({ field }) => (
                                         <div className="space-y-2">
                                             <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
-                                            <Input id={`full-count-${size}`} type="number" {...field} />
+                                            <Input id={`full-count-${size}`} type="number" min="0" step="1" {...field} />
                                         </div>
                                     )}
                                 />
@@ -156,7 +156,7 @@ export function ViewInventoryItemDialog({
                     ))
                 ) : (
                     <div className="text-center text-muted-foreground py-10">
-                        No packages for this item. Add one to get started.
+                        No containers for this item. Add one to get started.
                     </div>
                 )}
                 </div>
