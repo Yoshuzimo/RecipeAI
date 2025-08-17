@@ -22,7 +22,10 @@ const initialState = {
   error: null,
   adjustedRecipe: null,
   originalRecipeTitle: null,
-  debugInfo: null,
+  debugInfo: {
+    promptInput: "AI prompt will appear here...",
+    rawResponse: "Raw AI response will appear here...",
+  },
   inventory: [],
 };
 
@@ -58,8 +61,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const servingsFormRef = useRef<HTMLFormElement>(null);
 
   // Debugging state
-  const [promptInput, setPromptInput] = useState<string>("AI prompt will appear here...");
-  const [rawResponse, setRawResponse] = useState<string>("Raw AI response will appear here...");
+  const [promptInput, setPromptInput] = useState<string>(initialState.debugInfo.promptInput);
+  const [rawResponse, setRawResponse] = useState<string>(initialState.debugInfo.rawResponse);
 
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
