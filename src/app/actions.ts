@@ -9,6 +9,25 @@ import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { z } from "zod";
 
 const suggestionSchema = z.object({
+  inventory: z.string().transform((val, ctx) => {
+    try {
+      const parsed = JSON.parse(val);
+      const inventorySchema = z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        quantity: z.number(),
+        unit: z.string(),
+        expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
+      }));
+      return inventorySchema.parse(parsed);
+    } catch (e) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid inventory format",
+      });
+      return z.NEVER;
+    }
+  }),
   cravingsOrMood: z.string().optional(),
   recipeToAdjust: z.string().optional().nullable(),
   newServingSize: z.coerce.number().optional(),
@@ -44,13 +63,13 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
 }
 
 export async function handleGenerateSuggestions(
-  inventory: InventoryItem[],
   prevState: any,
   formData: FormData
 ) {
   let log = "Button clicked.\n";
   log += "Request received by server action.\n";
   const validatedFields = suggestionSchema.safeParse({
+    inventory: formData.get("inventory"),
     cravingsOrMood: formData.get("cravingsOrMood"),
     recipeToAdjust: formData.get("recipeToAdjust"),
     newServingSize: formData.get("newServingSize"),
@@ -68,7 +87,7 @@ export async function handleGenerateSuggestions(
     };
   }
 
-  const { cravingsOrMood, recipeToAdjust, newServingSize } = validatedFields.data;
+  const { inventory, cravingsOrMood, recipeToAdjust, newServingSize } = validatedFields.data;
   
   if (recipeToAdjust && newServingSize) {
     try {

@@ -53,12 +53,11 @@ const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp",
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
-  const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
-
-  const [state, formAction] = useActionState(handleGenerateSuggestionsWithInventory, initialState);
   
-  const [suggestions, setSuggestions] = useState<Recipe[] | null>(state.suggestions);
-  const [debugInfo, setDebugInfo] = useState(state.debugInfo);
+  const [state, formAction] = useActionState(handleGenerateSuggestions, initialState);
+  
+  const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
+  const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
 
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
@@ -75,13 +74,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   useEffect(() => {
     if (state) {
-      if(state.suggestions) {
-        setSuggestions(state.suggestions);
-      }
-      if(state.debugInfo) {
-        setDebugInfo(state.debugInfo);
-      }
-       if (state.adjustedRecipe && state.originalRecipeTitle) {
+      setSuggestions(state.suggestions ?? null);
+      setDebugInfo(state.debugInfo);
+      
+      if (state.adjustedRecipe && state.originalRecipeTitle) {
         setSuggestions(prev => 
             prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
         );
@@ -160,6 +156,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       <Card>
         <CardContent className="pt-6">
           <form ref={formRef} action={formAction} className="space-y-4">
+             <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
                 Any specific cravings or ideas? (Optional)
@@ -182,7 +179,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       </Card>
 
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">AI Suggestions</h2>
         {useFormStatus().pending && !state.adjustedRecipe ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
@@ -251,6 +247,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                             <Plus className="h-4 w-4" />
                                         </Button>
                                     </div>
+                                    <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
                                     <input type="hidden" name="recipeToAdjust" value={JSON.stringify(recipe)} />
                                 </form>
                                 <div>
