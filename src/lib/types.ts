@@ -8,11 +8,6 @@ export type StorageLocation = {
   type: 'Fridge' | 'Freezer' | 'Pantry';
 };
 
-export type GroupedByLocation = {
-  [key in StorageLocation['type']]: InventoryItemGroup[];
-};
-
-
 export type InventoryItem = {
   id: string;
   name: string;
@@ -25,13 +20,23 @@ export type InventoryItem = {
   locationId: string;
 };
 
+// This group is for displaying items in the main inventory table.
+// It groups all packages of the same item (e.g., "Chicken Breast") together.
 export type InventoryItemGroup = {
   name: string;
+  // A friendly string describing the packages, e.g., "1 x 1lb (100%), 1 x 1.5lb (50%)"
+  packageInfo: string; 
+  // All individual inventory items (packages) for this group.
   items: InventoryItem[];
-  totalQuantity: number;
-  unit: Unit;
+  // The expiry date of the package that will expire first.
   nextExpiry: Date | null;
+  // The unit of measurement. All items in the group share the same unit.
+  unit: Unit; 
 }
+
+export type GroupedByLocation = {
+  [key in StorageLocation['type']]: InventoryItemGroup[];
+};
 
 export type PersonalDetails = {
   healthGoals?: string;

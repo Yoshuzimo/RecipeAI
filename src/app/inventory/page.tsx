@@ -8,30 +8,61 @@ export default async function InventoryPage() {
   const storageLocations = await getStorageLocations();
 
   const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-     const grouped = items.reduce<Record<string, InventoryItemGroup>>((acc, item) => {
+    // First, group by item name and unit.
+    const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
       const key = `${item.name}-${item.unit}`;
       if (!acc[key]) {
-        acc[key] = { 
-          name: item.name, 
-          items: [], 
-          totalQuantity: 0, 
-          unit: item.unit, 
-          nextExpiry: null 
-        };
+        acc[key] = { items: [], unit: item.unit };
       }
-      
-      const group = acc[key];
-      group.items.push(item);
-      group.totalQuantity += item.totalQuantity;
-      
-      const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
-      group.items = sortedItems;
-      group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
-
+      acc[key].items.push(item);
       return acc;
     }, {});
 
-    return Object.values(grouped).sort((a,b) => {
+    // Now, map over the grouped items to create the final structure.
+    const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
+      const { items, unit } = groupData;
+      const name = items[0].name;
+
+      // Group by originalQuantity to count packages of the same size.
+      const packageCounts = items.reduce<Record<string, { count: number, items: InventoryItem[] }>>((acc, item) => {
+        const packageKey = item.originalQuantity.toString();
+        if (!acc[packageKey]) {
+          acc[packageKey] = { count: 0, items: [] };
+        }
+        acc[packageKey].count++;
+        acc[packageKey].items.push(item);
+        return acc;
+      }, {});
+      
+      const packageInfo = Object.entries(packageCounts).map(([size, data]) => {
+          const fullPackages = data.items.filter(i => i.totalQuantity === i.originalQuantity).length;
+          const partialPackages = data.items.filter(i => i.totalQuantity < i.originalQuantity);
+          
+          let infoParts = [];
+          if (fullPackages > 0) {
+              infoParts.push(`${fullPackages} x ${size}${unit}`);
+          }
+          partialPackages.forEach(p => {
+              const percentage = ((p.totalQuantity / p.originalQuantity) * 100).toFixed(0);
+              infoParts.push(`1 x ${size}${unit} (${percentage}% full)`);
+          });
+          return infoParts.join(', ');
+      }).join('; ');
+
+
+      const sortedItems = items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
+      const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
+
+      return {
+        name,
+        unit,
+        items: sortedItems,
+        packageInfo,
+        nextExpiry,
+      };
+    });
+
+    return finalGroups.sort((a, b) => {
       if (!a.nextExpiry) return 1;
       if (!b.nextExpiry) return -1;
       return a.nextExpiry.getTime() - b.nextExpiry.getTime();

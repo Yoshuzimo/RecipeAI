@@ -148,17 +148,15 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             const ingredientName = inventoryItem?.name;
             if (ingredientName) {
                 const items = inventory.filter(item => item.name === ingredientName);
-                const totalQuantity = items.reduce((acc, item) => acc + item.totalQuantity, 0);
-                const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
-                const unit = inventoryItem?.unit || 'pcs';
-
-                setGroupToView({
+                // Create a dummy group to pass to the dialog
+                const group: InventoryItemGroup = {
                     name: ingredientName,
-                    items,
-                    totalQuantity,
-                    unit,
-                    nextExpiry,
-                });
+                    items: items,
+                    packageInfo: '', // Not needed for this view
+                    nextExpiry: items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null,
+                    unit: items[0]?.unit || 'pcs'
+                };
+                setGroupToView(group);
                 setIsViewInventoryDialogOpen(true);
             }
           }

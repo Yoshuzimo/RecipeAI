@@ -51,7 +51,6 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Total Quantity</TableHead>
             <TableHead>Packages</TableHead>
             <TableHead>Next Expiry</TableHead>
             <TableHead>Status</TableHead>
@@ -65,10 +64,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
                 <TableRow key={group.name} onClick={() => onRowClick(group)} className="cursor-pointer">
                   <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell>
-                    {group.totalQuantity.toFixed(2)} {group.unit}
-                  </TableCell>
-                  <TableCell>
-                    {group.items.length}
+                    {group.packageInfo}
                   </TableCell>
                   <TableCell>{group.nextExpiry ? format(group.nextExpiry, "PPP") : 'N/A'}</TableCell>
                   <TableCell>
@@ -81,7 +77,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
+              <TableCell colSpan={4} className="h-24 text-center">
                 No items in inventory.
               </TableCell>
             </TableRow>
