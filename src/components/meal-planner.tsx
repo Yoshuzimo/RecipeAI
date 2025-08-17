@@ -58,8 +58,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const servingsFormRef = useRef<HTMLFormElement>(null);
 
   // Debugging state
-  const [promptInput, setPromptInput] = useState<string | null>(null);
-  const [rawResponse, setRawResponse] = useState<string | null>(null);
+  const [promptInput, setPromptInput] = useState<string | null>("AI prompt will appear here...");
+  const [rawResponse, setRawResponse] = useState<string | null>("Raw AI response will appear here...");
 
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
@@ -80,9 +80,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     if (state.debugInfo) {
       setPromptInput(state.debugInfo.promptInput);
       setRawResponse(state.debugInfo.rawResponse);
-    } else {
-      setPromptInput(null);
-      setRawResponse(null);
     }
   }, [state]);
 
@@ -127,10 +124,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     <>
     <div className="space-y-8">
       <Card>
-        <CardHeader>
-          <CardDescription>Get recipe suggestions based on your inventory, preferences, and daily nutritional needs.</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form ref={formRef} action={formAction} className="space-y-4">
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
@@ -279,19 +273,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         )}
       </div>
 
-       {promptInput && rawResponse && (
-        <div className="mt-8 space-y-4">
-          <h3 className="text-xl font-bold">Debug Info</h3>
-          <div className="space-y-2">
-            <Label htmlFor="prompt-input">Prompt Input</Label>
-            <Textarea id="prompt-input" readOnly value={promptInput} className="h-64 font-mono text-xs" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="raw-response">Raw AI Response</Label>
-            <Textarea id="raw-response" readOnly value={rawResponse} className="h-64 font-mono text-xs" />
-          </div>
+       <div className="mt-8 space-y-4">
+        <h3 className="text-xl font-bold">Debug Info</h3>
+        <div className="space-y-2">
+          <Label htmlFor="prompt-input">Prompt Input</Label>
+          <Textarea id="prompt-input" readOnly value={promptInput || ""} className="h-64 font-mono text-xs" />
         </div>
-      )}
+        <div className="space-y-2">
+          <Label htmlFor="raw-response">Raw AI Response</Label>
+          <Textarea id="raw-response" readOnly value={rawResponse || ""} className="h-64 font-mono text-xs" />
+        </div>
+      </div>
     </div>
      {isSubstitutionsDialogOpen && recipeForSubstitutions && (
         <SubstitutionsDialog
@@ -305,5 +297,3 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     </>
   );
 }
-
-    
