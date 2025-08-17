@@ -22,13 +22,14 @@ export default function NutritionPage() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily");
   
-  React.useEffect(() => {
-    async function fetchData() {
-        const data = await getTodaysMacros();
-        setDailyData(data);
-    }
-    fetchData();
+  const fetchData = React.useCallback(async () => {
+    const data = await getTodaysMacros();
+    setDailyData(data);
   }, []);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const { data, goal, description } = React.useMemo(() => {
     switch (timeframe) {
@@ -82,7 +83,7 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={data} goal={timeframe === 'daily' ? goal : undefined} timeframe={timeframe} />
+                <CalorieLineChart data={dailyData} goal={goal} timeframe={timeframe} onDataChange={fetchData} />
             </CardContent>
          </Card>
         {timeframe === 'daily' && <NutritionChart dailyData={dailyData} />}

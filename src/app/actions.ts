@@ -5,7 +5,7 @@ import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution } from "@/lib/types";
 import { addDays } from "date-fns";
 import { z } from "zod";
@@ -321,4 +321,18 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
     };
 
     return await updateInventoryItem(updatedItem);
+}
+
+export async function handleUpdateMealTime(mealId: string, newTime: string): Promise<{success: boolean, error?: string | null}> {
+    try {
+        const updatedMeal = await updateMealTime(mealId, newTime);
+        if (updatedMeal) {
+            return { success: true };
+        } else {
+            return { success: false, error: "Meal not found." };
+        }
+    } catch(e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        return { success: false, error };
+    }
 }

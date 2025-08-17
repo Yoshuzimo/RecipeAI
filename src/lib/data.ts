@@ -1,8 +1,6 @@
 
-
-
-
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation } from "./types";
+import { v4 as uuidv4 } from 'uuid';
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -52,16 +50,27 @@ let MOCK_SETTINGS: Settings = {
     expiryNotifications: true,
 };
 
+const breakfastTime = new Date();
+breakfastTime.setHours(8, 30, 0, 0);
+
+const snackTime = new Date();
+snackTime.setHours(10, 45, 0, 0);
+
+
 let MOCK_TODAYS_MACROS: DailyMacros[] = [
     { 
+        id: 'meal-1',
         meal: "Breakfast", 
         dishes: [{name: "Omelette", protein: 30, carbs: 5, fat: 20}],
-        totals: { protein: 30, carbs: 5, fat: 20 }
+        totals: { protein: 30, carbs: 5, fat: 20 },
+        loggedAt: breakfastTime,
     },
     { 
+        id: 'meal-2',
         meal: "Snack", 
         dishes: [{name: "Protein Shake", protein: 15, carbs: 25, fat: 10}],
-        totals: { protein: 15, carbs: 25, fat: 10 }
+        totals: { protein: 15, carbs: 25, fat: 10 },
+        loggedAt: snackTime,
     },
 ];
 
@@ -170,29 +179,54 @@ export async function getUnitSystem(): Promise<'us' | 'metric'> {
 
 export async function getTodaysMacros(): Promise<DailyMacros[]> {
     await new Promise(resolve => setTimeout(resolve, 100));
-    return MOCK_TODAYS_MACROS;
+    // Make sure all macros have a `loggedAt` date for consistency
+    const consistentMacros = MOCK_TODAYS_MACROS.map(m => ({
+        ...m,
+        loggedAt: m.loggedAt instanceof Date ? m.loggedAt : new Date(m.loggedAt)
+    }));
+    return consistentMacros;
 }
 
 export async function logMacros(mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    let mealLog = MOCK_TODAYS_MACROS.find(m => m.meal === mealType);
+    // For this demo, logging a new meal of the same type will overwrite the previous one
+    // A real app might merge them or handle it differently.
+    const mealLogIndex = MOCK_TODAYS_MACROS.findIndex(m => m.meal === mealType);
     
-    if (mealLog) {
-        // Meal type exists, add dish and update totals
-        mealLog.dishes.push({ name: dishName, ...macros });
-        mealLog.totals.protein += macros.protein;
-        mealLog.totals.carbs += macros.carbs;
-        mealLog.totals.fat += macros.fat;
+    const newDish = { name: dishName, ...macros };
+
+    if (mealLogIndex > -1) {
+        const existingLog = MOCK_TODAYS_MACROS[mealLogIndex];
+        existingLog.dishes.push(newDish);
+        existingLog.totals.protein += macros.protein;
+        existingLog.totals.carbs += macros.carbs;
+        existingLog.totals.fat += macros.fat;
+        existingLog.loggedAt = new Date(); // Update time to now
+        return existingLog;
     } else {
         // New meal type for the day, create it
-        mealLog = {
+        const newMealLog: DailyMacros = {
+            id: `meal-${uuidv4()}`,
             meal: mealType,
-            dishes: [{ name: dishName, ...macros }],
+            dishes: [newDish],
             totals: { ...macros },
+            loggedAt: new Date(),
         };
-        MOCK_TODAYS_MACROS.push(mealLog);
+        MOCK_TODAYS_MACROS.push(newMealLog);
+        return newMealLog;
     }
+}
 
-    return mealLog;
+export async function updateMealTime(mealId: string, newTime: string): Promise<DailyMacros | null> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const mealLog = MOCK_TODAYS_MACROS.find(m => m.id === mealId);
+    if (mealLog) {
+        const [hours, minutes] = newTime.split(':').map(Number);
+        const newDate = new Date(mealLog.loggedAt);
+        newDate.setHours(hours, minutes);
+        mealLog.loggedAt = newDate;
+        return mealLog;
+    }
+    return null;
 }

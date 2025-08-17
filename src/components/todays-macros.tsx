@@ -47,13 +47,15 @@ const chartConfig = {
 export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
 
-  React.useEffect(() => {
-    async function fetchData() {
-        const data = await getTodaysMacros();
-        setDailyData(data);
-    }
-    fetchData();
+  const fetchData = React.useCallback(async () => {
+    const data = await getTodaysMacros();
+    setDailyData(data);
   }, []);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
 
   const chartData = React.useMemo(() => {
      return dailyData.map(d => {
@@ -115,7 +117,7 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={dailyData} goal={dailyGoals.dailyGoal} timeframe="daily" />
+        <CalorieLineChart data={dailyData} goal={dailyGoals.dailyGoal} timeframe="daily" onDataChange={fetchData} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>

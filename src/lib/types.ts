@@ -1,5 +1,4 @@
 
-
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon';
 
 export type StorageLocation = {
@@ -74,9 +73,11 @@ export type LoggedDish = {
 } & Macros;
 
 export type DailyMacros = {
+    id: string; // Unique ID for each meal log entry
     meal: "Breakfast" | "Lunch" | "Dinner" | "Snack";
     dishes: LoggedDish[];
     totals: Macros;
+    loggedAt: Date;
 };
 
 export type LeftoverDestination = {
