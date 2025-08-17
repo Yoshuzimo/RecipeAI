@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Recipe, InventoryItem, StorageLocation } from "@/lib/types";
+import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,27 +51,29 @@ export function LogMealDialog({
   const { toast } = useToast();
   const [servingsEaten, setServingsEaten] = useState(1);
   const [servingsEatenByOthers, setServingsEatenByOthers] = useState(0);
-  const [fridgeLeftovers, setFridgeLeftovers] = useState(0);
-  const [freezerLeftovers, setFreezerLeftovers] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
 
-  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+  const [fridgeDestinations, setFridgeDestinations] = useState<LeftoverDestination[]>([]);
+  const [freezerDestinations, setFreezerDestinations] = useState<LeftoverDestination[]>([]);
+
   const [fridgeLocations, setFridgeLocations] = useState<StorageLocation[]>([]);
   const [freezerLocations, setFreezerLocations] = useState<StorageLocation[]>([]);
-  const [selectedFridge, setSelectedFridge] = useState<string>('');
-  const [selectedFreezer, setSelectedFreezer] = useState<string>('');
 
   useEffect(() => {
     async function fetchLocations() {
       const locations = await getStorageLocations();
-      setStorageLocations(locations);
       const fridges = locations.filter(l => l.type === 'Fridge');
       const freezers = locations.filter(l => l.type === 'Freezer');
       setFridgeLocations(fridges);
       setFreezerLocations(freezers);
-      if (fridges.length > 0) setSelectedFridge(fridges[0].id);
-      if (freezers.length > 0) setSelectedFreezer(freezers[0].id);
+      // Initialize with one destination for each type if locations exist
+      if (fridges.length > 0) {
+        setFridgeDestinations([{ locationId: fridges[0].id, servings: 0 }]);
+      }
+       if (freezers.length > 0) {
+        setFreezerDestinations([{ locationId: freezers[0].id, servings: 0 }]);
+      }
     }
     fetchLocations();
   }, []);
@@ -85,21 +87,40 @@ export function LogMealDialog({
       
       setServingsEaten(initialServingsEaten);
       setServingsEatenByOthers(initialServingsEatenByOthers);
-      setFridgeLeftovers(Math.max(0, remaining));
-      setFreezerLeftovers(0);
       setMealType(getDefaultMealType());
+
+      // Reset destinations
+      const newFridgeDestinations: LeftoverDestination[] = [];
+      if (fridgeLocations.length > 0) {
+        newFridgeDestinations.push({ locationId: fridgeLocations[0].id, servings: Math.max(0, remaining) });
+      }
+      setFridgeDestinations(newFridgeDestinations);
+      setFreezerDestinations(freezerLocations.length > 0 ? [{ locationId: freezerLocations[0].id, servings: 0 }] : []);
+
     }
-  }, [isOpen, recipe.servings]);
+  }, [isOpen, recipe.servings, fridgeLocations, freezerLocations]);
   
-  const totalServingsDistributed = servingsEaten + servingsEatenByOthers + fridgeLeftovers + freezerLeftovers;
+  const totalFridgeServings = fridgeDestinations.reduce((sum, dest) => sum + dest.servings, 0);
+  const totalFreezerServings = freezerDestinations.reduce((sum, dest) => sum + dest.servings, 0);
+  const totalServingsDistributed = servingsEaten + servingsEatenByOthers + totalFridgeServings + totalFreezerServings;
   const remainingServings = recipe.servings - totalServingsDistributed;
   const isOverallocated = remainingServings < 0;
 
   const handleNumericChange = (value: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
       const num = parseInt(value, 10);
-      setter(isNaN(num) ? 0 : num);
+      setter(isNaN(num) || num < 0 ? 0 : num);
   }
   
+  const handleDestinationChange = (index: number, field: keyof LeftoverDestination, value: string | number, type: 'fridge' | 'freezer') => {
+      const updater = type === 'fridge' ? setFridgeDestinations : setFreezerDestinations;
+      updater(prev => {
+          const newDests = [...prev];
+          const val = field === 'servings' ? (typeof value === 'number' ? value : parseInt(value, 10)) : value;
+          newDests[index] = {...newDests[index], [field]: isNaN(val as number) ? 0 : val };
+          return newDests;
+      });
+  }
+
   const handleSubmit = async () => {
     if (isOverallocated) {
         toast({
@@ -115,8 +136,8 @@ export function LogMealDialog({
         recipe, 
         servingsEaten, 
         servingsEatenByOthers, 
-        [{locationId: selectedFridge, servings: fridgeLeftovers}], 
-        [{locationId: selectedFreezer, servings: freezerLeftovers}], 
+        fridgeDestinations, 
+        freezerDestinations, 
         mealType
     );
     setIsPending(false);
@@ -187,52 +208,52 @@ export function LogMealDialog({
           
            <div className="space-y-4 rounded-md border p-4">
             <h4 className="font-medium">Store Leftovers</h4>
-             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="fridge-leftovers">Servings to Fridge</Label>
-                    <Input
-                    id="fridge-leftovers"
-                    type="number"
-                    value={fridgeLeftovers}
-                    onChange={(e) => handleNumericChange(e.target.value, setFridgeLeftovers)}
-                    min={0}
-                    />
-                </div>
-                {fridgeLocations.length > 1 && fridgeLeftovers > 0 && (
+             {fridgeDestinations.map((dest, index) => (
+                <div key={`fridge-${index}`} className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor={`fridge-leftovers-${index}`}>Servings to Fridge</Label>
+                        <Input
+                        id={`fridge-leftovers-${index}`}
+                        type="number"
+                        value={dest.servings}
+                        onChange={(e) => handleDestinationChange(index, 'servings', e.target.value, 'fridge')}
+                        min={0}
+                        />
+                    </div>
                      <div className="space-y-2">
-                        <Label htmlFor="fridge-location">Fridge Location</Label>
-                        <Select value={selectedFridge} onValueChange={setSelectedFridge}>
-                            <SelectTrigger id="fridge-location"><SelectValue/></SelectTrigger>
+                        <Label htmlFor={`fridge-location-${index}`}>Fridge Location</Label>
+                        <Select value={dest.locationId} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'fridge')}>
+                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue/></SelectTrigger>
                             <SelectContent>
                                 {fridgeLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
-                )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="freezer-leftovers">Servings to Freezer</Label>
-                    <Input
-                    id="freezer-leftovers"
-                    type="number"
-                    value={freezerLeftovers}
-                    onChange={(e) => handleNumericChange(e.target.value, setFreezerLeftovers)}
-                    min={0}
-                    />
                 </div>
-                 {freezerLocations.length > 1 && freezerLeftovers > 0 && (
+            ))}
+             {freezerDestinations.map((dest, index) => (
+                <div key={`freezer-${index}`} className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
-                        <Label htmlFor="freezer-location">Freezer Location</Label>
-                        <Select value={selectedFreezer} onValueChange={setSelectedFreezer}>
-                            <SelectTrigger id="freezer-location"><SelectValue/></SelectTrigger>
+                        <Label htmlFor={`freezer-leftovers-${index}`}>Servings to Freezer</Label>
+                        <Input
+                        id={`freezer-leftovers-${index}`}
+                        type="number"
+                        value={dest.servings}
+                        onChange={(e) => handleDestinationChange(index, 'servings', e.target.value, 'freezer')}
+                        min={0}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`freezer-location-${index}`}>Freezer Location</Label>
+                         <Select value={dest.locationId} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'freezer')}>
+                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue/></SelectTrigger>
                             <SelectContent>
                                 {freezerLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
-                )}
-            </div>
+                </div>
+            ))}
           </div>
           
           {isOverallocated ? (

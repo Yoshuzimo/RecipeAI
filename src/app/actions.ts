@@ -306,3 +306,19 @@ export async function handleLogCookedMeal(
         return { success: false, error: "Failed to log meal. AI service might be down." };
     }
 }
+
+export async function handleTransferItemToFridge(item: InventoryItem): Promise<InventoryItem> {
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.setDate(today.getDate() + 3));
+    
+    // The new expiry date is 3 days from now or the original expiry date, whichever is sooner.
+    const newExpiryDate = new Date(Math.min(threeDaysFromNow.getTime(), item.expiryDate.getTime()));
+
+    const updatedItem: InventoryItem = {
+        ...item,
+        name: item.name.replace(/\(Freezer\)/i, "(Fridge)").trim(),
+        expiryDate: newExpiryDate
+    };
+
+    return await updateInventoryItem(updatedItem);
+}
