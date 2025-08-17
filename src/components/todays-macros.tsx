@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   Card,
@@ -9,78 +9,114 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from "@/components/ui/chart"
+import { Separator } from "./ui/separator"
 
-const chartData = [
-  { macro: "protein", eaten: 110, remaining: 70 },
-  { macro: "carbs", eaten: 180, remaining: 120 },
-  { macro: "fat", eaten: 60, remaining: 40 },
+const dailyData = [
+    { meal: "Breakfast", protein: 30, carbs: 50, fat: 20 },
+    { meal: "Lunch", protein: 50, carbs: 80, fat: 35 },
+    { meal: "Dinner", protein: 0, carbs: 0, fat: 0 },
+    { meal: "Snacks", protein: 15, carbs: 25, fat: 10 },
 ]
 
+const dailyGoals = {
+    protein: 180,
+    carbs: 300,
+    fat: 100
+}
+
 const chartConfig = {
-  eaten: {
-    label: "Eaten",
+  protein: {
+    label: "Protein",
     color: "hsl(var(--primary))",
   },
-  remaining: {
-    label: "Remaining",
-    color: "hsl(var(--primary) / 0.2)",
+  carbs: {
+    label: "Carbs",
+    color: "hsl(var(--accent))",
+  },
+  fat: {
+    label: "Fat",
+    color: "hsl(var(--secondary-foreground))",
   },
 }
 
 export function TodaysMacros() {
+  const totals = React.useMemo(() => {
+    return dailyData.reduce((acc, meal) => {
+        acc.protein += meal.protein;
+        acc.carbs += meal.carbs;
+        acc.fat += meal.fat;
+        return acc;
+    }, { protein: 0, carbs: 0, fat: 0 });
+  }, []);
+
+  const remaining = {
+    protein: Math.max(0, dailyGoals.protein - totals.protein),
+    carbs: Math.max(0, dailyGoals.carbs - totals.carbs),
+    fat: Math.max(0, dailyGoals.fat - totals.fat),
+  }
+
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Today's Macros</CardTitle>
         <CardDescription>Your consumption vs. your daily goals.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-          <BarChart accessibilityLayer data={chartData} layout="vertical">
-            <CartesianGrid horizontal={false} />
-            <XAxis type="number" dataKey="value" hide />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  indicator="line"
-                  labelKey="macro"
-                  formatter={(value, name, item) => (
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <div className="flex flex-1 justify-between">
-                        <span>{item.name === "eaten" ? "Eaten" : "Remaining"}</span>
-                        <span className="font-bold">{value}g</span>
-                      </div>
-                    </div>
-                  )}
+      <CardContent className="pb-4">
+        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+            <BarChart data={dailyData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                dataKey="meal"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
                 />
-              }
-            />
-            <Bar
-                dataKey="eaten"
-                stackId="a"
-                fill="var(--color-eaten)"
-                radius={[4, 0, 0, 4]}
-              />
-              <Bar
-                dataKey="remaining"
-                stackId="a"
-                fill="var(--color-remaining)"
-                radius={[0, 4, 4, 0]}
-              />
-          </BarChart>
+                <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) => `${value}g`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
+                <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
+                <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
+            </BarChart>
         </ChartContainer>
       </CardContent>
+       <CardFooter className="flex-col items-start gap-4">
+        <Separator />
+        <div className="flex w-full justify-around gap-4 text-center">
+            <div>
+                <p className="text-sm text-muted-foreground">Protein</p>
+                <p className="font-bold text-lg">{totals.protein}g / <span className="text-muted-foreground font-normal">{dailyGoals.protein}g</span></p>
+                <p className="text-xs text-green-600">{remaining.protein}g left</p>
+            </div>
+            <Separator orientation="vertical" className="h-auto" />
+             <div>
+                <p className="text-sm text-muted-foreground">Carbs</p>
+                <p className="font-bold text-lg">{totals.carbs}g / <span className="text-muted-foreground font-normal">{dailyGoals.carbs}g</span></p>
+                <p className="text-xs text-green-600">{remaining.carbs}g left</p>
+            </div>
+            <Separator orientation="vertical" className="h-auto" />
+             <div>
+                <p className="text-sm text-muted-foreground">Fat</p>
+                <p className="font-bold text-lg">{totals.fat}g / <span className="text-muted-foreground font-normal">{dailyGoals.fat}g</span></p>
+                <p className="text-xs text-green-600">{remaining.fat}g left</p>
+            </div>
+        </div>
+      </CardFooter>
     </Card>
   )
 }
