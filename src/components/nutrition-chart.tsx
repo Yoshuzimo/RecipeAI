@@ -105,31 +105,35 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
 
   const CustomTick = (props: any) => {
     const { x, y, payload } = props;
-    
-    if (!payload || !payload.payload) {
+    const labelValue = payload.value;
+
+    const dataEntry = data.find(d => (d as any)[dataKey] === labelValue);
+
+    if (!dataEntry) {
         return null;
     }
     
-    const { meal, dishes, day, date, week, dateRange } = payload.payload;
+    // Type assertion to access properties safely
+    const entry = dataEntry as any;
 
     return (
       <g transform={`translate(${x},${y})`}>
         <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
-          {meal || day || week}
+          {entry[dataKey]}
         </text>
         
-        {date && (
+        {entry.date && (
             <text x={0} y={15} dy={16} textAnchor="middle" fill="#888" fontSize={10}>
-                {date}
+                {entry.date}
             </text>
         )}
-        {dateRange && (
+        {entry.dateRange && (
             <text x={0} y={15} dy={16} textAnchor="middle" fill="#888" fontSize={10}>
-                {dateRange}
+                {entry.dateRange}
             </text>
         )}
 
-        {dishes && dishes.map((dish: any, index: number) => (
+        {entry.dishes && entry.dishes.map((dish: any, index: number) => (
            <text key={index} x={0} y={30} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>

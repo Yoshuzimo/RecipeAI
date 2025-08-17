@@ -46,30 +46,6 @@ const chartConfig = {
   }
 }
 
-const CustomTick = (props: any) => {
-    const { x, y, payload } = props;
-    
-    if (!payload || !payload.payload) {
-        return null;
-    }
-
-    const { meal, dishes } = payload.payload;
-
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
-          {meal}
-        </text>
-        {dishes.map((dish: any, index: number) => (
-           <text key={index} x={0} y={20} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
-                {dish.name}
-            </text>
-        ))}
-      </g>
-    );
-  };
-
-
 export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
 
@@ -106,6 +82,29 @@ export function TodaysMacros() {
     fat: Math.max(0, dailyGoals.fat - totals.fat),
   }
 
+  const CustomTick = (props: any) => {
+    const { x, y, payload } = props;
+    const mealName = payload.value;
+    const dataEntry = chartData.find(d => d.meal === mealName);
+    
+    if (!dataEntry) return null;
+
+    const { dishes } = dataEntry;
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
+          {mealName}
+        </text>
+        {dishes.map((dish, index) => (
+           <text key={index} x={0} y={20} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
+                {dish.name}
+            </text>
+        ))}
+      </g>
+    );
+  };
+
 
   return (
     <Card>
@@ -117,13 +116,13 @@ export function TodaysMacros() {
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
-                dataKey="meal"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tick={<CustomTick />}
-                interval={0}
-                height={100}
+                  dataKey="meal"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tick={<CustomTick />}
+                  interval={0}
+                  height={100}
                 />
                 <YAxis
                     tickLine={false}
