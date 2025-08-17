@@ -93,7 +93,7 @@ export function CalorieLineChart({
   };
 
   return (
-    <ChartContainer config={chartConfig} className="w-full h-[96px]">
+    <ChartContainer config={chartConfig} className="w-full h-[200px]">
         <LineChart
             data={chartData}
             margin={{

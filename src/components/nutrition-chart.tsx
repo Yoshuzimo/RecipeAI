@@ -84,7 +84,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
         </div>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[400px]">
+        <ChartContainer config={chartConfig} className="w-full h-[400px]">
           <BarChart data={data} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
             <CartesianGrid vertical={false} />
             <XAxis

@@ -117,7 +117,7 @@ export function TodaysMacros() {
       <CardContent className="pb-4 space-y-8">
         <CalorieLineChart data={dailyData} goal={dailyGoals.dailyGoal} timeframe="daily" />
         
-        <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
+        <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
