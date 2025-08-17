@@ -16,9 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
-import { Separator } from "./ui/separator";
 import { Button } from "./ui/button";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -31,6 +30,9 @@ const formSchema = z.record(z.string(), z.object({
 }));
 
 type FormData = z.infer<typeof formSchema>;
+
+// List of keywords for items that are typically not divisible when measured in 'pcs'
+const nonDivisibleKeywords = ['egg', 'eggs'];
 
 export function ViewInventoryItemDialog({
   isOpen,
@@ -106,6 +108,13 @@ export function ViewInventoryItemDialog({
       return `${partialValue.toFixed(2)} ${group.unit} (~${percentage}%)`;
   }
   
+  const isNonDivisiblePiece = (itemName: string, unit: string) => {
+    if (unit !== 'pcs') {
+      return false;
+    }
+    return nonDivisibleKeywords.some(keyword => itemName.toLowerCase().includes(keyword));
+  };
+  
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-2xl">
@@ -146,7 +155,7 @@ export function ViewInventoryItemDialog({
                                                 value={[field.value]}
                                                 onValueChange={(vals) => field.onChange(vals[0])}
                                                 max={size}
-                                                step={group.unit === 'pcs' ? 1 : size / 100}
+                                                step={isNonDivisiblePiece(group.name, group.unit) ? 1 : size / 100}
                                             />
                                         </div>
                                     )}
