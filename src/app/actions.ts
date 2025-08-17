@@ -29,7 +29,7 @@ const suggestionSchema = z.object({
     }
   }),
   cravingsOrMood: z.string().optional(),
-  recipeToAdjust: z.string().optional().nullable(),
+  recipeToAdjust: z.string().optional(),
   newServingSize: z.coerce.number().optional(),
 });
 
@@ -67,13 +67,14 @@ export async function handleGenerateSuggestions(
   formData: FormData
 ) {
   let log = "Button clicked.\n";
-  log += "Request received by server action.\n";
   const validatedFields = suggestionSchema.safeParse({
     inventory: formData.get("inventory"),
     cravingsOrMood: formData.get("cravingsOrMood"),
     recipeToAdjust: formData.get("recipeToAdjust"),
     newServingSize: formData.get("newServingSize"),
   });
+  
+  log += "Request received by server action.\n";
 
   if (!validatedFields.success) {
     const errorDetails = JSON.stringify(validatedFields.error.flatten(), null, 2);
@@ -117,7 +118,7 @@ export async function handleGenerateSuggestions(
         };
     } catch(e) {
         console.error("Error adjusting recipe", e);
-        return { error: { form: "Failed to adjust recipe. Please try again." }, suggestions: null };
+        return { error: { form: ["Failed to adjust recipe. Please try again."] }, suggestions: null };
     }
   }
 
@@ -164,7 +165,7 @@ export async function handleGenerateSuggestions(
     console.error(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { 
-        error: { form: "Failed to generate suggestions. Please try again." }, 
+        error: { form: ["Failed to generate suggestions. Please try again."] }, 
         suggestions: null,
         debugInfo: {
             promptInput: log,

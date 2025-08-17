@@ -74,7 +74,12 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   useEffect(() => {
     if (state) {
-      setSuggestions(state.suggestions ?? null);
+      if (state.error) {
+        // We only want to update suggestions if there are new ones, not on error
+      } else {
+        setSuggestions(state.suggestions ?? suggestions);
+      }
+      
       setDebugInfo(state.debugInfo);
       
       if (state.adjustedRecipe && state.originalRecipeTitle) {
@@ -83,6 +88,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         );
        }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
 
@@ -300,7 +306,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
           </div>
         )}
         {state.error?.form && (
-           <p className="text-sm font-medium text-destructive mt-2">{state.error.form}</p>
+           <p className="text-sm font-medium text-destructive mt-2">{state.error.form[0]}</p>
         )}
       </div>
 
