@@ -1,45 +1,55 @@
 import MainLayout from "@/components/main-layout";
 import InventoryClient from "@/components/inventory-client";
-import { getInventory } from "@/lib/data";
-import type { InventoryItem, InventoryItemGroup } from "@/lib/types";
+import { getInventory, getStorageLocations } from "@/lib/data";
+import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation } from "@/lib/types";
 
 export default async function InventoryPage() {
   const inventoryData = await getInventory();
+  const storageLocations = await getStorageLocations();
 
-  const groupedInventory = inventoryData.reduce<InventoryItemGroup[]>((acc, item) => {
-    let group = acc.find(g => g.name === item.name && g.unit === item.unit);
-    if (!group) {
-      group = { 
-        name: item.name, 
-        items: [], 
-        totalQuantity: 0, 
-        unit: item.unit, 
-        nextExpiry: null 
-      };
-      acc.push(group);
-    }
-    
-    group.items.push(item);
-    group.totalQuantity += (item.packageSize * item.packageCount);
-    
-    const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
-    group.items = sortedItems;
-    group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
+  const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
+     const grouped = items.reduce<Record<string, InventoryItemGroup>>((acc, item) => {
+      const key = `${item.name}-${item.unit}`;
+      if (!acc[key]) {
+        acc[key] = { 
+          name: item.name, 
+          items: [], 
+          totalQuantity: 0, 
+          unit: item.unit, 
+          nextExpiry: null 
+        };
+      }
+      
+      const group = acc[key];
+      group.items.push(item);
+      group.totalQuantity += (item.packageSize * item.packageCount);
+      
+      const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
+      group.items = sortedItems;
+      group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
 
-    return acc;
-  }, []);
+      return acc;
+    }, {});
 
-  const sortedGroupedInventory = groupedInventory.sort((a,b) => {
-    if (!a.nextExpiry) return 1;
-    if (!b.nextExpiry) return -1;
-    return a.nextExpiry.getTime() - b.nextExpiry.getTime();
-  });
+    return Object.values(grouped).sort((a,b) => {
+      if (!a.nextExpiry) return 1;
+      if (!b.nextExpiry) return -1;
+      return a.nextExpiry.getTime() - b.nextExpiry.getTime();
+    });
+  };
 
+  const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
+
+  const groupedByLocation: GroupedByLocation = {
+    Fridge: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+    Freezer: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+    Pantry: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+  };
 
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <InventoryClient initialData={sortedGroupedInventory} allItems={inventoryData} />
+        <InventoryClient initialData={groupedByLocation} allItems={inventoryData} storageLocations={storageLocations} />
       </div>
     </MainLayout>
   );

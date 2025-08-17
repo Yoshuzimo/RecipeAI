@@ -1,21 +1,32 @@
+
 "use client";
 
-import { useState, useMemo } from "react";
-import type { InventoryItem, InventoryItemGroup } from "@/lib/types";
+import { useState } from "react";
+import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Refrigerator, Snowflake, Warehouse } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+
+const locationIcons = {
+  Fridge: <Refrigerator className="h-6 w-6" />,
+  Freezer: <Snowflake className="h-6 w-6" />,
+  Pantry: <Warehouse className="h-6 w-6" />,
+};
 
 export default function InventoryClient({
   initialData,
-  allItems
+  allItems,
+  storageLocations,
 }: {
-  initialData: InventoryItemGroup[];
+  initialData: GroupedByLocation;
   allItems: InventoryItem[];
+  storageLocations: StorageLocation[];
 }) {
-  const [inventoryGroups, setInventoryGroups] = useState<InventoryItemGroup[]>(initialData);
+  const [groupedInventory, setGroupedInventory] = useState<GroupedByLocation>(initialData);
   const [flatInventory, setFlatInventory] = useState<InventoryItem[]>(allItems);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -23,36 +34,43 @@ export default function InventoryClient({
   const [selectedGroup, setSelectedGroup] = useState<InventoryItemGroup | null>(null);
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
-      const grouped = newFlatInventory.reduce<InventoryItemGroup[]>((acc, item) => {
-        let group = acc.find(g => g.name === item.name && g.unit === item.unit);
-        if (!group) {
-          group = { name: item.name, items: [], totalQuantity: 0, unit: item.unit, nextExpiry: null };
-          acc.push(group);
-        }
-        group.items.push(item);
-        group.totalQuantity += (item.packageSize * item.packageCount);
-        const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
-        group.items = sortedItems;
-        group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
-        return acc;
-      }, []);
+      const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
+        const grouped = items.reduce<Record<string, InventoryItemGroup>>((acc, item) => {
+          const key = `${item.name}-${item.unit}`;
+          if (!acc[key]) {
+            acc[key] = { name: item.name, items: [], totalQuantity: 0, unit: item.unit, nextExpiry: null };
+          }
+          const group = acc[key];
+          group.items.push(item);
+          group.totalQuantity += (item.packageSize * item.packageCount);
+          const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
+          group.items = sortedItems;
+          group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
+          return acc;
+        }, {});
+        return Object.values(grouped).sort((a,b) => {
+            if (!a.nextExpiry) return 1;
+            if (!b.nextExpiry) return -1;
+            return a.nextExpiry.getTime() - b.nextExpiry.getTime();
+        });
+      };
 
-      const sortedGrouped = grouped.sort((a,b) => {
-        if (!a.nextExpiry) return 1;
-        if (!b.nextExpiry) return -1;
-        return a.nextExpiry.getTime() - b.nextExpiry.getTime();
-      });
+      const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
+      const newGroupedByLocation: GroupedByLocation = {
+        Fridge: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+        Freezer: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+        Pantry: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+      };
 
       setFlatInventory(newFlatInventory);
-      setInventoryGroups(sortedGrouped);
+      setGroupedInventory(newGroupedByLocation);
 
-      // If a group is being viewed, update its state as well
       if (selectedGroup) {
-        const updatedGroup = sortedGrouped.find(g => g.name === selectedGroup.name);
+        const allGroups = [...newGroupedByLocation.Fridge, ...newGroupedByLocation.Freezer, ...newGroupedByLocation.Pantry];
+        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit);
         if (updatedGroup) {
             setSelectedGroup(updatedGroup);
         } else {
-            // The group was deleted (e.g. last item removed)
             setIsViewDialogOpen(false);
             setSelectedGroup(null);
         }
@@ -78,6 +96,8 @@ export default function InventoryClient({
     setSelectedGroup(group);
     setIsViewDialogOpen(true);
   };
+  
+  const locationOrder: Array<keyof GroupedByLocation> = ['Fridge', 'Freezer', 'Pantry'];
 
   return (
     <>
@@ -95,8 +115,27 @@ export default function InventoryClient({
           </Button>
         </div>
       </div>
+      
+      <Accordion type="multiple" defaultValue={['Fridge', 'Freezer', 'Pantry']} className="w-full space-y-4">
+        {locationOrder.map(locationType => (
+            <AccordionItem value={locationType} key={locationType} className="border-none">
+                <Card>
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-row items-center justify-between w-full p-4">
+                           <div className="flex items-center gap-4">
+                             {locationIcons[locationType]}
+                            <CardTitle className="text-2xl">{locationType}</CardTitle>
+                           </div>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-2 sm:px-4 pb-4">
+                        <InventoryTable data={groupedInventory[locationType]} onRowClick={handleRowClick} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+        ))}
+      </Accordion>
 
-      <InventoryTable data={inventoryGroups} onRowClick={handleRowClick} />
 
       <AddInventoryItemDialog
         isOpen={isAddDialogOpen}

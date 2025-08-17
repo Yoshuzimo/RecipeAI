@@ -8,6 +8,11 @@ export type StorageLocation = {
   type: 'Fridge' | 'Freezer' | 'Pantry';
 };
 
+export type GroupedByLocation = {
+  [key in StorageLocation['type']]: InventoryItemGroup[];
+};
+
+
 export type InventoryItem = {
   id: string;
   name: string;
