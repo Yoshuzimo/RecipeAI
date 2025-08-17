@@ -93,7 +93,7 @@ export function CalorieLineChart({
   };
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="min-h-[150px] w-full">
         <LineChart
             data={chartData}
             margin={{
@@ -114,7 +114,7 @@ export function CalorieLineChart({
                 height={60}
             />
             <YAxis
-                domain={[1000, 3000]}
+                domain={[0, 3000]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
