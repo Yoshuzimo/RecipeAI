@@ -1,8 +1,12 @@
+
 import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
+import { getTodaysMacros } from "@/lib/data";
 import { Separator } from "@/components/ui/separator";
 
-export default function NutritionPage() {
+export default async function NutritionPage() {
+  const dailyData = await getTodaysMacros();
+
   return (
     <MainLayout>
       <div className="space-y-6 p-4 md:p-10 pb-16">
@@ -13,7 +17,7 @@ export default function NutritionPage() {
           </p>
         </div>
         <Separator />
-        <NutritionChart />
+        <NutritionChart dailyData={dailyData} />
       </div>
     </MainLayout>
   );

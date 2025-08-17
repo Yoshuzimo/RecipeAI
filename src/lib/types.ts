@@ -1,4 +1,5 @@
 
+
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon';
 
 export type InventoryItem = {
@@ -55,6 +56,13 @@ export type Substitution = {
     suggestedSubstitutions: string[];
 };
 
-export type DailyMacros = {
-    meal: string;
+export type LoggedDish = {
+    name: string;
 } & Macros;
+
+export type DailyMacros = {
+    meal: "Breakfast" | "Lunch" | "Dinner" | "Snack";
+    dishes: LoggedDish[];
+    totals: Macros;
+};
+

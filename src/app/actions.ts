@@ -243,6 +243,7 @@ export async function handleLogCookedMeal(
     recipe: Recipe,
     servingsEaten: number,
     storageMethod: string,
+    mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const inventory = await getInventory();
     const currentInventoryString = formatInventoryToString(inventory);
@@ -287,7 +288,7 @@ export async function handleLogCookedMeal(
         
         // Log the consumed macros
         if (result.macrosConsumed) {
-            await logMacros(recipe.title, result.macrosConsumed);
+            await logMacros(mealType, recipe.title, result.macrosConsumed);
         }
 
         const newInventory = await getInventory();

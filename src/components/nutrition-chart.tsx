@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from "react"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 import {
   Card,
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/card"
 import {
   ChartContainer,
-  ChartTooltip,
+  ChartTooltip as ChartTooltipContainer,
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent
@@ -24,31 +25,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { DailyMacros } from "@/lib/types"
 
-const dailyData = [
-    { meal: "Breakfast", protein: 30, carbs: 50, fat: 20 },
-    { meal: "Lunch", protein: 50, carbs: 80, fat: 35 },
-    { meal: "Dinner", protein: 45, carbs: 65, fat: 30 },
-    { meal: "Snacks", protein: 15, carbs: 25, fat: 10 },
-]
-
-const weeklyData = [
-  { day: "Mon", protein: 120, carbs: 200, fat: 80 },
-  { day: "Tue", protein: 110, carbs: 190, fat: 70 },
-  { day: "Wed", protein: 130, carbs: 210, fat: 90 },
-  { day: "Thu", protein: 100, carbs: 180, fat: 60 },
-  { day: "Fri", protein: 140, carbs: 220, fat: 85 },
-  { day: "Sat", protein: 150, carbs: 240, fat: 95 },
-  { day: "Sun", protein: 135, carbs: 215, fat: 75 },
-]
-
-const monthlyData = [
-    { week: "Week 1", protein: 855, carbs: 1455, fat: 555 },
-    { week: "Week 2", protein: 830, carbs: 1400, fat: 520 },
-    { week: "Week 3", protein: 880, carbs: 1500, fat: 580 },
-    { week: "Week 4", protein: 860, carbs: 1470, fat: 560 },
-];
-
+const MOCK_DATA = {
+  daily: [
+    { meal: "Breakfast", dishes: [{name: "Omelette"}], protein: 30, carbs: 50, fat: 20 },
+    { meal: "Lunch", dishes: [{name: "Chicken Salad"}], protein: 50, carbs: 80, fat: 35 },
+    { meal: "Dinner", dishes: [{name: "Salmon & Veggies"}], protein: 45, carbs: 65, fat: 30 },
+    { meal: "Snacks", dishes: [{name: "Protein Shake"}, {name: "Apple"}], protein: 15, carbs: 25, fat: 10 },
+  ],
+  weekly: [
+    { day: "Mon", protein: 120, carbs: 200, fat: 80 },
+    { day: "Tue", protein: 110, carbs: 190, fat: 70 },
+    { day: "Wed", protein: 130, carbs: 210, fat: 90 },
+    { day: "Thu", protein: 100, carbs: 180, fat: 60 },
+    { day: "Fri", protein: 140, carbs: 220, fat: 85 },
+    { day: "Sat", protein: 150, carbs: 240, fat: 95 },
+    { day: "Sun", protein: 135, carbs: 215, fat: 75 },
+  ],
+  monthly: [
+      { week: "Week 1", protein: 855, carbs: 1455, fat: 555 },
+      { week: "Week 2", protein: 830, carbs: 1400, fat: 520 },
+      { week: "Week 3", protein: 880, carbs: 1500, fat: 580 },
+      { week: "Week 4", protein: 860, carbs: 1470, fat: 560 },
+  ]
+};
 
 const chartConfig = {
   protein: {
@@ -63,34 +64,90 @@ const chartConfig = {
     label: "Fat (g)",
     color: "hsl(var(--secondary-foreground))",
   },
+  dishes: {
+    label: "Dishes"
+  }
 }
 
-export function NutritionChart() {
+// Custom Tooltip for Daily view
+const DailyChartTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="p-4 bg-background border rounded-lg shadow-lg">
+        <p className="font-bold text-lg">{label}</p>
+        <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
+            {data.dishes.map((dish: any, index: number) => (
+                <li key={index}>{dish.name}</li>
+            ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+
+export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily")
 
-  const { data, dataKey, description } = React.useMemo(() => {
+  const { data, dataKey, description, showDishes } = React.useMemo(() => {
     switch (timeframe) {
       case "weekly":
         return { 
-            data: weeklyData, 
+            data: MOCK_DATA.weekly, 
             dataKey: "day",
-            description: "A summary of your weekly intake, day by day."
+            description: "A summary of your weekly intake, day by day.",
+            showDishes: false,
         }
       case "monthly":
         return { 
-            data: monthlyData, 
+            data: MOCK_DATA.monthly, 
             dataKey: "week",
-            description: "A summary of your monthly intake, week by week."
+            description: "A summary of your monthly intake, week by week.",
+            showDishes: false,
         }
       case "daily":
       default:
+        const formattedDailyData = dailyData.map(d => ({
+            meal: d.meal,
+            protein: d.totals.protein,
+            carbs: d.totals.carbs,
+            fat: d.totals.fat,
+            dishes: d.dishes,
+        }));
         return { 
-            data: dailyData, 
+            data: formattedDailyData,
             dataKey: "meal",
-            description: "A summary of your daily intake, meal by meal."
+            description: "A summary of your daily intake, meal by meal.",
+            showDishes: true,
         }
     }
-  }, [timeframe])
+  }, [timeframe, dailyData]);
+
+  const CustomTick = (props: any) => {
+    const { x, y, payload } = props;
+    const { meal, dishes } = payload.payload;
+
+    if (!showDishes) {
+        return <text x={x} y={y} dy={16} textAnchor="middle" fill="#666" fontSize={12}>{meal}</text>
+    }
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
+          {meal}
+        </text>
+        {dishes.map((dish: any, index: number) => (
+           <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+                {dish.name}
+            </text>
+        ))}
+      </g>
+    );
+  };
+
 
   return (
     <Card>
@@ -112,13 +169,15 @@ export function NutritionChart() {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px]">
-          <BarChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+          <BarChart data={data} margin={{ top: 20, right: 20, bottom: showDishes ? 60 : 20, left: 20 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={dataKey}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              tick={showDishes ? <CustomTick /> : true}
+              interval={0}
             />
             <YAxis
                 tickLine={false}
@@ -126,7 +185,7 @@ export function NutritionChart() {
                 tickMargin={8}
                 tickFormatter={(value) => `${value}g`}
             />
-            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartTooltipContainer content={showDishes ? <DailyChartTooltip /> : <ChartTooltipContent />} cursor={{fill: 'hsl(var(--muted))'}}/>
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />

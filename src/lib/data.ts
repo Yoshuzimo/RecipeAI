@@ -1,4 +1,5 @@
 
+
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit } from "./types";
 
 const today = new Date();
@@ -44,8 +45,16 @@ let MOCK_SETTINGS: Settings = {
 };
 
 let MOCK_TODAYS_MACROS: DailyMacros[] = [
-    { meal: "Breakfast", protein: 30, carbs: 50, fat: 20 },
-    { meal: "Snacks", protein: 15, carbs: 25, fat: 10 },
+    { 
+        meal: "Breakfast", 
+        dishes: [{name: "Omelette", protein: 30, carbs: 5, fat: 20}],
+        totals: { protein: 30, carbs: 5, fat: 20 }
+    },
+    { 
+        meal: "Snack", 
+        dishes: [{name: "Protein Shake", protein: 15, carbs: 25, fat: 10}],
+        totals: { protein: 15, carbs: 25, fat: 10 }
+    },
 ];
 
 
@@ -121,21 +130,26 @@ export async function getTodaysMacros(): Promise<DailyMacros[]> {
     return MOCK_TODAYS_MACROS;
 }
 
-export async function logMacros(meal: string, macros: Macros): Promise<DailyMacros> {
+export async function logMacros(mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
     await new Promise(resolve => setTimeout(resolve, 100));
-    const newLog: DailyMacros = { meal, ...macros };
     
-    // Check if a meal with the same name already exists
-    const existingIndex = MOCK_TODAYS_MACROS.findIndex(m => m.meal === meal);
-    if (existingIndex !== -1) {
-        // If it exists, sum the macros
-        MOCK_TODAYS_MACROS[existingIndex].protein += macros.protein;
-        MOCK_TODAYS_MACROS[existingIndex].carbs += macros.carbs;
-        MOCK_TODAYS_MACROS[existingIndex].fat += macros.fat;
-        return MOCK_TODAYS_MACROS[existingIndex];
+    let mealLog = MOCK_TODAYS_MACROS.find(m => m.meal === mealType);
+    
+    if (mealLog) {
+        // Meal type exists, add dish and update totals
+        mealLog.dishes.push({ name: dishName, ...macros });
+        mealLog.totals.protein += macros.protein;
+        mealLog.totals.carbs += macros.carbs;
+        mealLog.totals.fat += macros.fat;
     } else {
-        // Otherwise, add the new log
-        MOCK_TODAYS_MACROS.push(newLog);
-        return newLog;
+        // New meal type for the day, create it
+        mealLog = {
+            meal: mealType,
+            dishes: [{ name: dishName, ...macros }],
+            totals: { ...macros },
+        };
+        MOCK_TODAYS_MACROS.push(mealLog);
     }
+
+    return mealLog;
 }

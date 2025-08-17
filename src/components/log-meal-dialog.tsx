@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Recipe, InventoryItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,16 @@ import { handleLogCookedMeal } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
+type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
+
+const getDefaultMealType = (): MealType => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Breakfast";
+    if (hour >= 12 && hour < 17) return "Lunch";
+    if (hour >= 17 && hour < 21) return "Dinner";
+    return "Snack";
+}
+
 export function LogMealDialog({
   isOpen,
   setIsOpen,
@@ -40,18 +50,28 @@ export function LogMealDialog({
   const [servingsEaten, setServingsEaten] = useState(1);
   const [storageMethod, setStorageMethod] = useState("Fridge");
   const [isPending, setIsPending] = useState(false);
+  const [mealType, setMealType] = useState<MealType>("Breakfast");
+
+  useEffect(() => {
+    if(isOpen) {
+        setServingsEaten(1);
+        setStorageMethod("Fridge");
+        setMealType(getDefaultMealType());
+    }
+  }, [isOpen]);
+
 
   const servingsLeft = recipe.servings - servingsEaten;
 
   const handleSubmit = async () => {
     setIsPending(true);
-    const result = await handleLogCookedMeal(recipe, servingsEaten, storageMethod);
+    const result = await handleLogCookedMeal(recipe, servingsEaten, storageMethod, mealType);
     setIsPending(false);
 
     if (result.success && result.newInventory) {
       toast({
         title: "Meal Logged!",
-        description: `Ingredients for "${recipe.title}" have been deducted, and leftovers are now in your inventory.`,
+        description: `"${recipe.title}" has been deducted, and leftovers are now in your inventory.`,
       });
       onMealLogged(result.newInventory);
       setIsOpen(false);
@@ -74,6 +94,20 @@ export function LogMealDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="meal-type">What meal is this?</Label>
+            <Select value={mealType} onValueChange={(value: MealType) => setMealType(value)}>
+                <SelectTrigger id="meal-type">
+                    <SelectValue placeholder="Select a meal type" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Breakfast">Breakfast</SelectItem>
+                    <SelectItem value="Lunch">Lunch</SelectItem>
+                    <SelectItem value="Dinner">Dinner</SelectItem>
+                    <SelectItem value="Snack">Snack</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="servings-eaten">How many servings did you eat?</Label>
             <Input

@@ -41,7 +41,48 @@ const chartConfig = {
     label: "Fat",
     color: "hsl(var(--secondary-foreground))",
   },
+   dishes: {
+    label: "Dishes"
+  }
 }
+
+// Custom Tooltip for Daily view
+const DailyChartTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="p-4 bg-background border rounded-lg shadow-lg">
+        <p className="font-bold text-lg">{label}</p>
+        <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
+            {data.dishes.map((dish: any, index: number) => (
+                <li key={index}>{dish.name}</li>
+            ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const CustomTick = (props: any) => {
+    const { x, y, payload } = props;
+    const { meal, dishes } = payload.payload;
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
+          {meal}
+        </text>
+        {dishes.map((dish: any, index: number) => (
+           <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+                {dish.name}
+            </text>
+        ))}
+      </g>
+    );
+  };
+
 
 export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
@@ -54,11 +95,21 @@ export function TodaysMacros() {
     fetchData();
   }, []);
 
+  const chartData = React.useMemo(() => {
+     return dailyData.map(d => ({
+        meal: d.meal,
+        protein: d.totals.protein,
+        carbs: d.totals.carbs,
+        fat: d.totals.fat,
+        dishes: d.dishes,
+    }));
+  }, [dailyData]);
+
   const totals = React.useMemo(() => {
     return dailyData.reduce((acc, meal) => {
-        acc.protein += meal.protein;
-        acc.carbs += meal.carbs;
-        acc.fat += meal.fat;
+        acc.protein += meal.totals.protein;
+        acc.carbs += meal.totals.carbs;
+        acc.fat += meal.totals.fat;
         return acc;
     }, { protein: 0, carbs: 0, fat: 0 });
   }, [dailyData]);
@@ -77,13 +128,15 @@ export function TodaysMacros() {
       </CardHeader>
       <CardContent className="pb-4">
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <BarChart data={dailyData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                 dataKey="meal"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={<CustomTick />}
+                interval={0}
                 />
                 <YAxis
                     tickLine={false}
@@ -91,11 +144,11 @@ export function TodaysMacros() {
                     tickMargin={8}
                     tickFormatter={(value) => `${value}g`}
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={<DailyChartTooltip />} cursor={{fill: 'hsl(var(--muted))'}} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
-                <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
-                <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
+                <Bar dataKey="protein" fill="var(--color-protein)" radius={4} stackId="a" />
+                <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} stackId="a" />
+                <Bar dataKey="fat" fill="var(--color-fat)" radius={4} stackId="a" />
             </BarChart>
         </ChartContainer>
       </CardContent>
