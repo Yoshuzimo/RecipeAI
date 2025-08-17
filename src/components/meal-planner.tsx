@@ -21,7 +21,6 @@ const initialState = {
   error: null,
   adjustedRecipe: null,
   originalRecipeTitle: null,
-  inventory: [],
 };
 
 function SubmitButton() {
@@ -63,8 +62,11 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     if (state.suggestions) {
         setSuggestions(state.suggestions);
     }
-    if (state.inventory && state.inventory.length > 0) {
-        setInventory(state.inventory);
+    // This was the bug. The action returns an inventory property on the new state object,
+    // which was not being used. The component now uses that to update its local inventory state.
+    const returnedInventory = (state as any).inventory;
+    if (returnedInventory && returnedInventory.length > 0) {
+        setInventory(returnedInventory);
     }
     if (state.adjustedRecipe && state.originalRecipeTitle) {
       setSuggestions(prev => 
