@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -16,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Checkbox } from "./ui/checkbox";
+import { DroppableWrapper } from "./droppable-wrapper";
 
 type ShoppingListItem = {
     id: string;
@@ -292,7 +294,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   };
   
     const droppableContent = useMemo(() => (
-        <Droppable droppableId="shopping-list-sections">
+        <DroppableWrapper droppableId="shopping-list-sections">
             {(provided) => (
                 <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-8">
                 {sections.map((section, index) => (
@@ -324,7 +326,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                 {provided.placeholder}
                 </div>
             )}
-        </Droppable>
+        </DroppableWrapper>
     ), [sections, hiddenSections]);
 
 
@@ -366,5 +368,3 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     </>
   );
 }
-
-    
