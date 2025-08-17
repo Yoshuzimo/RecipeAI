@@ -75,7 +75,6 @@ export async function handleGenerateSuggestions(
             expiringIngredients: "",
             personalDetails: "",
             todaysMacros: { protein: 0, carbs: 0, fat: 0 },
-            mealsEatenToday: [],
         });
         // The AI returns the single adjusted recipe inside the suggestions array
         const adjustedRecipe = result.suggestions[0];
@@ -109,7 +108,6 @@ export async function handleGenerateSuggestions(
 
   // In a real app, this data would come from the user's daily log
   const mockTodaysMacros = { protein: 95, carbs: 155, fat: 65 };
-  const mockMealsEatenToday = ["Oatmeal with berries", "Chicken salad wrap"];
 
 
   try {
@@ -120,7 +118,6 @@ export async function handleGenerateSuggestions(
       unitSystem,
       personalDetails: personalDetailsString,
       todaysMacros: mockTodaysMacros,
-      mealsEatenToday: mockMealsEatenToday,
     });
     return { suggestions: result.suggestions, error: null, inventory };
   } catch (error) {

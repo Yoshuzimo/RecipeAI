@@ -29,7 +29,6 @@ const GenerateMealSuggestionsInputSchema = z.object({
       carbs: z.number(),
       fat: z.number()
   }).describe("The user's total macronutrient consumption for today so far."),
-  mealsEatenToday: z.array(z.string()).describe("A list of meals the user has already eaten today."),
    recipeToAdjust: z.object({
     title: z.string(),
     description: z.string(),
@@ -104,7 +103,7 @@ Your task is to generate 3-5 complete meal or snack recipes based on the user's 
 **Key Priorities:**
 1.  **Use Available & Expiring Ingredients:** Prioritize recipes that utilize ingredients from the user's inventory, especially those expiring soon.
 2.  **Align with Health Goals:** The recipes must align with the user's health goals, dietary restrictions, and health conditions provided in their personal details.
-3.  **Consider Daily Intake:** Account for the macros and meals the user has already consumed today to suggest nutritionally balanced options.
+3.  **Consider Daily Intake:** Account for the macros the user has already consumed today to suggest nutritionally balanced options.
 4.  **Format Correctly:** Provide all quantities and measurements in the user's preferred unit system: {{{unitSystem}}}.
 5.  **Provide Serving Info**: For each recipe, provide the number of servings it makes and estimate the macronutrients *per serving*.
 
@@ -114,7 +113,6 @@ Your task is to generate 3-5 complete meal or snack recipes based on the user's 
 *   **Personal Details (Sensitive - Use for Health-Aware Suggestions):** {{{personalDetails}}}
 *   **Optional Cravings:** {{{cravingsOrMood}}}
 *   **Macros Consumed Today:** Protein: {{{todaysMacros.protein}}}g, Carbs: {{{todaysMacros.carbs}}}g, Fat: {{{todaysMacros.fat}}}g
-*   **Meals Eaten Today:** {{#each mealsEatenToday}}{{{this}}}{{/each}}
 
 Based on all this information, please generate 3-5 detailed recipes. For each recipe, provide a title, a short description, the number of servings, a list of ingredients, step-by-step instructions, and estimated macros per serving.
 {{/if}}
