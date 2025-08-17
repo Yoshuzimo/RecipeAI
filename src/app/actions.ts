@@ -3,8 +3,9 @@
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
+import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { getPersonalDetails, getUnitSystem } from "@/lib/data";
-import type { InventoryItem, Recipe } from "@/lib/types";
+import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { z } from "zod";
 
 const suggestionSchema = z.object({
@@ -18,40 +19,26 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
     
     // Aggregate quantities for items with the same name
     const aggregatedInventory = inventory.reduce((acc, item) => {
-        if (acc[item.name]) {
-            // This is a simplified aggregation. A real app might need unit conversion.
-            if (acc[item.name].unit === item.unit) {
-                acc[item.name].totalQuantity += item.quantity;
-            } else {
-                 // If units are different, just list them separately for now.
-                 const uniqueName = `${item.name} (${item.unit})`;
-                 if (acc[uniqueName]) {
-                     acc[uniqueName].totalQuantity += item.quantity;
-                 } else {
-                     acc[uniqueName] = {
-                         totalQuantity: item.quantity,
-                         unit: item.unit,
-                         earliestExpiry: item.expiryDate
-                     }
-                 }
-                 return acc;
-            }
-            if (item.expiryDate < acc[item.name].earliestExpiry) {
-                acc[item.name].earliestExpiry = item.expiryDate;
+        const key = `${item.name} (${item.unit})`;
+        if (acc[key]) {
+            acc[key].totalQuantity += item.quantity;
+            if (item.expiryDate < acc[key].earliestExpiry) {
+                acc[key].earliestExpiry = item.expiryDate;
             }
         } else {
-            acc[item.name] = {
+            acc[key] = {
                 totalQuantity: item.quantity,
                 unit: item.unit,
-                earliestExpiry: item.expiryDate
+                earliestExpiry: item.expiryDate,
+                name: item.name,
             };
         }
         return acc;
-    }, {} as Record<string, { totalQuantity: number; unit: string; earliestExpiry: Date }>);
+    }, {} as Record<string, {name: string, totalQuantity: number; unit: string; earliestExpiry: Date }>);
 
-    return Object.entries(aggregatedInventory)
-        .map(([name, data]) => 
-            `${name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
+    return Object.values(aggregatedInventory)
+        .map(data => 
+            `${data.name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
         )
         .join(', ');
 }
@@ -135,7 +122,7 @@ export async function handleGenerateSuggestions(
       todaysMacros: mockTodaysMacros,
       mealsEatenToday: mockMealsEatenToday,
     });
-    return { suggestions: result.suggestions, error: null };
+    return { suggestions: result.suggestions, error: null, inventory };
   } catch (error) {
     console.error(error);
     return { error: { form: "Failed to generate suggestions. Please try again." }, suggestions: null };
@@ -166,4 +153,29 @@ export async function handleGenerateShoppingList(
     console.error(error);
     return { error: "Failed to generate shopping list. Please try again.", shoppingList: null };
   }
+}
+
+export async function handleGenerateSubstitutions(
+  recipe: Recipe,
+  ingredientsToReplace: string[],
+  inventory: InventoryItem[]
+): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
+    const currentInventoryString = formatInventoryToString(inventory);
+    const unitSystem = await getUnitSystem();
+    const personalDetails = await getPersonalDetails();
+    const personalDetailsString = JSON.stringify(personalDetails, null, 2);
+    
+    try {
+        const result = await generateSubstitutions({
+            recipe,
+            ingredientsToReplace,
+            currentInventory: currentInventoryString,
+            personalDetails: personalDetailsString,
+            unitSystem,
+        });
+        return { substitutions: result.substitutions, error: null };
+    } catch (error) {
+        console.error(error);
+        return { substitutions: null, error: "Failed to generate substitutions. Please try again." };
+    }
 }

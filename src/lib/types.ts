@@ -46,3 +46,8 @@ export type Recipe = {
         fat: number;
     };
 };
+
+export type Substitution = {
+    originalIngredient: string;
+    suggestedSubstitutions: string[];
+};

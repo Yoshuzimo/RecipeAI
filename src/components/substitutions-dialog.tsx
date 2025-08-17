@@ -1,0 +1,199 @@
+
+"use client";
+
+import { useState } from "react";
+import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { handleGenerateSubstitutions } from "@/app/actions";
+import { Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+
+enum SubstitutionMode {
+  None,
+  Ai,
+  Inventory,
+}
+
+export function SubstitutionsDialog({
+  isOpen,
+  setIsOpen,
+  recipe,
+  inventory,
+  onSubstitutionsApplied,
+}: {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  recipe: Recipe;
+  inventory: InventoryItem[];
+  onSubstitutionsApplied: (updatedRecipe: Recipe) => void;
+}) {
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [mode, setMode] = useState<SubstitutionMode>(SubstitutionMode.None);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<Substitution[] | null>(null);
+  const [userSelections, setUserSelections] = useState<Record<string, string>>({});
+
+  const handleSelectIngredient = (ingredient: string) => {
+    setSelectedIngredients((prev) =>
+      prev.includes(ingredient)
+        ? prev.filter((i) => i !== ingredient)
+        : [...prev, ingredient]
+    );
+  };
+  
+  const handleGenerateAiSubstitutions = async () => {
+    if (selectedIngredients.length === 0) return;
+    setIsLoading(true);
+    setError(null);
+    setAiSuggestions(null);
+    setMode(SubstitutionMode.Ai);
+    
+    const result = await handleGenerateSubstitutions(recipe, selectedIngredients, inventory);
+    if (result.error) {
+        setError(result.error);
+    } else {
+        setAiSuggestions(result.substitutions);
+    }
+    setIsLoading(false);
+  };
+
+  const handleUserSelection = (originalIngredient: string, substitution: string) => {
+      setUserSelections(prev => ({...prev, [originalIngredient]: substitution}));
+  }
+
+  const handleSubmit = () => {
+    const newIngredients = recipe.ingredients.map(ing => userSelections[ing] || ing);
+    const updatedRecipe = { ...recipe, ingredients: newIngredients };
+    onSubstitutionsApplied(updatedRecipe);
+    setIsOpen(false);
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+    if (error) {
+        return (
+             <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )
+    }
+
+    if (mode === SubstitutionMode.Ai && aiSuggestions) {
+      return (
+        <div className="space-y-4">
+          {aiSuggestions.map(suggestion => (
+            <Card key={suggestion.originalIngredient}>
+                <CardHeader>
+                    <CardTitle>Substitutions for <span className="text-primary">{suggestion.originalIngredient}</span></CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <RadioGroup onValueChange={(value) => handleUserSelection(suggestion.originalIngredient, value)}>
+                        <div className="space-y-2">
+                        {suggestion.suggestedSubstitutions.map(sub => (
+                            <div key={sub} className="flex items-center space-x-2">
+                                <RadioGroupItem value={sub} id={`${suggestion.originalIngredient}-${sub}`} />
+                                <Label htmlFor={`${suggestion.originalIngredient}-${sub}`}>{sub}</Label>
+                            </div>
+                        ))}
+                        </div>
+                    </RadioGroup>
+                </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+    
+    if (mode === SubstitutionMode.Inventory) {
+      return <p>Choose from inventory feature coming soon!</p>;
+    }
+
+    // Initial selection screen
+    return (
+        <div className="space-y-4">
+            {recipe.ingredients.map((ingredient) => (
+                <div key={ingredient} className="flex items-center space-x-3">
+                    <Checkbox
+                    id={`sub-${ingredient}`}
+                    onCheckedChange={() => handleSelectIngredient(ingredient)}
+                    checked={selectedIngredients.includes(ingredient)}
+                    />
+                    <Label htmlFor={`sub-${ingredient}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {ingredient}
+                    </Label>
+                </div>
+            ))}
+        </div>
+    );
+
+  };
+
+  const isSubmitDisabled = () => {
+    if (mode === SubstitutionMode.Ai) {
+        // Must have made a selection for each ingredient that was requested
+        return Object.keys(userSelections).length !== selectedIngredients.length;
+    }
+    return true; // Disabled for other modes for now
+  };
+
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Make Substitutions for {recipe.title}</DialogTitle>
+          <DialogDescription>
+            Select the ingredients you want to replace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="h-96 pr-6 my-4">
+            {renderContent()}
+        </ScrollArea>
+        
+        <DialogFooter>
+            {mode === SubstitutionMode.None ? (
+                 <div className="flex w-full justify-between">
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <div className="flex gap-2">
+                        <Button onClick={() => setMode(SubstitutionMode.Inventory)} disabled={selectedIngredients.length === 0}>
+                            Choose from Inventory
+                        </Button>
+                        <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0}>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            AI Suggested
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex w-full justify-between">
+                    <Button variant="outline" onClick={() => setMode(SubstitutionMode.None)}>Back</Button>
+                    <Button onClick={handleSubmit} disabled={isSubmitDisabled()}>
+                        Apply Substitutions
+                    </Button>
+                </div>
+            )}
+
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -11,7 +11,7 @@ export default async function MealPlannerPage() {
         <div className="flex items-center justify-between space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Meal Planner</h1>
         </div>
-        <MealPlanner inventory={inventory} />
+        <MealPlanner initialInventory={inventory} />
       </div>
     </MainLayout>
   );

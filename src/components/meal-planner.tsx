@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus, useFormState } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
@@ -9,17 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus } from "lucide-react";
+import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { SubstitutionsDialog } from "./substitutions-dialog";
 
 const initialState = {
   suggestions: null,
   error: null,
   adjustedRecipe: null,
   originalRecipeTitle: null,
+  inventory: [],
 };
 
 function SubmitButton() {
@@ -41,19 +43,30 @@ function SubmitButton() {
   );
 }
 
-export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
+const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
+
+export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
+  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
+
   const [state, formAction] = useFormState(handleGenerateSuggestionsWithInventory, initialState);
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
 
+  // Substitution state
+  const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
+  const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
+
   useEffect(() => {
     if (state.suggestions) {
         setSuggestions(state.suggestions);
     }
-     if (state.adjustedRecipe && state.originalRecipeTitle) {
+    if (state.inventory && state.inventory.length > 0) {
+        setInventory(state.inventory);
+    }
+    if (state.adjustedRecipe && state.originalRecipeTitle) {
       setSuggestions(prev => 
         prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
       );
@@ -69,7 +82,36 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
     });
   };
 
+  const getIngredientStatus = (ingredient: string) => {
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
+      if (inventoryItem) {
+          const expiryDate = new Date(inventoryItem.expiryDate);
+          expiryDate.setHours(0,0,0,0);
+          if (expiryDate < now) {
+              const isHighRisk = highRiskKeywords.some(keyword => inventoryItem.name.toLowerCase().includes(keyword));
+              return isHighRisk ? 'expired-high-risk' : 'expired-low-risk';
+          }
+      }
+      return 'fresh';
+  }
+
+  const handleOpenSubstitutions = (recipe: Recipe) => {
+      setRecipeForSubstitutions(recipe);
+      setIsSubstitutionsDialogOpen(true);
+  }
+
+  const handleSubstitutionsApplied = (updatedRecipe: Recipe) => {
+      setSuggestions(prev => 
+        prev?.map(s => s.title === updatedRecipe.title ? updatedRecipe : s) || null
+      );
+      setRecipeForSubstitutions(null);
+  }
+
+
   return (
+    <>
     <div className="space-y-8">
       <Card>
         <CardHeader>
@@ -174,7 +216,18 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
                                 <div>
                                     <h4 className="font-semibold mb-2">Ingredients</h4>
                                     <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                                        {recipe.ingredients.map((ing, i) => <li key={i}>{ing}</li>)}
+                                        {recipe.ingredients.map((ing, i) => {
+                                            const status = getIngredientStatus(ing);
+                                            const isExpired = status.startsWith('expired');
+                                            return (
+                                                <li key={i} onClick={() => handleOpenSubstitutions(recipe)} className="cursor-pointer hover:text-primary">
+                                                    <span className={status === 'expired-high-risk' ? 'text-red-600 font-bold' : status === 'expired-low-risk' ? 'text-yellow-600 font-bold' : ''}>
+                                                        {ing}
+                                                        {isExpired && <TriangleAlert className="inline-block ml-2 h-4 w-4" />}
+                                                    </span>
+                                                </li>
+                                            )
+                                        })}
                                     </ul>
                                 </div>
                                 <div>
@@ -191,6 +244,9 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
                                         <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
                                      </div>
                                 </div>
+                                <Button onClick={() => handleOpenSubstitutions(recipe)}>
+                                    Make Substitutions
+                                </Button>
                             </div>
                         </AccordionContent>
                     </AccordionItem>
@@ -211,5 +267,15 @@ export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
         )}
       </div>
     </div>
+     {isSubstitutionsDialogOpen && recipeForSubstitutions && (
+        <SubstitutionsDialog
+            isOpen={isSubstitutionsDialogOpen}
+            setIsOpen={setIsSubstitutionsDialogOpen}
+            recipe={recipeForSubstitutions}
+            inventory={inventory}
+            onSubstitutionsApplied={handleSubstitutionsApplied}
+        />
+     )}
+    </>
   );
 }
