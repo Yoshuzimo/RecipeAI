@@ -22,7 +22,7 @@ export default async function InventoryPage() {
       
       const group = acc[key];
       group.items.push(item);
-      group.totalQuantity += (item.packageSize * item.packageCount);
+      group.totalQuantity += item.totalQuantity;
       
       const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
       group.items = sortedItems;

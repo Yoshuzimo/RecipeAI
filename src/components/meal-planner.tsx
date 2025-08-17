@@ -148,7 +148,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             const ingredientName = inventoryItem?.name;
             if (ingredientName) {
                 const items = inventory.filter(item => item.name === ingredientName);
-                const totalQuantity = items.reduce((acc, item) => acc + (item.packageSize * item.packageCount), 0);
+                const totalQuantity = items.reduce((acc, item) => acc + item.totalQuantity, 0);
                 const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
                 const unit = inventoryItem?.unit || 'pcs';
 
@@ -182,7 +182,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         const ingredientName = inventory.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
         
         // Check if the item still exists in inventory after update
-        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && (i.packageSize * i.packageCount) > 0);
+        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && i.totalQuantity > 0);
         
         if (!itemStillExists) {
             toast({
