@@ -1,133 +1,168 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { InventoryItem, InventoryItemGroup } from "@/lib/types";
+import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
-import { EditInventoryItemDialog } from "./edit-inventory-item-dialog";
 import { Separator } from "./ui/separator";
 import { Button } from "./ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { addInventoryItem } from "@/lib/data";
-import { addDays } from "date-fns";
-import { AddPackageForm } from "./add-package-form";
+import { handleUpdateInventoryGroup } from "@/app/actions";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Slider } from "./ui/slider";
 
+const formSchema = z.record(z.string(), z.object({
+    full: z.coerce.number().int().min(0),
+    partial: z.coerce.number().min(0),
+}));
+
+type FormData = z.infer<typeof formSchema>;
 
 export function ViewInventoryItemDialog({
   isOpen,
   setIsOpen,
   group,
-  onItemUpdated,
-  onItemRemoved,
+  onUpdateComplete,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   group: InventoryItemGroup;
-  onItemUpdated: (item: InventoryItem) => void;
-  onItemRemoved: (itemId: string) => void;
+  onUpdateComplete: (newInventory: InventoryItem[]) => void;
 }) {
   const { toast } = useToast();
-  const [isAddingNewSize, setIsAddingNewSize] = useState(false);
-  
-  const groupedByPackageSize = useMemo(() => {
+  const [isPending, setIsPending] = useState(false);
+
+  const packageGroups = useMemo(() => {
     return group.items.reduce((acc, item) => {
-      const key = item.originalQuantity.toString();
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(item);
-      return acc;
-    }, {} as Record<string, InventoryItem[]>);
+        const size = item.originalQuantity;
+        if (!acc[size]) {
+            acc[size] = {
+                size: size,
+                fullPackages: [],
+                partialPackage: null,
+            };
+        }
+        if (item.totalQuantity === item.originalQuantity) {
+            acc[size].fullPackages.push(item);
+        } else {
+            // Assuming only one partial package per size for simplicity in this UI model
+            acc[size].partialPackage = item;
+        }
+        return acc;
+    }, {} as Record<number, InventoryPackageGroup>);
   }, [group.items]);
 
-  const handleAddAnother = async (packageSize: number) => {
-    try {
-      const firstItem = group.items[0];
-      const newItem = await addInventoryItem({
-        name: group.name,
-        totalQuantity: packageSize,
-        originalQuantity: packageSize,
-        unit: group.unit,
-        // Assume default expiry and location for quick add
-        expiryDate: addDays(new Date(), 7), 
-        locationId: firstItem.locationId,
-      });
-      onItemUpdated(newItem); // This will trigger a refresh in the parent
-      toast({
-        title: "Package Added",
-        description: `Added another ${packageSize}${group.unit} package of ${group.name}.`,
-      });
-    } catch (error) {
-       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to add package.",
-      });
+  const defaultValues = useMemo(() => {
+    return Object.values(packageGroups).reduce((acc, pkgGroup) => {
+        acc[pkgGroup.size] = {
+            full: pkgGroup.fullPackages.length,
+            partial: pkgGroup.partialPackage?.totalQuantity ?? 0,
+        };
+        return acc;
+    }, {} as FormData);
+  }, [packageGroups]);
+  
+  const { control, handleSubmit, watch } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues,
+  });
+
+  const watchedValues = watch();
+
+  const onSubmit = async (data: FormData) => {
+    setIsPending(true);
+    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit);
+    setIsPending(false);
+
+    if (result.success && result.newInventory) {
+        toast({ title: "Inventory Updated", description: `${group.name} has been updated successfully.` });
+        onUpdateComplete(result.newInventory);
+        setIsOpen(false);
+    } else {
+        toast({ variant: "destructive", title: "Update Failed", description: result.error });
     }
+  };
+
+  const getSliderLabel = (size: number) => {
+      const partialValue = watchedValues[size]?.partial ?? 0;
+      if (group.unit === 'pcs') {
+        return `${partialValue.toFixed(0)} / ${size} pcs`;
+      }
+      const percentage = (partialValue / size * 100).toFixed(0);
+      return `${partialValue.toFixed(2)} ${group.unit} (~${percentage}%)`;
   }
   
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>View {group.name} Packages</DialogTitle>
+          <DialogTitle>Manage {group.name}</DialogTitle>
           <DialogDescription>
-            View and manage individual packages of {group.name}.
+            Adjust the number of full packages and the quantity of partial packages.
           </DialogDescription>
         </DialogHeader>
-        <Separator />
-         <ScrollArea className="h-96 pr-6">
-            <div className="space-y-6">
-                {Object.entries(groupedByPackageSize).map(([size, items]) => (
-                    <div key={size} className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h4 className="font-semibold text-lg">{`${items.length} x ${size}${group.unit} Packages`}</h4>
-                            <Button size="sm" variant="outline" onClick={() => handleAddAnother(Number(size))}>
-                                <PlusCircle className="mr-2 h-4 w-4"/>
-                                Add Another
-                            </Button>
-                        </div>
-                        <div className="space-y-2">
-                        {items.map(item => (
-                            <EditInventoryItemDialog 
-                                key={item.id}
-                                item={item}
-                                onItemUpdated={onItemUpdated}
-                                onItemRemoved={onItemRemoved}
+        <form onSubmit={handleSubmit(onSubmit)}>
+            <ScrollArea className="h-96 pr-6 my-4">
+                <div className="space-y-8">
+                {Object.values(packageGroups).map(({ size }) => (
+                    <div key={size} className="space-y-4 p-4 border rounded-lg">
+                        <h4 className="font-semibold text-lg">{size}{group.unit} Packages</h4>
+                        <div className="grid grid-cols-2 gap-8 items-end">
+                             <Controller
+                                name={`${size}.full`}
+                                control={control}
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`full-count-${size}`}>Full Packages</Label>
+                                        <Input id={`full-count-${size}`} type="number" {...field} />
+                                    </div>
+                                )}
                             />
-                        ))}
+                            <Controller
+                                name={`${size}.partial`}
+                                control={control}
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <Label>Partial Package</Label>
+                                            <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
+                                        </div>
+                                        <Slider
+                                            value={[field.value]}
+                                            onValueChange={(vals) => field.onChange(vals[0])}
+                                            max={size}
+                                            step={group.unit === 'pcs' ? 1 : size / 100}
+                                        />
+                                    </div>
+                                )}
+                            />
                         </div>
                     </div>
                 ))}
-
-                <Separator />
-
-                {isAddingNewSize ? (
-                    <AddPackageForm 
-                        itemName={group.name}
-                        unit={group.unit}
-                        onPackageAdded={(newItem) => {
-                            onItemUpdated(newItem);
-                            setIsAddingNewSize(false);
-                        }}
-                        onCancel={() => setIsAddingNewSize(false)}
-                    />
-                ) : (
-                    <Button variant="secondary" className="w-full" onClick={() => setIsAddingNewSize(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4"/>
-                        Add New Package Size
-                    </Button>
-                )}
-            </div>
-         </ScrollArea>
+                </div>
+            </ScrollArea>
+             <DialogFooter className="mt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

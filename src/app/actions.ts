@@ -7,7 +7,7 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 
@@ -317,6 +317,7 @@ export async function handleLogCookedMeal(
                     await addInventoryItem({
                         name: leftover.name,
                         totalQuantity: leftover.quantity,
+                        originalQuantity: leftover.quantity,
                         unit: 'pcs', // Leftovers are in "pieces" or servings
                         expiryDate,
                         locationId: leftover.locationId,
@@ -338,6 +339,85 @@ export async function handleLogCookedMeal(
         return { success: false, error: "Failed to log meal. AI service might be down." };
     }
 }
+
+export async function handleUpdateInventoryGroup(
+    originalItems: InventoryItem[],
+    formData: { [key: string]: { full: number; partial: number } },
+    itemName: string,
+    unit: Unit
+): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    try {
+        const originalPackagesByUID = new Map(originalItems.map(item => [`${item.originalQuantity}-${item.id}`, item]));
+
+        const updates: Promise<any>[] = [];
+
+        // Process form data
+        for (const sizeStr in formData) {
+            const size = Number(sizeStr);
+            const { full: newFullCount, partial: newPartialQty } = formData[sizeStr];
+
+            const existingFullPackages = originalItems.filter(i => i.originalQuantity === size && i.totalQuantity === size);
+            const existingPartialPackage = originalItems.find(i => i.originalQuantity === size && i.totalQuantity < size);
+
+            const currentFullCount = existingFullPackages.length;
+
+            // Adjust full packages
+            if (newFullCount > currentFullCount) {
+                // Add new full packages
+                const toAdd = newFullCount - currentFullCount;
+                for (let i = 0; i < toAdd; i++) {
+                    updates.push(addInventoryItem({
+                        name: itemName,
+                        originalQuantity: size,
+                        totalQuantity: size,
+                        unit: unit,
+                        expiryDate: addDays(new Date(), 7), // Default expiry
+                        locationId: originalItems[0]?.locationId || 'pantry-1', // Default location
+                    }));
+                }
+            } else if (newFullCount < currentFullCount) {
+                // Remove full packages
+                const toRemove = currentFullCount - newFullCount;
+                for (let i = 0; i < toRemove; i++) {
+                    updates.push(removeInventoryItem(existingFullPackages[i].id));
+                }
+            }
+
+            // Adjust partial package
+            if (existingPartialPackage) {
+                // Update existing partial
+                if (newPartialQty > 0) {
+                    if (existingPartialPackage.totalQuantity !== newPartialQty) {
+                        updates.push(updateInventoryItem({ ...existingPartialPackage, totalQuantity: newPartialQty }));
+                    }
+                } else {
+                    updates.push(removeInventoryItem(existingPartialPackage.id));
+                }
+            } else if (newPartialQty > 0) {
+                // Add new partial package
+                 updates.push(addInventoryItem({
+                    name: itemName,
+                    originalQuantity: size,
+                    totalQuantity: newPartialQty,
+                    unit: unit,
+                    expiryDate: addDays(new Date(), 7),
+                    locationId: originalItems[0]?.locationId || 'pantry-1',
+                }));
+            }
+        }
+
+        await Promise.all(updates);
+
+        const newInventory = await getInventory();
+        return { success: true, error: null, newInventory };
+
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        console.error("Error updating inventory group:", error);
+        return { success: false, error };
+    }
+}
+
 
 export async function handleTransferItemToFridge(item: InventoryItem): Promise<InventoryItem> {
     const today = new Date();

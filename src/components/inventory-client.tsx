@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -146,21 +147,11 @@ export default function InventoryClient({
   const handleItemAdded = (newItem: InventoryItem) => {
     updateState([...flatInventory, newItem]);
   };
-
-  const handleItemUpdated = (updatedItem: InventoryItem) => {
-    // If an item's quantity becomes 0, it is effectively removed.
-    if (updatedItem.totalQuantity <= 0) {
-        handleItemRemoved(updatedItem.id);
-        return;
-    }
-    const newFlatInventory = flatInventory.map(item => item.id === updatedItem.id ? updatedItem : item);
-    updateState(newFlatInventory);
-  };
   
-  const handleItemRemoved = (itemId: string) => {
-    const newFlatInventory = flatInventory.filter(item => item.id !== itemId);
-    updateState(newFlatInventory);
-  }
+  const handleUpdateComplete = (newInventory: InventoryItem[]) => {
+      updateState(newInventory);
+  };
+
 
   const handleRowClick = (group: InventoryItemGroup) => {
     setSelectedGroup(group);
@@ -218,8 +209,7 @@ export default function InventoryClient({
           isOpen={isViewDialogOpen}
           setIsOpen={setIsViewDialogOpen}
           group={selectedGroup}
-          onItemUpdated={handleItemUpdated}
-          onItemRemoved={handleItemRemoved}
+          onUpdateComplete={handleUpdateComplete}
         />
       )}
     </>

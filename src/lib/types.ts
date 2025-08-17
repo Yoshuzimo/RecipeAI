@@ -34,6 +34,14 @@ export type InventoryItemGroup = {
   unit: Unit; 
 }
 
+// This group is for the new edit/view dialog.
+// It groups packages of the same item by their size.
+export type InventoryPackageGroup = {
+    size: number;
+    fullPackages: InventoryItem[];
+    partialPackage: InventoryItem | null;
+}
+
 export type GroupedByLocation = {
   [key in StorageLocation['type']]: InventoryItemGroup[];
 };
