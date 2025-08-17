@@ -29,8 +29,8 @@ const suggestionSchema = z.object({
     }
   }),
   cravingsOrMood: z.string().optional(),
-   recipeToAdjust: z.string().optional().nullable().transform((val, ctx) => {
-    if (!val) return undefined;
+   recipeToAdjust: z.string().optional().transform((val, ctx) => {
+    if (!val || val === 'null') return undefined;
     try {
         return JSON.parse(val) as Recipe;
     } catch(e) {
@@ -83,11 +83,12 @@ export async function handleGenerateSuggestions(formData: FormData) {
 
   if (!validatedFields.success) {
     const errorDetails = JSON.stringify(validatedFields.error.flatten(), null, 2);
+    log += "Field validation failed.\n";
     return {
       error: validatedFields.error.flatten().fieldErrors,
       suggestions: null,
       debugInfo: {
-        promptInput: log + "Field validation failed.",
+        promptInput: log,
         rawResponse: "Validation Errors:\n" + errorDetails
       }
     };
@@ -208,7 +209,8 @@ export async function handleGenerateShoppingList(
 export async function handleGenerateSubstitutions(
   recipe: Recipe,
   ingredientsToReplace: string[],
-  inventory: InventoryItem[]
+  inventory: InventoryItem[],
+  allowExternalSuggestions: boolean,
 ): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
     const currentInventoryString = formatInventoryToString(inventory);
     const unitSystem = await getUnitSystem();
@@ -222,6 +224,7 @@ export async function handleGenerateSubstitutions(
             currentInventory: currentInventoryString,
             personalDetails: personalDetailsString,
             unitSystem,
+            allowExternalSuggestions,
         });
         return { substitutions: result.substitutions, error: null };
     } catch (error) {

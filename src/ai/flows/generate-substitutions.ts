@@ -31,6 +31,7 @@ const GenerateSubstitutionsInputSchema = z.object({
   currentInventory: z.string().describe("A list of ingredients currently in the user's inventory."),
   personalDetails: z.string().describe("User's personal details (health goals, dietary restrictions, etc.)."),
   unitSystem: z.enum(["us", "metric"]).describe("The unit system the user prefers."),
+  allowExternalSuggestions: z.boolean().describe("If true, the AI can suggest ingredients not in the user's inventory. If false, it MUST only use ingredients from inventory."),
 });
 export type GenerateSubstitutionsInput = z.infer<
   typeof GenerateSubstitutionsInputSchema
@@ -65,10 +66,15 @@ const prompt = ai.definePrompt({
 For each ingredient in the 'ingredientsToReplace' list, provide 1-3 suitable substitution suggestions. Consider the following:
 1.  **Flavor Profile:** The substitution should complement the other ingredients in the recipe.
 2.  **Function:** The substitution should serve a similar purpose (e.g., a fat for a fat, a leavening agent for a leavening agent).
-3.  **User's Inventory:** If possible, suggest substitutions using items from the 'currentInventory'.
-4.  **Health & Preferences:** The suggestions must align with the user's 'personalDetails' (dietary restrictions, allergies, etc.).
-5.  **Recipe Context:** The substitution must make sense within the context of the full 'recipe'.
-6.  **Quantities:** Provide appropriate quantities for each suggestion in the user's preferred 'unitSystem'.
+3.  **Health & Preferences:** The suggestions must align with the user's 'personalDetails' (dietary restrictions, allergies, etc.).
+4.  **Recipe Context:** The substitution must make sense within the context of the full 'recipe'.
+5.  **Quantities:** Provide appropriate quantities for each suggestion in the user's preferred 'unitSystem'.
+6.  **Inventory Constraint:**
+{{#if allowExternalSuggestions}}
+You should STRONGLY PRIORITIZE suggesting substitutions from the user's 'currentInventory'. You may suggest items not in their inventory only if no suitable substitution exists.
+{{else}}
+You **MUST** only suggest substitutions using items from the user's 'currentInventory'. Do not suggest any ingredient the user does not currently have. If no suitable substitution is available in their inventory, you should return an empty list of suggestedSubstitutions for that ingredient.
+{{/if}}
 
 **Recipe:**
 Title: {{{recipe.title}}}
@@ -87,7 +93,7 @@ Instructions:
 *   **Personal Details (Sensitive):** {{{personalDetails}}}
 *   **Unit System:** {{{unitSystem}}}
 
-Based on this, generate a list of substitutions.
+Based on all this information, generate a list of substitutions.
 `,
 });
 

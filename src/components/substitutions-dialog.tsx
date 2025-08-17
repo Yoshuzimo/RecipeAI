@@ -48,6 +48,8 @@ export function SubstitutionsDialog({
   const [error, setError] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<Substitution[] | null>(null);
   const [userSelections, setUserSelections] = useState<Record<string, string>>({});
+  const [allowExternalSuggestions, setAllowExternalSuggestions] = useState(false);
+
 
   useEffect(() => {
     // If there are initial ingredients, go straight to AI suggestions
@@ -72,7 +74,7 @@ export function SubstitutionsDialog({
     setAiSuggestions(null);
     setMode(SubstitutionMode.Ai);
     
-    const result = await handleGenerateSubstitutions(recipe, selectedIngredients, inventory);
+    const result = await handleGenerateSubstitutions(recipe, selectedIngredients, inventory, allowExternalSuggestions);
     if (result.error) {
         setError(result.error);
     } else {
@@ -119,9 +121,12 @@ export function SubstitutionsDialog({
     }
 
     if (mode === SubstitutionMode.Ai && aiSuggestions) {
+      const suggestionsWithContent = aiSuggestions.filter(s => s.suggestedSubstitutions.length > 0);
+      const suggestionsWithoutContent = aiSuggestions.filter(s => s.suggestedSubstitutions.length === 0);
+
       return (
         <div className="space-y-4">
-          {aiSuggestions.map(suggestion => (
+          {suggestionsWithContent.map(suggestion => (
             <Card key={suggestion.originalIngredient}>
                 <CardHeader>
                     <CardTitle>Substitutions for <span className="text-primary">{suggestion.originalIngredient}</span></CardTitle>
@@ -140,14 +145,37 @@ export function SubstitutionsDialog({
                 </CardContent>
             </Card>
           ))}
+          {suggestionsWithoutContent.length > 0 && (
+             <Card className="border-dashed">
+                <CardHeader>
+                    <CardTitle>No Substitutions Found</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">No suitable substitutions were found in your inventory for the following items:</p>
+                     <ul className="list-disc list-inside mt-2">
+                        {suggestionsWithoutContent.map(s => <li key={s.originalIngredient}>{s.originalIngredient}</li>)}
+                    </ul>
+                    <div className="flex items-center space-x-2 mt-4">
+                        <Checkbox
+                            id="allowExternal"
+                            checked={allowExternalSuggestions}
+                            onCheckedChange={(checked) => setAllowExternalSuggestions(!!checked)}
+                        />
+                        <Label htmlFor="allowExternal" className="text-sm">
+                           Allow suggesting items not in my inventory?
+                        </Label>
+                    </div>
+                     <Button onClick={handleGenerateAiSubstitutions} className="mt-4">
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Regenerate
+                    </Button>
+                </CardContent>
+            </Card>
+          )}
         </div>
       );
     }
     
-    if (mode === SubstitutionMode.Inventory) {
-      return <p>Choose from inventory feature coming soon!</p>;
-    }
-
     // Initial selection screen
     return (
         <div className="space-y-4">
@@ -191,27 +219,38 @@ export function SubstitutionsDialog({
             {renderContent()}
         </ScrollArea>
         
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:justify-between">
             {mode === SubstitutionMode.None ? (
-                 <div className="flex w-full justify-between">
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                 <>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="allowExternal"
+                            checked={allowExternalSuggestions}
+                            onCheckedChange={(checked) => setAllowExternalSuggestions(!!checked)}
+                        />
+                        <Label htmlFor="allowExternal" className="text-sm">
+                           Suggest items not in my inventory
+                        </Label>
+                    </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setMode(SubstitutionMode.Inventory)} disabled={selectedIngredients.length === 0}>
-                            Choose from Inventory
-                        </Button>
+                        <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                         <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0}>
                             <Sparkles className="mr-2 h-4 w-4" />
-                            AI Suggested
+                            Get Suggestions
                         </Button>
                     </div>
-                </div>
+                </>
             ) : (
-                <div className="flex w-full justify-between">
-                    <Button variant="outline" onClick={() => setMode(SubstitutionMode.None)}>Back</Button>
+                <>
+                    <Button variant="outline" onClick={() => {
+                      setMode(SubstitutionMode.None);
+                      setUserSelections({});
+                      setAiSuggestions(null);
+                    }}>Back</Button>
                     <Button onClick={handleSubmit} disabled={isSubmitDisabled()}>
                         Apply Substitutions
                     </Button>
-                </div>
+                </>
             )}
 
         </DialogFooter>
