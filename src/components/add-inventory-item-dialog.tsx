@@ -44,8 +44,8 @@ const formSchema = z.object({
   name: z.string().min(2, {
     message: "Item name must be at least 2 characters.",
   }),
-  totalQuantity: z.coerce.number().positive({
-    message: "Quantity must be a positive number.",
+  quantity: z.coerce.number().positive({
+    message: "Package size must be a positive number.",
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
@@ -90,7 +90,7 @@ export function AddInventoryItemDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      totalQuantity: 1,
+      quantity: 1,
       unit: "lbs",
     },
   });
@@ -112,7 +112,7 @@ export function AddInventoryItemDialog({
         fetchData();
         form.reset({
             name: "",
-            totalQuantity: 1,
+            quantity: 1,
             unit: unitSystem === 'us' ? 'lbs' : 'kg',
             expiryDate: addDays(new Date(), 7),
             locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
@@ -122,7 +122,14 @@ export function AddInventoryItemDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const newItem = await addInventoryItem(values);
+      const newItem = await addInventoryItem({
+        name: values.name,
+        totalQuantity: values.quantity, // When adding, total and original are the same
+        originalQuantity: values.quantity,
+        unit: values.unit,
+        expiryDate: values.expiryDate,
+        locationId: values.locationId,
+      });
       onItemAdded(newItem);
       toast({
         title: "Item Added",
@@ -144,7 +151,7 @@ export function AddInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
-            Add a new ingredient or leftover to your inventory.
+            Add a new package to your inventory. You can manage individual quantities later.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -165,10 +172,10 @@ export function AddInventoryItemDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="totalQuantity"
+                name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
+                    <FormLabel>Package Size</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="e.g., 1.5" {...field} />
                     </FormControl>

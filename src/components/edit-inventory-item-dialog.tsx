@@ -106,7 +106,7 @@ export function EditInventoryItemDialog({
     <Form {...form}>
     <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 rounded-lg border p-4">
          <div>
-            <Label>Package Fill Level</Label>
+            <Label>Package Fill Level ({item.originalQuantity} {item.unit})</Label>
             <Progress value={percentage} className="mt-2"/>
             <p className="text-sm text-muted-foreground mt-1">{`~${percentage.toFixed(0)}% full (${item.totalQuantity.toFixed(2)} / ${item.originalQuantity} ${item.unit})`}</p>
         </div>

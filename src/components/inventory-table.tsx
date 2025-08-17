@@ -61,7 +61,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
             data.map((group) => {
               const status = getItemStatus(group.nextExpiry);
               return (
-                <TableRow key={group.name} onClick={() => onRowClick(group)} className="cursor-pointer">
+                <TableRow key={`${group.name}-${group.unit}`} onClick={() => onRowClick(group)} className="cursor-pointer">
                   <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell>
                     {group.packageInfo}

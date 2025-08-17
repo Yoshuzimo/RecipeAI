@@ -1,4 +1,5 @@
 
+
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, RecipeIngredient } from "./types";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -122,6 +123,7 @@ export async function getInventory(): Promise<InventoryItem[]> {
 type AddItemData = {
     name: string;
     totalQuantity: number;
+    originalQuantity: number;
     unit: Unit;
     expiryDate: Date;
     locationId: string;
@@ -132,7 +134,6 @@ export async function addInventoryItem(item: AddItemData): Promise<InventoryItem
   const newItem: InventoryItem = { 
       ...item, 
       id: uuidv4(),
-      originalQuantity: item.totalQuantity, // When adding, original and total are the same
     };
   MOCK_INVENTORY.push(newItem);
   return newItem;
@@ -241,4 +242,11 @@ export async function updateMealTime(mealId: string, newTime: string): Promise<D
         return mealLog;
     }
     return null;
+}
+
+export async function saveSettings(settings: Settings): Promise<Settings> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    MOCK_SETTINGS = settings;
+    mockLocalStorage.set('settings', JSON.stringify(settings));
+    return MOCK_SETTINGS;
 }
