@@ -7,6 +7,7 @@ import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros } from "@/lib/data";
 import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
+import { addDays } from "date-fns";
 import { z } from "zod";
 
 const inventoryItemSchema = z.object({
@@ -299,5 +300,27 @@ export async function handleLogCookedMeal(
     } catch (error) {
         console.error("Error logging cooked meal:", error);
         return { success: false, error: "Failed to log meal. AI service might be down." };
+    }
+}
+
+export async function handleTransferItemToFridge(
+    item: InventoryItem
+): Promise<{success: boolean; error: string | null; updatedItem: InventoryItem | null}> {
+    if (!item.name.includes('(Freezer)')) {
+        return { success: false, error: "This item is not in the freezer.", updatedItem: null };
+    }
+
+    try {
+        const updatedItemData: InventoryItem = {
+            ...item,
+            name: item.name.replace('(Freezer)', '(Fridge)'),
+            expiryDate: addDays(new Date(), 3), // Sets expiry to 3 days from now
+        };
+        const updatedItem = await updateInventoryItem(updatedItemData);
+        return { success: true, error: null, updatedItem: updatedItem };
+    } catch(error) {
+        console.error("Error transferring item:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { success: false, error: `Failed to transfer item: ${errorMessage}`, updatedItem: null };
     }
 }
