@@ -33,8 +33,11 @@ import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 
 const formSchema = z.object({
-  quantity: z.coerce.number().positive({
-    message: "Quantity must be a positive number.",
+  packageSize: z.coerce.number().positive({
+    message: "Package size must be a positive number.",
+  }),
+  packageCount: z.coerce.number().int().gte(0, {
+      message: "Number of packages must be zero or more."
   }),
   expiryDate: z.date({
     required_error: "An expiry date is required.",
@@ -55,16 +58,24 @@ export function EditInventoryItemDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
-      quantity: item.quantity,
+      packageSize: item.packageSize,
+      packageCount: item.packageCount,
       expiryDate: new Date(item.expiryDate),
     },
   });
 
   async function onEditSubmit(values: z.infer<typeof formSchema>) {
+    // If the count is 0, treat it as a removal
+    if (values.packageCount === 0) {
+        onRemove();
+        return;
+    }
+    
     try {
       const updatedItem = await updateInventoryItem({
         ...item,
-        quantity: values.quantity,
+        packageSize: values.packageSize,
+        packageCount: values.packageCount,
         expiryDate: values.expiryDate
       });
       onItemUpdated(updatedItem);
@@ -103,12 +114,12 @@ export function EditInventoryItemDialog({
     <Form {...form}>
     <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 rounded-lg border p-4">
         <div className="grid grid-cols-2 gap-4">
-            <FormField
+             <FormField
             control={form.control}
-            name="quantity"
+            name="packageSize"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Quantity ({item.unit})</FormLabel>
+                <FormLabel>Package Size ({item.unit})</FormLabel>
                 <FormControl>
                     <Input type="number" {...field} />
                 </FormControl>
@@ -117,44 +128,57 @@ export function EditInventoryItemDialog({
             )}
             />
              <FormField
-              control={form.control}
-              name="expiryDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Expiry Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
+            control={form.control}
+            name="packageCount"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Number of Packages</FormLabel>
+                <FormControl>
+                    <Input type="number" {...field} />
+                </FormControl>
+                <FormMessage />
                 </FormItem>
-              )}
+            )}
             />
         </div>
+         <FormField
+            control={form.control}
+            name="expiryDate"
+            render={({ field }) => (
+            <FormItem className="flex flex-col">
+                <FormLabel>Expiry Date</FormLabel>
+                <Popover>
+                <PopoverTrigger asChild>
+                    <FormControl>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                        )}
+                    >
+                        {field.value ? (
+                        format(field.value, "PPP")
+                        ) : (
+                        <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                    </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    initialFocus
+                    />
+                </PopoverContent>
+                </Popover>
+                <FormMessage />
+            </FormItem>
+            )}
+        />
         <div className="flex justify-between items-center">
             <Button size="icon" type="button" variant="destructive" onClick={onRemove}>
                 <Trash2 className="h-4 w-4" />

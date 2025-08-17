@@ -4,7 +4,8 @@ export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'g
 export type InventoryItem = {
   id: string;
   name: string;
-  quantity: number;
+  packageSize: number;
+  packageCount: number;
   unit: Unit;
   expiryDate: Date;
 };

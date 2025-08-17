@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { ShoppingListItem } from "./shopping-list";
 import { ScrollArea } from "./ui/scroll-area";
@@ -44,8 +44,11 @@ import type { Unit } from "@/lib/types";
 
 const itemSchema = z.object({
   name: z.string(),
-  quantity: z.coerce.number().positive({
-    message: "Quantity must be a positive number.",
+  packageSize: z.coerce.number().positive({
+    message: "Package size must be a positive number.",
+  }),
+  packageCount: z.coerce.number().int().positive({
+      message: "Number of packages must be a positive whole number."
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
@@ -101,9 +104,10 @@ export function BuyItemsDialog({
     defaultValues: {
       items: items.map(item => ({
         name: item.item,
-        quantity: 1,
+        packageSize: 1,
+        packageCount: 1,
         unit: 'pcs',
-        expiryDate: new Date(),
+        expiryDate: addDays(new Date(), 7),
       })),
     },
   });
@@ -152,10 +156,10 @@ export function BuyItemsDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
-                                name={`items.${index}.quantity`}
+                                name={`items.${index}.packageSize`}
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Quantity</FormLabel>
+                                    <FormLabel>Package Size</FormLabel>
                                     <FormControl>
                                     <Input type="number" placeholder="e.g., 1.5" {...field} />
                                     </FormControl>
@@ -186,6 +190,19 @@ export function BuyItemsDialog({
                                 )}
                             />
                         </div>
+                        <FormField
+                            control={form.control}
+                            name={`items.${index}.packageCount`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Number of Packages</FormLabel>
+                                <FormControl>
+                                <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                         <FormField
                         control={form.control}
                         name={`items.${index}.expiryDate`}

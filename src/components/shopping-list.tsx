@@ -78,7 +78,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const { register, handleSubmit, reset } = useForm<AddItemForm>();
 
-  const lowOnStockItems = inventory.filter(item => item.quantity < 2 && item.unit === 'pcs' || item.quantity < 200 && (item.unit === 'g' || item.unit === 'ml'));
+  const lowOnStockItems = inventory.filter(item => (item.packageCount * item.packageSize) < 2 && item.unit === 'pcs' || (item.packageCount * item.packageSize) < 200 && (item.unit === 'g' || item.unit === 'ml'));
 
   const checkedItems = useMemo(() => myShoppingList.filter(item => item.checked), [myShoppingList]);
   const hasCheckedItems = checkedItems.length > 0;
@@ -224,7 +224,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                       {lowOnStockItems.map(item => (
                       <TableRow key={item.id} onClick={() => handleSuggestionClick({ item: item.name, quantity: `1 ${item.unit}`})} className="cursor-pointer">
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell>{item.quantity}{item.unit}</TableCell>
+                          <TableCell>{(item.packageSize * item.packageCount).toFixed(2)}{item.unit}</TableCell>
                       </TableRow>
                       ))}
                   </TableBody>

@@ -30,7 +30,7 @@ export default function InventoryClient({
           acc.push(group);
         }
         group.items.push(item);
-        group.totalQuantity += item.quantity;
+        group.totalQuantity += (item.packageSize * item.packageCount);
         const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
         group.items = sortedItems;
         group.nextExpiry = sortedItems[0]?.expiryDate ?? null;

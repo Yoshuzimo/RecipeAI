@@ -37,7 +37,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <SidebarHeader className="p-4">
             <Link href="/" className="flex items-center gap-2">
               <Logo className="w-8 h-8 text-primary" />
-              <span className="font-bold text-lg group-data-[state=collapsed]:hidden">RecipeAI</span>
+              <span className="font-bold text-lg group-data-[state=collapsed]:hidden">CookSmart</span>
             </Link>
           </SidebarHeader>
           <SidebarContent>

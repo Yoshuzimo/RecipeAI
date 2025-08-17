@@ -33,7 +33,7 @@ export function ViewInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>View {group.name} Packages</DialogTitle>
           <DialogDescription>
-            View and manage individual packages of {group.name}. Total: {group.totalQuantity}{group.unit}.
+            View and manage individual packages of {group.name}. Total: {group.totalQuantity.toFixed(2)}{group.unit}.
           </DialogDescription>
         </DialogHeader>
         <Separator />

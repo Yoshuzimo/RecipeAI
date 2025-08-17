@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import type { Unit } from "@/lib/types";
@@ -43,8 +43,11 @@ const formSchema = z.object({
   name: z.string().min(2, {
     message: "Item name must be at least 2 characters.",
   }),
-  quantity: z.coerce.number().positive({
-    message: "Quantity must be a positive number.",
+  packageSize: z.coerce.number().positive({
+    message: "Package size must be a positive number.",
+  }),
+  packageCount: z.coerce.number().int().positive({
+      message: "Number of packages must be a positive whole number."
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
@@ -90,6 +93,8 @@ export function AddInventoryItemDialog({
     }
     if (isOpen) {
         fetchUnitSystem();
+        // Set default expiry date to 7 days from now
+        form.setValue('expiryDate', addDays(new Date(), 7));
     }
   }, [isOpen]);
 
@@ -97,7 +102,8 @@ export function AddInventoryItemDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      quantity: 0,
+      packageSize: 1,
+      packageCount: 1,
       unit: "lbs",
     },
   });
@@ -111,7 +117,13 @@ export function AddInventoryItemDialog({
         description: `${newItem.name} has been added to your inventory.`,
       });
       setIsOpen(false);
-      form.reset();
+      form.reset({
+        name: "",
+        packageSize: 1,
+        packageCount: 1,
+        unit: unitSystem === 'us' ? 'lbs' : 'kg',
+        expiryDate: addDays(new Date(), 7),
+      });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -148,10 +160,10 @@ export function AddInventoryItemDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="quantity"
+                name="packageSize"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
+                    <FormLabel>Package Size</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="e.g., 1.5" {...field} />
                     </FormControl>
@@ -182,6 +194,19 @@ export function AddInventoryItemDialog({
                 )}
               />
             </div>
+             <FormField
+                control={form.control}
+                name="packageCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Packages</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             <FormField
               control={form.control}
               name="expiryDate"

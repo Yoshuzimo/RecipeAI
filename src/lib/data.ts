@@ -14,16 +14,16 @@ const threeDaysFromNow = new Date(today);
 threeDaysFromNow.setDate(today.getDate() + 3);
 
 let MOCK_INVENTORY: InventoryItem[] = [
-  { id: '1', name: 'Chicken Breast', quantity: 1, unit: 'lbs', expiryDate: twoDaysFromNow },
-  { id: '1a', name: 'Chicken Breast', quantity: 1.5, unit: 'lbs', expiryDate: nextWeek },
-  { id: '2', name: 'Broccoli', quantity: 12, unit: 'oz', expiryDate: nextWeek },
-  { id: '3', name: 'Milk', quantity: 1, unit: 'gallon', expiryDate: tomorrow },
-  { id: '4', name: 'Eggs', quantity: 12, unit: 'pcs', expiryDate: nextWeek },
-  { id: '5', name: 'Tomatoes', quantity: 5, unit: 'pcs', expiryDate: nextWeek },
-  { id: '6', name: 'Ground Beef', quantity: 1, unit: 'lbs', expiryDate: yesterday },
-  { id: '6a', name: 'Ground Beef', quantity: 1, unit: 'lbs', expiryDate: threeDaysFromNow },
-  { id: '7', name: 'Cheddar Cheese', quantity: 8, unit: 'oz', expiryDate: nextWeek },
-  { id: '8', name: 'Lettuce', quantity: 1, unit: 'pcs', expiryDate: twoDaysFromNow },
+  { id: '1', name: 'Chicken Breast', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: twoDaysFromNow },
+  { id: '1a', name: 'Chicken Breast', packageSize: 1.5, packageCount: 1, unit: 'lbs', expiryDate: nextWeek },
+  { id: '2', name: 'Broccoli', packageSize: 12, packageCount: 1, unit: 'oz', expiryDate: nextWeek },
+  { id: '3', name: 'Milk', packageSize: 1, packageCount: 1, unit: 'gallon', expiryDate: tomorrow },
+  { id: '4', name: 'Eggs', packageSize: 12, packageCount: 1, unit: 'pcs', expiryDate: nextWeek },
+  { id: '5', name: 'Tomatoes', packageSize: 1, packageCount: 5, unit: 'pcs', expiryDate: nextWeek },
+  { id: '6', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: yesterday },
+  { id: '6a', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: threeDaysFromNow },
+  { id: '7', name: 'Cheddar Cheese', packageSize: 8, packageCount: 1, unit: 'oz', expiryDate: nextWeek },
+  { id: '8', name: 'Lettuce', packageSize: 1, packageCount: 1, unit: 'pcs', expiryDate: twoDaysFromNow },
 ];
 
 let MOCK_PERSONAL_DETAILS: PersonalDetails = {
