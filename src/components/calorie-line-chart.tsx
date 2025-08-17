@@ -156,10 +156,15 @@ export function CalorieLineChart({
                     <ChartTooltipContent 
                         formatter={(value, name, props) => {
                             const { payload } = props;
+                            if (!payload) return null;
+
+                            const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
+                            const runningTotal = value;
+
                             return (
                                 <div className="text-sm">
                                     <p className="font-bold">{payload?.meal} ({format(payload?.loggedAt, "p")})</p>
-                                    <p>{value} calories (running total)</p>
+                                    <p>{mealCalories.toFixed(0)} calories ({runningTotal} total)</p>
                                     <ul className="list-disc list-inside text-muted-foreground">
                                         {payload?.dishes?.map((d: any) => <li key={d.name}>{d.name}</li>)}
                                     </ul>
