@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
+import { EditInventoryItemDialog } from "./edit-inventory-item-dialog";
 
 export default function InventoryClient({
   initialData,
@@ -13,10 +14,28 @@ export default function InventoryClient({
   initialData: InventoryItem[];
 }) {
   const [inventory, setInventory] = useState<InventoryItem[]>(initialData);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   const handleItemAdded = (newItem: InventoryItem) => {
     setInventory((prev) => [...prev, newItem].sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime()));
+  };
+
+  const handleItemUpdated = (updatedItem: InventoryItem) => {
+    setInventory((prev) => 
+      prev.map(item => item.id === updatedItem.id ? updatedItem : item)
+         .sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime())
+    );
+  };
+  
+  const handleItemRemoved = (itemId: string) => {
+    setInventory((prev) => prev.filter(item => item.id !== itemId));
+  }
+
+  const handleRowClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setIsEditDialogOpen(true);
   };
 
   return (
@@ -29,20 +48,30 @@ export default function InventoryClient({
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Item
           </Button>
         </div>
       </div>
 
-      <InventoryTable data={inventory} />
+      <InventoryTable data={inventory} onRowClick={handleRowClick} />
 
       <AddInventoryItemDialog
-        isOpen={isDialogOpen}
-        setIsOpen={setIsDialogOpen}
+        isOpen={isAddDialogOpen}
+        setIsOpen={setIsAddDialogOpen}
         onItemAdded={handleItemAdded}
       />
+
+      {selectedItem && (
+        <EditInventoryItemDialog
+          isOpen={isEditDialogOpen}
+          setIsOpen={setIsEditDialogOpen}
+          item={selectedItem}
+          onItemUpdated={handleItemUpdated}
+          onItemRemoved={handleItemRemoved}
+        />
+      )}
     </>
   );
 }

@@ -38,7 +38,7 @@ function getItemStatus(expiryDate: Date): {
   return { label: "Fresh", className: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-900/80" };
 }
 
-export function InventoryTable({ data }: { data: InventoryItem[] }) {
+export function InventoryTable({ data, onRowClick }: { data: InventoryItem[], onRowClick: (item: InventoryItem) => void }) {
   const sortedData = [...data].sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
 
   return (
@@ -57,7 +57,7 @@ export function InventoryTable({ data }: { data: InventoryItem[] }) {
             sortedData.map((item) => {
               const status = getItemStatus(item.expiryDate);
               return (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} onClick={() => onRowClick(item)} className="cursor-pointer">
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     {item.quantity} {item.unit}

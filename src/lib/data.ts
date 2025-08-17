@@ -24,7 +24,7 @@ let MOCK_INVENTORY: InventoryItem[] = [
 export async function getInventory(): Promise<InventoryItem[]> {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
-  return MOCK_INVENTORY;
+  return MOCK_INVENTORY.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
 }
 
 export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> {
@@ -32,4 +32,24 @@ export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise
   const newItem = { ...item, id: (MOCK_INVENTORY.length + 1).toString() };
   MOCK_INVENTORY.push(newItem);
   return newItem;
+}
+
+export async function updateInventoryItem(updatedItem: InventoryItem): Promise<InventoryItem> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const index = MOCK_INVENTORY.findIndex(item => item.id === updatedItem.id);
+    if (index === -1) {
+        throw new Error("Item not found");
+    }
+    MOCK_INVENTORY[index] = updatedItem;
+    return updatedItem;
+}
+
+export async function removeInventoryItem(itemId: string): Promise<{ id: string }> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const index = MOCK_INVENTORY.findIndex(item => item.id === itemId);
+    if (index === -1) {
+        throw new Error("Item not found");
+    }
+    MOCK_INVENTORY.splice(index, 1);
+    return { id: itemId };
 }
