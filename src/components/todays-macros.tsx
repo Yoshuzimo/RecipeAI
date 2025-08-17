@@ -21,6 +21,7 @@ import {
 import { Separator } from "./ui/separator"
 import { getTodaysMacros } from "@/lib/data"
 import type { DailyMacros } from "@/lib/types"
+import { CalorieLineChart } from "./calorie-line-chart"
 
 const dailyGoals = {
     calories: 2200,
@@ -30,10 +31,6 @@ const dailyGoals = {
 }
 
 const chartConfig = {
-  calories: {
-    label: "Calories",
-    color: "hsl(var(--accent))",
-  },
   protein: {
     label: "Protein",
     color: "hsl(var(--primary))",
@@ -116,50 +113,14 @@ export function TodaysMacros() {
     );
   };
   
-    const CustomCalorieTick = (props: any) => {
-    const { x, y, payload } = props;
-    const mealName = payload.value;
-    
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
-          {mealName}
-        </text>
-      </g>
-    );
-  };
-
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="meal"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tick={<CustomCalorieTick />}
-                  interval={0}
-                  height={40}
-                />
-                <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) => `${value} kcal`}
-                />
-                <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="calories" fill="var(--color-calories)" radius={4} />
-            </BarChart>
-        </ChartContainer>
-
+        <CalorieLineChart dailyData={dailyData} dailyGoal={dailyGoals.calories} />
+        
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
                 <CartesianGrid vertical={false} />
@@ -180,9 +141,9 @@ export function TodaysMacros() {
                 />
                 <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="protein" fill="var(--color-protein)" radius={4} stackId="a" />
-                <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} stackId="a" />
-                <Bar dataKey="fat" fill="var(--color-fat)" radius={4} stackId="a" />
+                <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
+                <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
+                <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
             </BarChart>
         </ChartContainer>
       </CardContent>
