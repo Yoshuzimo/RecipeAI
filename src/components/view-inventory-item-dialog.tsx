@@ -104,7 +104,7 @@ export function ViewInventoryItemDialog({
         return `${Math.round(partialValue)} / ${size} pcs`;
       }
       const percentage = (partialValue / size * 100).toFixed(0);
-      return `${partialValue.toFixed(2)} ${group.unit} (~${percentage}%)`;
+      return `~${percentage}% full`;
   }
   
   const isNonDivisiblePiece = (itemName: string, unit: string) => {
@@ -130,36 +130,58 @@ export function ViewInventoryItemDialog({
                     Object.values(packageGroups).map(({ size }) => (
                         <div key={size} className="space-y-4 p-4 border rounded-lg">
                             <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
-                            <div className="grid grid-cols-2 gap-8 items-end">
-                                <Controller
-                                    name={`${size}.full`}
-                                    control={control}
-                                    render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
-                                            <Input id={`full-count-${size}`} type="number" min="0" step="1" {...field} />
+                             <Controller
+                                name={`${size}.full`}
+                                control={control}
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
+                                        <Input id={`full-count-${size}`} type="number" min="0" step="1" {...field} />
+                                    </div>
+                                )}
+                            />
+                            <Controller
+                                name={`${size}.partial`}
+                                control={control}
+                                render={({ field: { onChange, value } }) => (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <Label>Partial Container</Label>
+                                            <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
                                         </div>
-                                    )}
-                                />
-                                <Controller
-                                    name={`${size}.partial`}
-                                    control={control}
-                                    render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center">
-                                                <Label>Partial Container</Label>
-                                                <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
-                                            </div>
+                                        <div className="flex items-center gap-4">
                                             <Slider
-                                                value={[field.value]}
-                                                onValueChange={(vals) => field.onChange(vals[0])}
+                                                value={[value]}
+                                                onValueChange={(vals) => onChange(vals[0])}
                                                 max={size}
                                                 step={isNonDivisiblePiece(group.name, group.unit) ? 1 : size / 100}
+                                                className="flex-1"
+                                            />
+                                            <Input
+                                                type="number"
+                                                value={value}
+                                                onChange={(e) => {
+                                                    const numValue = parseFloat(e.target.value);
+                                                    if (!isNaN(numValue)) {
+                                                        onChange(numValue);
+                                                    }
+                                                }}
+                                                 onBlur={(e) => {
+                                                    let numValue = parseFloat(e.target.value);
+                                                    if (isNaN(numValue) || numValue < 0) {
+                                                        numValue = 0;
+                                                    } else if (numValue > size) {
+                                                        numValue = size;
+                                                    }
+                                                    onChange(numValue);
+                                                }}
+                                                className="w-28"
+                                                step={isNonDivisiblePiece(group.name, group.unit) ? 1 : "0.01"}
                                             />
                                         </div>
-                                    )}
-                                />
-                            </div>
+                                    </div>
+                                )}
+                            />
                         </div>
                     ))
                 ) : (
