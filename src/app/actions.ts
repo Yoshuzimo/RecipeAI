@@ -1,6 +1,7 @@
 "use server";
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
+import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import type { InventoryItem } from "@/lib/types";
 import { z } from "zod";
 
@@ -51,5 +52,29 @@ export async function handleGenerateSuggestions(
   } catch (error) {
     console.error(error);
     return { error: "Failed to generate suggestions. Please try again.", suggestions: null };
+  }
+}
+
+export async function handleGenerateShoppingList(
+  inventory: InventoryItem[],
+  personalDetails: any // In a real app, this would be fetched securely
+) {
+  const currentInventoryString = formatInventoryToString(inventory);
+  
+  // In a real app, this would be real data.
+  const consumptionHistory = "User has eaten a lot of chicken, broccoli, and rice this month.";
+
+  const personalDetailsString = JSON.stringify(personalDetails, null, 2);
+
+  try {
+    const result = await generateShoppingList({
+      currentInventory: currentInventoryString,
+      personalDetails: personalDetailsString,
+      consumptionHistory,
+    });
+    return { shoppingList: result.shoppingList, error: null };
+  } catch (error) {
+    console.error(error);
+    return { error: "Failed to generate shopping list. Please try again.", shoppingList: null };
   }
 }
