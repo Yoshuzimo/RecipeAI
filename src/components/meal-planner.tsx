@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useFormStatus } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
+import React from "react";
 
 const initialState = {
   suggestions: null,
@@ -36,7 +37,7 @@ function SubmitButton() {
 
 export function MealPlanner({ inventory }: { inventory: InventoryItem[] }) {
   const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
-  const [state, formAction] = useFormState(handleGenerateSuggestionsWithInventory, initialState);
+  const [state, formAction] = React.useActionState(handleGenerateSuggestionsWithInventory, initialState);
 
   return (
     <div className="space-y-8">
