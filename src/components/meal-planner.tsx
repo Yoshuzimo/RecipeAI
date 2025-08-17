@@ -3,7 +3,7 @@
 
 import React, { useState, useTransition, useRef } from "react";
 import { handleGenerateSuggestions } from "@/app/actions";
-import type { InventoryItem, Recipe } from "@/lib/types";
+import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { SubstitutionsDialog } from "./substitutions-dialog";
 import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
+import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
+import { getInventory } from "@/lib/data";
+
 
 const initialState = {
   suggestions: null,
   error: null,
-  adjustedRecipe: null,
-  originalRecipeTitle: null,
   debugInfo: {
     promptInput: "AI prompt will appear here...",
     rawResponse: "Raw AI response will appear here...",
@@ -48,11 +49,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
   const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
 
+  const [isViewInventoryDialogOpen, setIsViewInventoryDialogOpen] = useState(false);
+  const [groupToView, setGroupToView] = useState<InventoryItemGroup | null>(null);
+
+
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
       const result = await handleGenerateSuggestions(formData);
       setError(result.error);
-      setDebugInfo(result.debugInfo);
+      if (result.debugInfo) {
+          setDebugInfo(result.debugInfo);
+      }
       
       if (result.suggestions) {
         setSuggestions(result.suggestions);
@@ -62,6 +69,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         setSuggestions(prev => 
             prev?.map(s => s.title === result.originalRecipeTitle ? result.adjustedRecipe! : s) || null
         );
+         toast({
+            title: "Recipe Adjusted",
+            description: `Servings for "${result.originalRecipeTitle}" updated.`,
+        });
       }
     });
   };
@@ -78,7 +89,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const getIngredientStatus = (ingredient: string) => {
       const now = new Date();
       now.setHours(0,0,0,0);
-      // Find the specific inventory item that matches this ingredient string
       const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
       if (inventoryItem) {
           const expiryDate = new Date(inventoryItem.expiryDate);
@@ -95,7 +105,23 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       const status = getIngredientStatus(ingredient);
       if (status.startsWith('expired')) {
           setIngredientToCheck({recipe, ingredient});
-          setIsExpiredCheckDialogOpen(true);
+          // Find all packages for the expired item
+          const ingredientName = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()))?.name;
+          if (ingredientName) {
+            const items = inventory.filter(item => item.name === ingredientName);
+            const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
+            const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
+            const unit = items.length > 0 ? items[0].unit : 'pcs';
+
+            setGroupToView({
+                name: ingredientName,
+                items,
+                totalQuantity,
+                unit,
+                nextExpiry,
+            });
+            setIsViewInventoryDialogOpen(true);
+          }
       } else {
           handleOpenSubstitutions(recipe, [ingredient]);
       }
@@ -111,8 +137,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       if (ingredientToCheck) {
           const { recipe, ingredient } = ingredientToCheck;
           if(isGood) {
+            // User says it's good, so don't force substitution
             handleOpenSubstitutions(recipe, []);
           } else {
+            // User says it's spoiled, pre-select it for substitution
             handleOpenSubstitutions(recipe, [ingredient]);
           }
       }
@@ -126,6 +154,29 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       );
       setRecipeForSubstitutions(null);
   }
+
+  const handleInventoryUpdate = async () => {
+    const updatedInventory = await getInventory(); // Re-fetch inventory
+    setInventory(updatedInventory);
+
+    if (ingredientToCheck) {
+        const { recipe, ingredient } = ingredientToCheck;
+        const ingredientName = inventory.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
+        
+        // Check if the item still exists in inventory after update
+        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && i.quantity > 0);
+        
+        if (!itemStillExists) {
+            toast({
+                title: "Item Removed",
+                description: `${ingredientName} was removed from inventory. Opening substitutions.`,
+            });
+            // Item was fully removed, so force substitution
+            handleOpenSubstitutions(recipe, [ingredient]);
+        }
+    }
+    setIngredientToCheck(null); // Reset after handling
+  };
 
 
   return (
@@ -144,12 +195,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                 name="cravingsOrMood"
                 placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
                 className="mt-1"
+                disabled={isPending}
               />
-              {error?.cravingsOrMood && (
-                <p className="text-sm font-medium text-destructive mt-1">
-                  {error.cravingsOrMood[0]}
-                </p>
-              )}
             </div>
             <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
               {isPending ? (
@@ -164,6 +211,16 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                 </>
               )}
             </Button>
+            {error?.form && (
+                <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
+            )}
+            {error?.fieldErrors && (
+                <div className="text-sm font-medium text-destructive mt-2">
+                    {Object.entries(error.fieldErrors).map(([key, value]) => (
+                        <p key={key}>{`${key}: ${(value as string[]).join(', ')}`}</p>
+                    ))}
+                </div>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -212,7 +269,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                         </AccordionTrigger>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
-                                <form action={handleSubmit} className="flex items-center gap-4">
+                                 <form action={handleSubmit} className="flex items-center gap-4">
                                      <h4 className="font-semibold">Servings</h4>
                                      <div className="flex items-center gap-2">
                                         <Button
@@ -240,6 +297,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                     <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
                                     <input type="hidden" name="recipeToAdjust" value={JSON.stringify(recipe)} />
                                 </form>
+
                                 <div>
                                     <h4 className="font-semibold mb-2">Ingredients</h4>
                                     <ul className="list-disc list-inside space-y-1 text-muted-foreground">
@@ -289,9 +347,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             </p>
           </div>
         )}
-        {error?.form && (
-           <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
-        )}
       </div>
 
        <div className="mt-8 space-y-4">
@@ -324,6 +379,21 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             ingredientName={ingredientToCheck.ingredient}
          />
      )}
+      {isViewInventoryDialogOpen && groupToView && (
+        <ViewInventoryItemDialog
+          isOpen={isViewInventoryDialogOpen}
+          setIsOpen={(open) => {
+            if (!open) {
+                // When dialog closes, refresh inventory and check if substitutions are needed
+                handleInventoryUpdate();
+            }
+            setIsViewInventoryDialogOpen(open);
+          }}
+          group={groupToView}
+          onItemUpdated={handleInventoryUpdate}
+          onItemRemoved={handleInventoryUpdate}
+        />
+      )}
     </>
   );
 }
