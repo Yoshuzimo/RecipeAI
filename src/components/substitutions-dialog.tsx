@@ -20,6 +20,7 @@ import { Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { useRateLimiter } from "@/hooks/use-rate-limiter";
 
 enum SubstitutionMode {
   None,
@@ -42,6 +43,7 @@ export function SubstitutionsDialog({
   onSubstitutionsApplied: (updatedRecipe: Recipe) => void;
   initialIngredients?: string[];
 }) {
+  const { checkRateLimit, recordRequest } = useRateLimiter();
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(initialIngredients);
   const [mode, setMode] = useState<SubstitutionMode>(SubstitutionMode.None);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,11 +71,14 @@ export function SubstitutionsDialog({
   
   const handleGenerateAiSubstitutions = async () => {
     if (selectedIngredients.length === 0) return;
+    if (!checkRateLimit()) return;
+
     setIsLoading(true);
     setError(null);
     setAiSuggestions(null);
     setMode(SubstitutionMode.Ai);
     
+    recordRequest();
     const result = await handleGenerateSubstitutions(recipe, selectedIngredients, inventory, allowExternalSuggestions);
     if (result.error) {
         setError(result.error);
@@ -234,8 +239,8 @@ export function SubstitutionsDialog({
                     </div>
                     <div className="flex gap-2">
                         <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                        <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0}>
-                            <Sparkles className="mr-2 h-4 w-4" />
+                        <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0 || isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                             Get Suggestions
                         </Button>
                     </div>

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -18,6 +17,7 @@ import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
 import { v4 as uuidv4 } from 'uuid';
 import { BuyItemsDialog } from "./buy-items-dialog";
+import { useRateLimiter } from "@/hooks/use-rate-limiter";
 
 export type ShoppingListItem = {
     id: string;
@@ -52,6 +52,7 @@ const initialSections: Section[] = [
 
 export function ShoppingList({ inventory, personalDetails }: { inventory: InventoryItem[], personalDetails: any }) {
   const [isPending, startTransition] = useTransition();
+  const { checkRateLimit, recordRequest } = useRateLimiter();
   const [aiShoppingList, setAiShoppingList] = useState<AIListItem[] | null>(null);
   const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +85,11 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const hasCheckedItems = checkedItems.length > 0;
 
   const handleGenerate = () => {
+    if (!checkRateLimit()) {
+        return;
+    }
     startTransition(async () => {
+      recordRequest();
       setError(null);
       const result = await handleGenerateShoppingList(inventory, personalDetails);
       if (result.error) {

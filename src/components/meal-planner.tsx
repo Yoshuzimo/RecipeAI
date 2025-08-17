@@ -18,6 +18,7 @@ import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { getInventory } from "@/lib/data";
+import { useRateLimiter } from "@/hooks/use-rate-limiter";
 
 
 const initialState = {
@@ -35,6 +36,7 @@ const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp",
 
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
+  const { checkRateLimit, recordRequest } = useRateLimiter();
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
@@ -56,7 +58,12 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
 
   const handleSubmit = (formData: FormData) => {
+    if (!checkRateLimit()) {
+      return;
+    }
+
     startTransition(async () => {
+      recordRequest();
       // Ensure inventory is in a hidden field to be sent with the form
       const currentInventoryJSON = JSON.stringify(inventory);
       formData.set('inventory', currentInventoryJSON);
@@ -132,12 +139,13 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             handleOpenSubstitutions(ingredientToCheck.recipe, []);
           } else {
             // User says it's spoiled, open the inventory view to manage packages
-            const ingredientName = inventory.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()))?.name;
+            const inventoryItem = inventory.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
+            const ingredientName = inventoryItem?.name;
             if (ingredientName) {
                 const items = inventory.filter(item => item.name === ingredientName);
-                const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
+                const totalQuantity = items.reduce((acc, item) => acc + (item.packageSize * item.packageCount), 0);
                 const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
-                const unit = items.length > 0 ? items[0].unit : 'pcs';
+                const unit = inventoryItem?.unit || 'pcs';
 
                 setGroupToView({
                     name: ingredientName,
@@ -169,7 +177,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         const ingredientName = inventory.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
         
         // Check if the item still exists in inventory after update
-        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && i.quantity > 0);
+        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && (i.packageSize * i.packageCount) > 0);
         
         if (!itemStillExists) {
             toast({
