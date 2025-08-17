@@ -19,6 +19,8 @@ import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { getInventory } from "@/lib/data";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
+import { LogMealDialog } from "./log-meal-dialog";
+import { Separator } from "./ui/separator";
 
 
 const initialState = {
@@ -55,6 +57,9 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   const [isViewInventoryDialogOpen, setIsViewInventoryDialogOpen] = useState(false);
   const [groupToView, setGroupToView] = useState<InventoryItemGroup | null>(null);
+
+  const [isLogMealDialogOpen, setIsLogMealDialogOpen] = useState(false);
+  const [recipeToLog, setRecipeToLog] = useState<Recipe | null>(null);
 
 
   const handleSubmit = (formData: FormData) => {
@@ -196,6 +201,19 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     setIngredientToCheck(null); // Reset after handling
     setGroupToView(null);
   };
+  
+  const handleCookItClick = (recipe: Recipe) => {
+    setRecipeToLog(recipe);
+    setIsLogMealDialogOpen(true);
+  };
+
+  const handleMealLogged = (newInventory: InventoryItem[]) => {
+    setInventory(newInventory);
+    toast({
+        title: "Inventory Updated",
+        description: "Your inventory has been updated with the new leftovers.",
+    })
+  }
 
 
   return (
@@ -359,9 +377,16 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                         <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
                                      </div>
                                 </div>
-                                <Button onClick={() => handleOpenSubstitutions(recipe)} disabled={isRateLimited}>
-                                    Make Substitutions
-                                </Button>
+                                <Separator />
+                                <div className="flex gap-2">
+                                    <Button onClick={() => handleOpenSubstitutions(recipe)} disabled={isRateLimited} variant="outline">
+                                        Make Substitutions
+                                    </Button>
+                                    <Button onClick={() => handleCookItClick(recipe)}>
+                                        <ChefHat className="mr-2 h-4 w-4" />
+                                        Cook It!
+                                    </Button>
+                                </div>
                             </div>
                         </AccordionContent>
                     </AccordionItem>
@@ -422,6 +447,14 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
           group={groupToView}
           onItemUpdated={handleInventoryUpdateAndCheckSubstitutions}
           onItemRemoved={handleInventoryUpdateAndCheckSubstitutions}
+        />
+      )}
+      {isLogMealDialogOpen && recipeToLog && (
+        <LogMealDialog
+            isOpen={isLogMealDialogOpen}
+            setIsOpen={setIsLogMealDialogOpen}
+            recipe={recipeToLog}
+            onMealLogged={handleMealLogged}
         />
       )}
     </>

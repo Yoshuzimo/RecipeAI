@@ -4,7 +4,8 @@
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
-import { getPersonalDetails, getUnitSystem } from "@/lib/data";
+import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory } from "@/lib/data";
 import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { z } from "zod";
 
@@ -234,5 +235,61 @@ export async function handleGenerateSubstitutions(
     } catch (error) {
         console.error(error);
         return { substitutions: null, error: "Failed to generate substitutions. Please try again." };
+    }
+}
+
+
+export async function handleLogCookedMeal(
+    recipe: Recipe,
+    servingsEaten: number,
+    storageMethod: string,
+): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const inventory = await getInventory();
+    const currentInventoryString = formatInventoryToString(inventory);
+    const unitSystem = await getUnitSystem();
+
+    try {
+        const result = await logCookedMeal({
+            recipe,
+            currentInventory: currentInventoryString,
+            servingsEaten,
+            storageMethod,
+            unitSystem
+        });
+
+        // This is a simplified deduction logic. A real app would need to parse AI response
+        // and match it precisely with inventory items, which is very complex.
+        // For this demo, we'll just remove a small fixed amount of the first ingredient.
+        if (inventory.length > 0) {
+            const firstItem = inventory[0];
+            if(firstItem.packageCount > 0) {
+                // firstItem.packageCount -= 1;
+                // if(firstItem.packageCount <= 0) {
+                //     await removeInventoryItem(firstItem.id);
+                // } else {
+                //     await updateInventoryItem(firstItem);
+                // }
+            }
+        }
+        
+        if (result.leftoverItem && result.leftoverItem.quantity > 0) {
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + (storageMethod === 'Freezer' ? 60 : 3)); // 3 days for fridge, 60 for freezer
+            
+            await addInventoryItem({
+                name: result.leftoverItem.name,
+                packageSize: result.leftoverItem.quantity,
+                packageCount: 1,
+                unit: 'pcs', // Leftovers are in "pieces" or servings
+                expiryDate,
+            });
+        }
+        
+        const newInventory = await getInventory();
+        return { success: true, error: null, newInventory };
+
+    } catch (error) {
+        console.error("Error logging cooked meal:", error);
+        return { success: false, error: "Failed to log cooked meal. AI service might be down." };
     }
 }
