@@ -1,6 +1,7 @@
 
 
 
+
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation } from "./types";
 
 const today = new Date();
@@ -72,6 +73,36 @@ export async function getStorageLocations(): Promise<StorageLocation[]> {
     await new Promise(resolve => setTimeout(resolve, 100));
     return MOCK_STORAGE_LOCATIONS;
 }
+
+export async function addStorageLocation(location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const newLocation = { ...location, id: Math.random().toString(36).substring(2, 9) };
+    MOCK_STORAGE_LOCATIONS.push(newLocation);
+    return newLocation;
+}
+
+export async function updateStorageLocation(location: StorageLocation): Promise<StorageLocation> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const index = MOCK_STORAGE_LOCATIONS.findIndex(l => l.id === location.id);
+    if (index === -1) throw new Error("Location not found");
+    MOCK_STORAGE_LOCATIONS[index] = location;
+    return location;
+}
+
+export async function removeStorageLocation(locationId: string): Promise<{id: string}> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // In a real app, we'd want to handle what happens to items in this location.
+    // For this demo, we'll prevent deletion if items exist.
+    const itemsInLocation = MOCK_INVENTORY.filter(item => item.locationId === locationId);
+    if (itemsInLocation.length > 0) {
+        throw new Error("Cannot remove a location that contains inventory items.");
+    }
+    const index = MOCK_STORAGE_LOCATIONS.findIndex(l => l.id === locationId);
+    if (index === -1) throw new Error("Location not found");
+    MOCK_STORAGE_LOCATIONS.splice(index, 1);
+    return { id: locationId };
+}
+
 
 export async function getInventory(): Promise<InventoryItem[]> {
   // Simulate API delay

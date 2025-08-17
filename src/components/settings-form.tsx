@@ -16,7 +16,9 @@ import { useEffect, useState } from "react";
 import { getSettings, saveSettings, getStorageLocations } from "@/lib/data";
 import type { Settings, StorageLocation } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { List, PlusCircle, Trash2 } from "lucide-react";
+import { List, PlusCircle, Trash2, Pencil } from "lucide-react";
+import { AddStorageLocationDialog } from "./add-storage-location-dialog";
+import { EditStorageLocationDialog } from "./edit-storage-location-dialog";
 
 export function SettingsForm() {
   const { toast } = useToast();
@@ -27,6 +29,8 @@ export function SettingsForm() {
     expiryNotifications: true,
   });
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+  const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
+  const [editLocation, setEditLocation] = useState<StorageLocation | null>(null);
   
   useEffect(() => {
     async function loadData() {
@@ -52,7 +56,21 @@ export function SettingsForm() {
     });
   };
 
+  const onLocationAdded = (newLocation: StorageLocation) => {
+    setStorageLocations(prev => [...prev, newLocation]);
+  }
+
+  const onLocationUpdated = (updatedLocation: StorageLocation) => {
+    setStorageLocations(prev => prev.map(l => l.id === updatedLocation.id ? updatedLocation : l));
+  }
+
+  const onLocationRemoved = (locationId: string) => {
+    setStorageLocations(prev => prev.filter(l => l.id !== locationId));
+  }
+
+
   return (
+    <>
     <form onSubmit={handleSubmit}>
       <div className="space-y-6">
         <Card>
@@ -92,15 +110,15 @@ export function SettingsForm() {
                                 <p className="font-medium">{location.name}</p>
                                 <p className="text-sm text-muted-foreground">{location.type}</p>
                             </div>
-                            <Button variant="ghost" size="icon" disabled>
-                                <Trash2 className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" onClick={() => setEditLocation(location)}>
+                                <Pencil className="h-4 w-4" />
                             </Button>
                         </div>
                     ))}
                 </div>
-                <Button variant="outline" className="w-full" disabled>
+                <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddLocationOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add New Location (Coming Soon)
+                    Add New Location
                 </Button>
             </CardContent>
         </Card>
@@ -150,5 +168,20 @@ export function SettingsForm() {
         <Button type="submit">Save Changes</Button>
       </div>
     </form>
+     <AddStorageLocationDialog 
+        isOpen={isAddLocationOpen}
+        setIsOpen={setIsAddLocationOpen}
+        onLocationAdded={onLocationAdded}
+     />
+     {editLocation && (
+        <EditStorageLocationDialog
+            isOpen={!!editLocation}
+            setIsOpen={(isOpen) => { if (!isOpen) setEditLocation(null) }}
+            location={editLocation}
+            onLocationUpdated={onLocationUpdated}
+            onLocationRemoved={onLocationRemoved}
+        />
+     )}
+    </>
   );
 }
