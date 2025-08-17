@@ -35,20 +35,26 @@ export type Settings = {
     expiryNotifications: boolean;
 }
 
+export type Macros = {
+    protein: number;
+    carbs: number;
+    fat: number;
+};
+
 export type Recipe = {
     title: string;
     description: string;
     servings: number;
     ingredients: string[];
     instructions: string[];
-    macros: {
-        protein: number;
-        carbs: number;
-        fat: number;
-    };
+    macros: Macros;
 };
 
 export type Substitution = {
     originalIngredient: string;
     suggestedSubstitutions: string[];
 };
+
+export type DailyMacros = {
+    meal: string;
+} & Macros;

@@ -1,5 +1,5 @@
 
-import { InventoryItem, PersonalDetails, Settings, Unit } from "./types";
+import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit } from "./types";
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -42,6 +42,12 @@ let MOCK_SETTINGS: Settings = {
     e2eEncryption: true,
     expiryNotifications: true,
 };
+
+let MOCK_TODAYS_MACROS: DailyMacros[] = [
+    { meal: "Breakfast", protein: 30, carbs: 50, fat: 20 },
+    { meal: "Snacks", protein: 15, carbs: 25, fat: 10 },
+];
+
 
 // Simulate client-side local storage
 const mockLocalStorage = new Map<string, string>();
@@ -108,4 +114,28 @@ export async function saveSettings(settings: Settings): Promise<Settings> {
 export async function getUnitSystem(): Promise<'us' | 'metric'> {
     const settings = await getSettings();
     return settings.unitSystem;
+}
+
+export async function getTodaysMacros(): Promise<DailyMacros[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return MOCK_TODAYS_MACROS;
+}
+
+export async function logMacros(meal: string, macros: Macros): Promise<DailyMacros> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const newLog: DailyMacros = { meal, ...macros };
+    
+    // Check if a meal with the same name already exists
+    const existingIndex = MOCK_TODAYS_MACROS.findIndex(m => m.meal === meal);
+    if (existingIndex !== -1) {
+        // If it exists, sum the macros
+        MOCK_TODAYS_MACROS[existingIndex].protein += macros.protein;
+        MOCK_TODAYS_MACROS[existingIndex].carbs += macros.carbs;
+        MOCK_TODAYS_MACROS[existingIndex].fat += macros.fat;
+        return MOCK_TODAYS_MACROS[existingIndex];
+    } else {
+        // Otherwise, add the new log
+        MOCK_TODAYS_MACROS.push(newLog);
+        return newLog;
+    }
 }

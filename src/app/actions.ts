@@ -5,7 +5,7 @@ import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros } from "@/lib/data";
 import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { z } from "zod";
 
@@ -285,6 +285,11 @@ export async function handleLogCookedMeal(
             });
         }
         
+        // Log the consumed macros
+        if (result.macrosConsumed) {
+            await logMacros(recipe.title, result.macrosConsumed);
+        }
+
         const newInventory = await getInventory();
         return { success: true, error: null, newInventory };
 
