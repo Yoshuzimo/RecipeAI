@@ -16,8 +16,10 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
+import { v4 as uuidv4 } from 'uuid';
+import { BuyItemsDialog } from "./buy-items-dialog";
 
-type ShoppingListItem = {
+export type ShoppingListItem = {
     id: string;
     item: string;
     quantity: string;
@@ -57,7 +59,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<ShoppingListItem | null>(null);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
-  const [isBuyConfirmOpen, setIsBuyConfirmOpen] = useState(false);
+  const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [sections, setSections] = useState<Section[]>(initialSections);
 
   useEffect(() => {
@@ -78,7 +80,8 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const lowOnStockItems = inventory.filter(item => item.quantity < 2 && item.unit === 'pcs' || item.quantity < 200 && (item.unit === 'g' || item.unit === 'ml'));
 
-  const hasCheckedItems = useMemo(() => myShoppingList.some(item => item.checked), [myShoppingList]);
+  const checkedItems = useMemo(() => myShoppingList.filter(item => item.checked), [myShoppingList]);
+  const hasCheckedItems = checkedItems.length > 0;
 
   const handleGenerate = () => {
     startTransition(async () => {
@@ -95,7 +98,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const onAddItem: SubmitHandler<AddItemForm> = (data) => {
     if (data.item.trim() === "") return;
-    const newItem = { id: `manual-${Date.now()}`, item: data.item, quantity: "1", checked: false };
+    const newItem = { id: `manual-${uuidv4()}`, item: data.item, quantity: "1", checked: false };
     const newList = [...myShoppingList, newItem];
     setMyShoppingList(newList);
     localStorage.setItem('myShoppingList', JSON.stringify(newList));
@@ -125,7 +128,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const handleConfirmAdd = () => {
     if (itemToAdd) {
-        const newItem = { ...itemToAdd, id: `sugg-${Date.now()}`, checked: false };
+        const newItem = { ...itemToAdd, id: `sugg-${uuidv4()}`, checked: false };
         const newList = [...myShoppingList, newItem];
         setMyShoppingList(newList);
         localStorage.setItem('myShoppingList', JSON.stringify(newList));
@@ -151,11 +154,11 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     updateSections(newSections);
   };
 
-  const handleConfirmBuy = () => {
+  const handlePurchaseComplete = () => {
     const newList = myShoppingList.filter(item => !item.checked);
     setMyShoppingList(newList);
     localStorage.setItem('myShoppingList', JSON.stringify(newList));
-    setIsBuyConfirmOpen(false);
+    setIsBuyModalOpen(false);
   }
 
   const moveSection = (index: number, direction: 'up' | 'down') => {
@@ -185,7 +188,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                  <div className="space-y-2">
                     {myShoppingList.map(item => (
                         <div key={item.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50">
-                            <Checkbox id={`check-${item.id}`} checked={item.checked} onCheckedChange={() => handleToggleCheck(item.id)} />
+                            <Checkbox id={`check-${item.id}`} checked={!!item.checked} onCheckedChange={() => handleToggleCheck(item.id)} />
                             <label htmlFor={`check-${item.id}`} className={`flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>
                                 {item.item}
                             </label>
@@ -356,7 +359,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
         {hasCheckedItems && (
             <div className="fixed bottom-4 left-1/2 -translate-x-1/2">
-                <Button size="lg" onClick={() => setIsBuyConfirmOpen(true)}>
+                <Button size="lg" onClick={() => setIsBuyModalOpen(true)}>
                     <ShoppingBag className="mr-2 h-5 w-5" />
                     Buy Checked Items
                 </Button>
@@ -392,21 +395,16 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        {isBuyModalOpen && (
+            <BuyItemsDialog 
+                isOpen={isBuyModalOpen}
+                setIsOpen={setIsBuyModalOpen}
+                items={checkedItems}
+                onComplete={handlePurchaseComplete}
+            />
+        )}
         
-        <AlertDialog open={isBuyConfirmOpen} onOpenChange={setIsBuyConfirmOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Finalize Purchase?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This will remove all checked items from your shopping list. Are you sure you want to proceed?
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmBuy}>Yes, Buy Them</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
     </>
   );
 }
