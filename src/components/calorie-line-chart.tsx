@@ -43,6 +43,29 @@ const CustomDot = (props: any) => {
     );
 };
 
+const CustomTick = (props: any) => {
+    const { x, y, payload, data } = props;
+    const tickValue = payload.value;
+
+    const dataEntry = data.find((d: any) => d.time === tickValue);
+
+    if (!dataEntry) {
+        return null;
+    }
+
+    return (
+        <foreignObject x={x - 50} y={y + 10} width={100} height={100}>
+             <div className="text-center">
+                <p className="text-sm font-bold">{dataEntry.meal}</p>
+                {dataEntry.dishes.map((dish: any, index: number) => (
+                    <p key={index} className="text-xs text-muted-foreground">{dish.name}</p>
+                ))}
+            </div>
+        </foreignObject>
+    );
+};
+
+
 export function CalorieLineChart({ 
     data, 
     goal,
@@ -94,6 +117,8 @@ export function CalorieLineChart({
   
   const todayStart = startOfDay(new Date()).getTime();
   const todayEnd = endOfDay(new Date()).getTime();
+  
+  const mealTicks = chartData.map(d => d.time);
 
   return (
     <>
@@ -103,7 +128,7 @@ export function CalorieLineChart({
             margin={{
             top: 20,
             right: 40,
-            bottom: 20, 
+            bottom: 80, 
             left: 20,
             }}
         >
@@ -112,15 +137,12 @@ export function CalorieLineChart({
                 dataKey="time"
                 type="number"
                 domain={[todayStart, todayEnd]}
-                tickFormatter={(time) => format(new Date(time), 'HH:mm')}
                 scale="time"
-                ticks={[
-                    startOfDay(new Date()).getTime(),
-                    setHours(startOfDay(new Date()), 6).getTime(),
-                    setHours(startOfDay(new Date()), 12).getTime(),
-                    setHours(startOfDay(new Date()), 18).getTime(),
-                    endOfDay(new Date()).getTime(),
-                ]}
+                ticks={mealTicks}
+                tick={<CustomTick data={chartData} />}
+                interval={0}
+                axisLine={false}
+                tickLine={false}
             />
             <YAxis
                 domain={[0, 3000]}
