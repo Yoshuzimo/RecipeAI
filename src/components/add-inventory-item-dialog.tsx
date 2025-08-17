@@ -54,8 +54,11 @@ const formSchema = z.object({
     required_error: "A storage location is required.",
   }),
   doesNotExpire: z.boolean().default(false),
-}).refine(data => data.doesNotExpire || !!data.expiryDate, {
-    message: "An expiry date is required.",
+}).refine(data => {
+    if (data.doesNotExpire) return true;
+    return !!data.expiryDate;
+}, {
+    message: "An expiry date is required unless the item does not expire.",
     path: ["expiryDate"],
 });
 
@@ -95,7 +98,6 @@ export function AddInventoryItemDialog({
     defaultValues: {
       name: "",
       quantity: 1,
-      unit: "lbs",
       doesNotExpire: false,
     },
   });
@@ -107,26 +109,29 @@ export function AddInventoryItemDialog({
       const system = await getUnitSystem();
       setUnitSystem(system);
       setAvailableUnits(system === 'us' ? usUnits : metricUnits);
-      form.setValue('unit', system === 'us' ? 'lbs' : 'kg');
-
       const locations = await getStorageLocations();
       setStorageLocations(locations);
-      if (locations.length > 0) {
-        form.setValue('locationId', locations.find(l => l.type === 'Pantry')?.id || locations[0].id);
-      }
-    }
-    if (isOpen) {
-        fetchData();
+      
+       if (isOpen) {
         form.reset({
             name: "",
             quantity: 1,
-            unit: unitSystem === 'us' ? 'lbs' : 'kg',
+            unit: system === 'us' ? 'lbs' : 'kg',
             expiryDate: addDays(new Date(), 7),
-            locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id,
+            locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
         });
+      }
     }
-  }, [isOpen, form, storageLocations, unitSystem]);
+    fetchData();
+  }, [isOpen, form]);
+   
+  useEffect(() => {
+    if(doesNotExpire) {
+        form.clearErrors("expiryDate");
+    }
+  }, [doesNotExpire, form]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -159,7 +164,7 @@ export function AddInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
-            Add a new package to your inventory. You can manage individual quantities later.
+            Add a new container to your inventory. You can manage individual quantities later.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -183,7 +188,7 @@ export function AddInventoryItemDialog({
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Package Size</FormLabel>
+                    <FormLabel>Container Size</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="e.g., 1.5" {...field} />
                     </FormControl>

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,8 +54,11 @@ const itemSchema = z.object({
       required_error: "A storage location is required."
   }),
   doesNotExpire: z.boolean().default(false),
-}).refine(data => data.doesNotExpire || !!data.expiryDate, {
-    message: "An expiry date is required.",
+}).refine(data => {
+    if (data.doesNotExpire) return true;
+    return !!data.expiryDate;
+}, {
+    message: "An expiry date is required unless the item does not expire.",
     path: ["expiryDate"],
 });
 
@@ -104,37 +106,35 @@ export function BuyItemsDialog({
       const locations = await getStorageLocations();
       setStorageLocations(locations);
     }
-    fetchUnitSystem();
+    if (isOpen) {
+      fetchUnitSystem();
+    }
   }, [isOpen]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      items: items.map(item => ({
-        name: item.item,
-        totalQuantity: 1,
-        unit: 'pcs',
-        expiryDate: addDays(new Date(), 7),
-        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || "",
-        doesNotExpire: false,
-      })),
+      items: [],
     },
   });
   
   useEffect(() => {
-    if (storageLocations.length > 0) {
+    if (isOpen && storageLocations.length > 0) {
         const pantryId = storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0].id;
-        const defaultItems = items.map(item => ({
-             name: item.item,
-            totalQuantity: 1,
-            unit: 'pcs',
-            expiryDate: addDays(new Date(), 7),
-            locationId: pantryId,
-            doesNotExpire: false,
-        }));
-        form.setValue('items', defaultItems);
+        const defaultItems = items.map(item => {
+            const doesNotExpire = ['salt', 'sugar', 'honey'].some(nonExp => item.item.toLowerCase().includes(nonExp));
+            return {
+                name: item.item,
+                totalQuantity: 1,
+                unit: 'pcs' as Unit,
+                expiryDate: doesNotExpire ? undefined : addDays(new Date(), 7),
+                locationId: pantryId,
+                doesNotExpire: doesNotExpire,
+            }
+        });
+        form.reset({ items: defaultItems });
     }
-  }, [storageLocations, items, form]);
+  }, [storageLocations, items, form, isOpen]);
 
   const { fields } = useFieldArray({
     control: form.control,
@@ -322,3 +322,4 @@ export function BuyItemsDialog({
     </Dialog>
   );
 }
+ 
