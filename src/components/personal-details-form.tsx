@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +14,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,19 +25,8 @@ import {
   CardTitle,
 } from "./ui/card";
 import { ShieldCheck } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
-import { Calendar } from "./ui/calendar";
-import { format } from "date-fns";
 
 const formSchema = z.object({
-  fullName: z.string().min(2, {
-    message: "Full name must be at least 2 characters.",
-  }),
-  dateOfBirth: z.date({
-    required_error: "A date of birth is required.",
-  }),
   healthGoals: z.string().max(500, {
     message: "Health goals cannot exceed 500 characters.",
   }),
@@ -47,6 +36,12 @@ const formSchema = z.object({
   allergies: z.string().max(500, {
     message: "Allergies cannot exceed 500 characters.",
   }),
+  favoriteFoods: z.string().max(500, {
+    message: "Favorite foods cannot exceed 500 characters.",
+  }),
+    dislikedFoods: z.string().max(500, {
+    message: "Disliked foods cannot exceed 500 characters.",
+    }),
 });
 
 export function PersonalDetailsForm() {
@@ -54,10 +49,11 @@ export function PersonalDetailsForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fullName: "",
       healthGoals: "",
       dietaryRestrictions: "",
       allergies: "",
+      favoriteFoods: "",
+      dislikedFoods: "",
     },
   });
 
@@ -84,69 +80,6 @@ export function PersonalDetailsForm() {
       </Card>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Basic Information</CardTitle>
-                    <CardDescription>This information is used to personalize your experience.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                            <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="dateOfBirth"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Date of Birth</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                    )}
-                                    >
-                                    {field.value ? (
-                                        format(field.value, "PPP")
-                                    ) : (
-                                        <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                        date > new Date() || date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                </CardContent>
-            </Card>
-
             <Card>
                 <CardHeader>
                     <CardTitle>Health & Diet</CardTitle>
@@ -176,10 +109,10 @@ export function PersonalDetailsForm() {
                         name="dietaryRestrictions"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Dietary Restrictions</FormLabel>
+                            <FormLabel>Dietary Restrictions & Health Conditions</FormLabel>
                             <FormControl>
                                 <Textarea
-                                placeholder="e.g., vegetarian, gluten-free, no dairy"
+                                placeholder="e.g., vegetarian, gluten-free, no dairy, diabetes, fatty liver disease"
                                 className="resize-none"
                                 {...field}
                                 />
@@ -207,6 +140,49 @@ export function PersonalDetailsForm() {
                         )}
                         />
                 </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Food Preferences</CardTitle>
+                    <CardDescription>Tell us what you love and what you don't to get better meal suggestions.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <FormField
+                        control={form.control}
+                        name="favoriteFoods"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Favorite Foods</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                placeholder="e.g., salmon, avocado, dark chocolate, spicy food"
+                                className="resize-none"
+                                {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                     <FormField
+                        control={form.control}
+                        name="dislikedFoods"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Disliked Foods</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                placeholder="e.g., mushrooms, olives, cilantro"
+                                className="resize-none"
+                                {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </CardContent>
                  <CardFooter>
                     <Button type="submit">Save Changes</Button>
                 </CardFooter>
@@ -216,3 +192,4 @@ export function PersonalDetailsForm() {
     </div>
   );
 }
+
