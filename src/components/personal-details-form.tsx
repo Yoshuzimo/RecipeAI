@@ -25,29 +25,31 @@ import {
   CardTitle,
 } from "./ui/card";
 import { ShieldCheck } from "lucide-react";
+import { getPersonalDetails, savePersonalDetails } from "@/lib/data";
+import { useEffect } from "react";
 
 const formSchema = z.object({
   healthGoals: z.string().max(500, {
     message: "Health goals cannot exceed 500 characters.",
-  }),
+  }).optional(),
   dietaryRestrictions: z.string().max(500, {
     message: "Dietary restrictions cannot exceed 500 characters.",
-  }),
+  }).optional(),
   allergies: z.string().max(500, {
     message: "Allergies cannot exceed 500 characters.",
-  }),
+  }).optional(),
   favoriteFoods: z.string().max(500, {
     message: "Favorite foods cannot exceed 500 characters.",
-  }),
+  }).optional(),
     dislikedFoods: z.string().max(500, {
     message: "Disliked foods cannot exceed 500 characters.",
-    }),
+    }).optional(),
     healthConditions: z.string().max(500, {
     message: "Health conditions cannot exceed 500 characters.",
-    }),
+    }).optional(),
     medications: z.string().max(500, {
     message: "Medications cannot exceed 500 characters.",
-    }),
+    }).optional(),
 });
 
 export function PersonalDetailsForm() {
@@ -65,8 +67,16 @@ export function PersonalDetailsForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
+  useEffect(() => {
+    async function loadDetails() {
+      const details = await getPersonalDetails();
+      form.reset(details);
+    }
+    loadDetails();
+  }, [form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    await savePersonalDetails(values);
     toast({
       title: "Details Saved",
       description: "Your personal information has been updated.",

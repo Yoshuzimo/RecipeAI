@@ -1,20 +1,10 @@
 import MainLayout from "@/components/main-layout";
 import { ShoppingList } from "@/components/shopping-list";
-import { getInventory } from "@/lib/data";
+import { getInventory, getPersonalDetails } from "@/lib/data";
 
 export default async function ShoppingListPage() {
   const inventory = await getInventory();
-
-  // In a real app, personal details would be fetched from a secure store
-  const personalDetails = {
-    healthGoals: "Build muscle, maintain weight",
-    dietaryRestrictions: "Lactose intolerant",
-    allergies: "None",
-    favoriteFoods: "Chicken, Salmon, Sweet Potatoes, Avocado",
-    dislikedFoods: "Olives, Mushrooms",
-    healthConditions: "None",
-    medications: "None"
-  };
+  const personalDetails = await getPersonalDetails();
 
   return (
     <MainLayout>

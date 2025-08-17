@@ -1,4 +1,4 @@
-import { InventoryItem } from "./types";
+import { InventoryItem, PersonalDetails } from "./types";
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -20,6 +20,16 @@ let MOCK_INVENTORY: InventoryItem[] = [
   { id: '7', name: 'Cheddar Cheese', quantity: 200, unit: 'g', expiryDate: nextWeek },
   { id: '8', name: 'Lettuce', quantity: 1, unit: 'pcs', expiryDate: twoDaysFromNow },
 ];
+
+let MOCK_PERSONAL_DETAILS: PersonalDetails = {
+    healthGoals: "",
+    dietaryRestrictions: "",
+    allergies: "",
+    favoriteFoods: "",
+    dislikedFoods: "",
+    healthConditions: "",
+    medications: ""
+};
 
 export async function getInventory(): Promise<InventoryItem[]> {
   // Simulate API delay
@@ -52,4 +62,15 @@ export async function removeInventoryItem(itemId: string): Promise<{ id: string 
     }
     MOCK_INVENTORY.splice(index, 1);
     return { id: itemId };
+}
+
+export async function getPersonalDetails(): Promise<PersonalDetails> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return MOCK_PERSONAL_DETAILS;
+}
+
+export async function savePersonalDetails(details: PersonalDetails): Promise<PersonalDetails> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    MOCK_PERSONAL_DETAILS = details;
+    return MOCK_PERSONAL_DETAILS;
 }
