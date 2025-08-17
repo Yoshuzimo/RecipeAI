@@ -51,7 +51,7 @@ const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp",
 
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
-  const [inventory] = useState<InventoryItem[]>(initialInventory);
+  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
 
   const [state, formAction] = useActionState(handleGenerateSuggestionsWithInventory, initialState);
@@ -68,15 +68,16 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   useEffect(() => {
     if (state) {
-      setSuggestions(state.suggestions ?? null);
-      setDebugInfo(state.debugInfo);
+      // Use previous suggestions if new ones are null
+      setSuggestions(state.suggestions ?? suggestions); 
+      setDebugInfo(state.debugInfo ?? debugInfo);
        if (state.adjustedRecipe && state.originalRecipeTitle) {
         setSuggestions(prev => 
             prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
         );
        }
     }
-  }, [state]);
+  }, [state, suggestions, debugInfo]);
 
 
   const handleSaveRecipe = (recipe: Recipe) => {

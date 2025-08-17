@@ -57,12 +57,13 @@ export async function handleGenerateSuggestions(
   });
 
   if (!validatedFields.success) {
+    const errorDetails = JSON.stringify(validatedFields.error.flatten(), null, 2);
     return {
       error: validatedFields.error.flatten().fieldErrors,
       suggestions: null,
       debugInfo: {
         promptInput: log + "Field validation failed.",
-        rawResponse: ""
+        rawResponse: "Validation Errors:\n" + errorDetails
       }
     };
   }
