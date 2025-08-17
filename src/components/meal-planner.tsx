@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState, useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useFormStatus, useActionState } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Badge } from "./ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SubstitutionsDialog } from "./substitutions-dialog";
 import { Textarea } from "./ui/textarea";
+import { CheckExpiredDialog } from "./check-expired-dialog";
 
 const initialState = {
   suggestions: null,
@@ -56,8 +57,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   const [state, formAction] = useActionState(handleGenerateSuggestionsWithInventory, initialState);
   
-  const [suggestions, setSuggestions] = useState<Recipe[] | null>(initialState.suggestions);
-  const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
+  const [suggestions, setSuggestions] = useState<Recipe[] | null>(state.suggestions);
+  const [debugInfo, setDebugInfo] = useState(state.debugInfo);
 
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
@@ -65,19 +66,28 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
+  const [initialIngredientsToSub, setInitialIngredientsToSub] = useState<string[]>([]);
+  
+  // Expiry check state
+  const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
+  const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
+
 
   useEffect(() => {
     if (state) {
-      // Use previous suggestions if new ones are null
-      setSuggestions(state.suggestions ?? suggestions); 
-      setDebugInfo(state.debugInfo ?? debugInfo);
+      if(state.suggestions) {
+        setSuggestions(state.suggestions);
+      }
+      if(state.debugInfo) {
+        setDebugInfo(state.debugInfo);
+      }
        if (state.adjustedRecipe && state.originalRecipeTitle) {
         setSuggestions(prev => 
             prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
         );
        }
     }
-  }, [state, suggestions, debugInfo]);
+  }, [state]);
 
 
   const handleSaveRecipe = (recipe: Recipe) => {
@@ -92,6 +102,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const getIngredientStatus = (ingredient: string) => {
       const now = new Date();
       now.setHours(0,0,0,0);
+      // Find the specific inventory item that matches this ingredient string
       const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
       if (inventoryItem) {
           const expiryDate = new Date(inventoryItem.expiryDate);
@@ -104,9 +115,35 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       return 'fresh';
   }
 
-  const handleOpenSubstitutions = (recipe: Recipe) => {
+  const handleIngredientClick = (recipe: Recipe, ingredient: string) => {
+      const status = getIngredientStatus(ingredient);
+      if (status.startsWith('expired')) {
+          setIngredientToCheck({recipe, ingredient});
+          setIsExpiredCheckDialogOpen(true);
+      } else {
+          handleOpenSubstitutions(recipe, [ingredient]);
+      }
+  }
+
+  const handleOpenSubstitutions = (recipe: Recipe, ingredients: string[] = []) => {
       setRecipeForSubstitutions(recipe);
+      setInitialIngredientsToSub(ingredients);
       setIsSubstitutionsDialogOpen(true);
+  }
+  
+  const handleExpiredCheckComplete = (isGood: boolean) => {
+      if (ingredientToCheck) {
+          const { recipe, ingredient } = ingredientToCheck;
+          if(isGood) {
+            // If they say it's good, just open substitutions normally
+            handleOpenSubstitutions(recipe, []);
+          } else {
+            // If it's spoiled, open substitutions with the item pre-selected
+            handleOpenSubstitutions(recipe, [ingredient]);
+          }
+      }
+      setIsExpiredCheckDialogOpen(false);
+      setIngredientToCheck(null);
   }
 
   const handleSubstitutionsApplied = (updatedRecipe: Recipe) => {
@@ -223,7 +260,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                             const status = getIngredientStatus(ing);
                                             const isExpired = status.startsWith('expired');
                                             return (
-                                                <li key={i} onClick={() => handleOpenSubstitutions(recipe)} className="cursor-pointer hover:text-primary">
+                                                <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className="cursor-pointer hover:text-primary">
                                                     <span className={status === 'expired-high-risk' ? 'text-red-600 font-bold' : status === 'expired-low-risk' ? 'text-yellow-600 font-bold' : ''}>
                                                         {ing}
                                                         {isExpired && <TriangleAlert className="inline-block ml-2 h-4 w-4" />}
@@ -289,7 +326,16 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             recipe={recipeForSubstitutions}
             inventory={inventory}
             onSubstitutionsApplied={handleSubstitutionsApplied}
+            initialIngredients={initialIngredientsToSub}
         />
+     )}
+     {isExpiredCheckDialogOpen && ingredientToCheck && (
+         <CheckExpiredDialog 
+            isOpen={isExpiredCheckDialogOpen}
+            onClose={() => setIsExpiredCheckDialogOpen(false)}
+            onConfirm={handleExpiredCheckComplete}
+            ingredientName={ingredientToCheck.ingredient}
+         />
      )}
     </>
   );

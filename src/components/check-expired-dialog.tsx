@@ -1,0 +1,44 @@
+
+"use client";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "./ui/button";
+
+export function CheckExpiredDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  ingredientName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (isGood: boolean) => void;
+  ingredientName: string;
+}) {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Is this item still good?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your <span className="font-semibold text-foreground">{ingredientName}</span> is past its expiration date. Please check if it's still safe to eat before using.
+            If you're unsure, it's best to substitute it.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onConfirm(false)}>It's Spoiled (Substitute)</AlertDialogCancel>
+          <AlertDialogAction onClick={() => onConfirm(true)}>It's Still Good</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,19 +33,29 @@ export function SubstitutionsDialog({
   recipe,
   inventory,
   onSubstitutionsApplied,
+  initialIngredients = [],
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   recipe: Recipe;
   inventory: InventoryItem[];
   onSubstitutionsApplied: (updatedRecipe: Recipe) => void;
+  initialIngredients?: string[];
 }) {
-  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>(initialIngredients);
   const [mode, setMode] = useState<SubstitutionMode>(SubstitutionMode.None);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<Substitution[] | null>(null);
   const [userSelections, setUserSelections] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // If there are initial ingredients, go straight to AI suggestions
+    if (initialIngredients.length > 0) {
+      handleGenerateAiSubstitutions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialIngredients]);
 
   const handleSelectIngredient = (ingredient: string) => {
     setSelectedIngredients((prev) =>
@@ -76,7 +86,19 @@ export function SubstitutionsDialog({
   }
 
   const handleSubmit = () => {
-    const newIngredients = recipe.ingredients.map(ing => userSelections[ing] || ing);
+    // Create a map of original ingredients to their substitutions
+    const substitutionMap = new Map(Object.entries(userSelections));
+    
+    // Create the new ingredients list
+    const newIngredients = recipe.ingredients.map(ing => {
+      // If the current ingredient has a selected substitution, use it
+      if (substitutionMap.has(ing)) {
+        return substitutionMap.get(ing)!;
+      }
+      // Otherwise, keep the original ingredient
+      return ing;
+    });
+
     const updatedRecipe = { ...recipe, ingredients: newIngredients };
     onSubstitutionsApplied(updatedRecipe);
     setIsOpen(false);
@@ -148,7 +170,7 @@ export function SubstitutionsDialog({
 
   const isSubmitDisabled = () => {
     if (mode === SubstitutionMode.Ai) {
-        // Must have made a selection for each ingredient that was requested
+        // Must have made a selection for each ingredient that was requested for substitution
         return Object.keys(userSelections).length !== selectedIngredients.length;
     }
     return true; // Disabled for other modes for now
@@ -161,7 +183,7 @@ export function SubstitutionsDialog({
         <DialogHeader>
           <DialogTitle>Make Substitutions for {recipe.title}</DialogTitle>
           <DialogDescription>
-            Select the ingredients you want to replace.
+            {mode === SubstitutionMode.None ? "Select the ingredients you want to replace." : "Choose a replacement for each ingredient."}
           </DialogDescription>
         </DialogHeader>
 
