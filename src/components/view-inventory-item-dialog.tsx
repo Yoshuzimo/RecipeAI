@@ -76,7 +76,7 @@ export function ViewInventoryItemDialog({
     }, {} as FormData);
   }, [packageGroups]);
   
-  const { control, handleSubmit, watch } = useForm<FormData>({
+  const { control, handleSubmit, watch, formState: {isDirty} } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues,
   });
@@ -112,52 +112,58 @@ export function ViewInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>Manage {group.name}</DialogTitle>
           <DialogDescription>
-            Adjust the number of full packages and the quantity of partial packages.
+            Adjust the number of full containers and the quantity of partial containers.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
             <ScrollArea className="h-96 pr-6 my-4">
                 <div className="space-y-8">
-                {Object.values(packageGroups).map(({ size }) => (
-                    <div key={size} className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-semibold text-lg">{size}{group.unit} Packages</h4>
-                        <div className="grid grid-cols-2 gap-8 items-end">
-                             <Controller
-                                name={`${size}.full`}
-                                control={control}
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`full-count-${size}`}>Full Packages</Label>
-                                        <Input id={`full-count-${size}`} type="number" {...field} />
-                                    </div>
-                                )}
-                            />
-                            <Controller
-                                name={`${size}.partial`}
-                                control={control}
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <Label>Partial Package</Label>
-                                            <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
+                {Object.keys(packageGroups).length > 0 ? (
+                    Object.values(packageGroups).map(({ size }) => (
+                        <div key={size} className="space-y-4 p-4 border rounded-lg">
+                            <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
+                            <div className="grid grid-cols-2 gap-8 items-end">
+                                <Controller
+                                    name={`${size}.full`}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
+                                            <Input id={`full-count-${size}`} type="number" {...field} />
                                         </div>
-                                        <Slider
-                                            value={[field.value]}
-                                            onValueChange={(vals) => field.onChange(vals[0])}
-                                            max={size}
-                                            step={group.unit === 'pcs' ? 1 : size / 100}
-                                        />
-                                    </div>
-                                )}
-                            />
+                                    )}
+                                />
+                                <Controller
+                                    name={`${size}.partial`}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <Label>Partial Container</Label>
+                                                <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
+                                            </div>
+                                            <Slider
+                                                value={[field.value]}
+                                                onValueChange={(vals) => field.onChange(vals[0])}
+                                                max={size}
+                                                step={group.unit === 'pcs' ? 1 : size / 100}
+                                            />
+                                        </div>
+                                    )}
+                                />
+                            </div>
                         </div>
+                    ))
+                ) : (
+                    <div className="text-center text-muted-foreground py-10">
+                        No packages for this item. Add one to get started.
                     </div>
-                ))}
+                )}
                 </div>
             </ScrollArea>
              <DialogFooter className="mt-4">
                 <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending || !isDirty}>
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes
                 </Button>
