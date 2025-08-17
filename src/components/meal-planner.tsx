@@ -67,17 +67,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   useEffect(() => {
     if (state.suggestions) {
-        setSuggestions(state.suggestions);
+      setSuggestions(state.suggestions);
     }
     if (state.inventory && state.inventory.length > 0) {
-        setInventory(state.inventory);
+      setInventory(state.inventory);
     }
     if (state.adjustedRecipe && state.originalRecipeTitle) {
       setSuggestions(prev => 
         prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
       );
     }
-     if (state.debugInfo) {
+    if (state.debugInfo) {
       setPromptInput(state.debugInfo.promptInput);
       setRawResponse(state.debugInfo.rawResponse);
     } else {
@@ -305,3 +305,5 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     </>
   );
 }
+
+    
