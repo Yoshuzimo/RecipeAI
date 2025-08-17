@@ -36,7 +36,7 @@ const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp",
 
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
-  const { checkRateLimit, recordRequest } = useRateLimiter();
+  const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
@@ -217,15 +217,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                 name="cravingsOrMood"
                 placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
                 className="mt-1"
-                disabled={isPending}
+                disabled={isPending || isRateLimited}
               />
             </div>
-            <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+            <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
                 </>
+              ) : isRateLimited ? (
+                `Please wait (${timeToWait}s)`
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
@@ -304,7 +306,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                             type="submit"
                                             name="newServingSize"
                                             value={recipe.servings - 1}
-                                            disabled={recipe.servings <= 1 || isPending}
+                                            disabled={recipe.servings <= 1 || isPending || isRateLimited}
                                             size="icon"
                                             variant="outline"
                                         >
@@ -315,7 +317,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                             type="submit"
                                             name="newServingSize"
                                             value={recipe.servings + 1}
-                                            disabled={isPending}
+                                            disabled={isPending || isRateLimited}
                                             size="icon"
                                             variant="outline"
                                         >
@@ -357,7 +359,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                         <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
                                      </div>
                                 </div>
-                                <Button onClick={() => handleOpenSubstitutions(recipe)}>
+                                <Button onClick={() => handleOpenSubstitutions(recipe)} disabled={isRateLimited}>
                                     Make Substitutions
                                 </Button>
                             </div>

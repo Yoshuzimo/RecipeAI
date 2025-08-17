@@ -1,41 +1,67 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from './use-toast';
 
 const RATE_LIMIT = 3; // requests
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
 
-// This is a simple in-memory store. For a real app with users,
-// this would be stored in a more persistent way (e.g., localStorage
-// or even a server-side store tied to the user's session).
 const requestTimestamps: number[] = [];
 
 export function useRateLimiter() {
   const { toast } = useToast();
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [timeToWait, setTimeToWait] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => clearTimer(); // Cleanup timer on unmount
+  }, []);
 
   const checkRateLimit = useCallback(() => {
     const now = Date.now();
     
-    // Remove timestamps that are outside the time window
     while (requestTimestamps.length > 0 && requestTimestamps[0] < now - RATE_LIMIT_WINDOW) {
       requestTimestamps.shift();
     }
 
     if (requestTimestamps.length >= RATE_LIMIT) {
-      const timeToWait = Math.ceil((requestTimestamps[0] + RATE_LIMIT_WINDOW - now) / 1000);
+      const waitTime = Math.ceil((requestTimestamps[0] + RATE_LIMIT_WINDOW - now) / 1000);
+      setTimeToWait(waitTime);
+      setIsRateLimited(true);
+      
       toast({
         variant: "destructive",
         title: "You're doing that a bit too fast!",
-        description: `Please wait ${timeToWait} more seconds before trying again.`,
+        description: `Please wait ${waitTime} more seconds before trying again.`,
       });
-      setIsRateLimited(true);
+
+      // Start a countdown timer
+      clearTimer();
+      timerRef.current = setInterval(() => {
+        setTimeToWait(prev => {
+          if (prev <= 1) {
+            clearTimer();
+            setIsRateLimited(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
       return false;
     }
 
     setIsRateLimited(false);
+    setTimeToWait(0);
     return true;
   }, [toast]);
 
@@ -44,5 +70,5 @@ export function useRateLimiter() {
     requestTimestamps.push(now);
   }, []);
 
-  return { isRateLimited, checkRateLimit, recordRequest };
+  return { isRateLimited, timeToWait, checkRateLimit, recordRequest };
 }

@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { handleGenerateSubstitutions } from "@/app/actions";
-import { Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -43,7 +43,7 @@ export function SubstitutionsDialog({
   onSubstitutionsApplied: (updatedRecipe: Recipe) => void;
   initialIngredients?: string[];
 }) {
-  const { checkRateLimit, recordRequest } = useRateLimiter();
+  const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(initialIngredients);
   const [mode, setMode] = useState<SubstitutionMode>(SubstitutionMode.None);
   const [isLoading, setIsLoading] = useState(false);
@@ -170,9 +170,15 @@ export function SubstitutionsDialog({
                            Allow suggesting items not in my inventory?
                         </Label>
                     </div>
-                     <Button onClick={handleGenerateAiSubstitutions} className="mt-4">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Regenerate
+                     <Button onClick={handleGenerateAiSubstitutions} className="mt-4" disabled={isRateLimited}>
+                        {isRateLimited ? (
+                            `Please wait (${timeToWait}s)`
+                        ) : (
+                            <>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Regenerate
+                            </>
+                        )}
                     </Button>
                 </CardContent>
             </Card>
@@ -221,7 +227,21 @@ export function SubstitutionsDialog({
         </DialogHeader>
 
         <ScrollArea className="h-96 pr-6 my-4">
-            {renderContent()}
+            {isRateLimited && mode !== SubstitutionMode.None ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                    <p className="text-lg font-semibold">You're doing that a bit too fast!</p>
+                    <p className="text-muted-foreground">Please wait a moment before trying again.</p>
+                    <p className="text-4xl font-bold my-4">{timeToWait}</p>
+                    {timeToWait === 0 && (
+                        <Button onClick={handleGenerateAiSubstitutions}>
+                            <RefreshCw className="mr-2 h-4 w-4"/>
+                            Try Again
+                        </Button>
+                    )}
+                </div>
+            ) : (
+                renderContent()
+            )}
         </ScrollArea>
         
         <DialogFooter className="gap-2 sm:justify-between">
@@ -239,9 +259,9 @@ export function SubstitutionsDialog({
                     </div>
                     <div className="flex gap-2">
                         <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                        <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0 || isLoading}>
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Get Suggestions
+                        <Button onClick={handleGenerateAiSubstitutions} disabled={selectedIngredients.length === 0 || isLoading || isRateLimited}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isRateLimited ? `Please wait (${timeToWait}s)` : <Sparkles className="mr-2 h-4 w-4" />}
+                            {isLoading ? "Generating..." : isRateLimited ? `Wait (${timeToWait}s)` : "Get Suggestions"}
                         </Button>
                     </div>
                 </>

@@ -52,7 +52,7 @@ const initialSections: Section[] = [
 
 export function ShoppingList({ inventory, personalDetails }: { inventory: InventoryItem[], personalDetails: any }) {
   const [isPending, startTransition] = useTransition();
-  const { checkRateLimit, recordRequest } = useRateLimiter();
+  const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const [aiShoppingList, setAiShoppingList] = useState<AIListItem[] | null>(null);
   const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -249,12 +249,14 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                     <CardTitle>AI Shopping Guide</CardTitle>
                     <CardDescription>Get smart recommendations for your next shopping trip. Click to add them to your list.</CardDescription>
                 </div>
-                 <Button onClick={handleGenerate} disabled={isPending}>
+                 <Button onClick={handleGenerate} disabled={isPending || isRateLimited}>
                     {isPending ? (
                         <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Generating...
                         </>
+                    ) : isRateLimited ? (
+                       `Please wait (${timeToWait}s)`
                     ) : (
                         <>
                         <Sparkles className="mr-2 h-4 w-4" />
