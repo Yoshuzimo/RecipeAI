@@ -131,7 +131,7 @@ export function BuyItemsDialog({
                     expiryDate: doesNotExpire ? undefined : addDays(new Date(), 7),
                     locationId: pantryId,
                     doesNotExpire: doesNotExpire,
-                }
+                };
             })
         });
     }
@@ -323,5 +323,3 @@ export function BuyItemsDialog({
     </Dialog>
   );
 }
-
-    
