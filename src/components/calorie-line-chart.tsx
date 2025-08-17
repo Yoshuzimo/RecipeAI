@@ -137,7 +137,7 @@ export function CalorieLineChart({
                             return (
                                 <div className="text-sm">
                                     <p className="font-bold">{payload?.meal} ({format(payload?.loggedAt, "p")})</p>
-                                    <p>{value} kcal (running total)</p>
+                                    <p>{value} calories (running total)</p>
                                     <ul className="list-disc list-inside text-muted-foreground">
                                         {payload?.dishes?.map((d: any) => <li key={d.name}>{d.name}</li>)}
                                     </ul>
