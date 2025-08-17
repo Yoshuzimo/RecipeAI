@@ -42,6 +42,12 @@ const formSchema = z.object({
     dislikedFoods: z.string().max(500, {
     message: "Disliked foods cannot exceed 500 characters.",
     }),
+    healthConditions: z.string().max(500, {
+    message: "Health conditions cannot exceed 500 characters.",
+    }),
+    medications: z.string().max(500, {
+    message: "Medications cannot exceed 500 characters.",
+    }),
 });
 
 export function PersonalDetailsForm() {
@@ -54,6 +60,8 @@ export function PersonalDetailsForm() {
       allergies: "",
       favoriteFoods: "",
       dislikedFoods: "",
+        healthConditions: "",
+        medications: "",
     },
   });
 
@@ -82,8 +90,8 @@ export function PersonalDetailsForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Card>
                 <CardHeader>
-                    <CardTitle>Health & Diet</CardTitle>
-                    <CardDescription>Provide details to help us tailor recommendations for you.</CardDescription>
+                    <CardTitle>Diet & Goals</CardTitle>
+                    <CardDescription>This information is optional, but the more details you provide, the more tailored your meal suggestions will be.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <FormField
@@ -103,16 +111,15 @@ export function PersonalDetailsForm() {
                             </FormItem>
                         )}
                         />
-
                     <FormField
                         control={form.control}
                         name="dietaryRestrictions"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Dietary Restrictions & Health Conditions</FormLabel>
+                            <FormLabel>Dietary Restrictions</FormLabel>
                             <FormControl>
                                 <Textarea
-                                placeholder="e.g., vegetarian, gluten-free, no dairy, diabetes, fatty liver disease"
+                                placeholder="e.g., vegetarian, gluten-free, no dairy"
                                 className="resize-none"
                                 {...field}
                                 />
@@ -183,13 +190,56 @@ export function PersonalDetailsForm() {
                         )}
                         />
                 </CardContent>
-                 <CardFooter>
-                    <Button type="submit">Save Changes</Button>
-                </CardFooter>
             </Card>
+
+             <Card>
+                <CardHeader>
+                    <CardTitle>Health</CardTitle>
+                    <CardDescription>Providing health details helps us recommend foods that are safe and beneficial for your specific needs.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <FormField
+                        control={form.control}
+                        name="healthConditions"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Health Conditions</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                placeholder="e.g., Diabetes, high blood pressure, fatty liver disease"
+                                className="resize-none"
+                                {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                     <FormField
+                        control={form.control}
+                        name="medications"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Medications</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                placeholder="e.g., Metformin, Lisinopril. Please note any food interactions."
+                                className="resize-none"
+                                {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+                <Button type="submit">Save All Changes</Button>
+            </div>
         </form>
       </Form>
     </div>
   );
 }
-
