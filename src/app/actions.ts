@@ -31,16 +31,18 @@ const suggestionSchema = z.object({
     }
   }),
   cravingsOrMood: z.string().optional(),
-   recipeToAdjust: z.string().optional().transform((val, ctx) => {
+  recipeToAdjust: z.string().nullable().optional().transform((val, ctx) => {
     if (!val || val === 'null' || val === 'undefined') return undefined;
     try {
-        return JSON.parse(val) as Recipe;
+        const parsedRecipe = JSON.parse(val);
+        // We can add a more specific zod schema for Recipe if needed
+        return parsedRecipe as Recipe;
     } catch(e) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid recipe format" });
         return z.NEVER;
     }
   }),
-  newServingSize: z.coerce.number().optional(),
+  newServingSize: z.string().nullable().optional().transform(val => val ? parseInt(val, 10) : undefined),
 });
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
