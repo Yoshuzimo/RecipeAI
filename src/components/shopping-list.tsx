@@ -8,16 +8,14 @@ import { handleGenerateShoppingList } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Sparkles, AlertCircle, PlusCircle, Trash2, GripVertical, EyeOff, Eye } from "lucide-react";
+import { Loader2, Sparkles, AlertCircle, PlusCircle, Trash2, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Skeleton } from "./ui/skeleton";
 import { Input } from "./ui/input";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Checkbox } from "./ui/checkbox";
-import { DroppableWrapper } from "./droppable-wrapper";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
 
 type ShoppingListItem = {
     id: string;
@@ -40,8 +38,14 @@ type AddItemForm = {
 type Section = {
   id: 'myList' | 'restock' | 'aiGuide';
   title: string;
-  component: React.ReactNode;
+  isVisible: boolean;
 }
+
+const initialSections: Section[] = [
+    { id: 'myList', title: 'My Shopping List', isVisible: true },
+    { id: 'restock', title: 'Items to Restock', isVisible: true },
+    { id: 'aiGuide', title: 'AI Shopping Guide', isVisible: true },
+];
 
 
 export function ShoppingList({ inventory, personalDetails }: { inventory: InventoryItem[], personalDetails: any }) {
@@ -53,13 +57,19 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<ShoppingListItem | null>(null);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
-  const [hiddenSections, setHiddenSections] = useState<string[]>([]);
+  const [sections, setSections] = useState<Section[]>(initialSections);
 
   useEffect(() => {
-    // In a real app, you'd fetch this from a DB
+    // In a real app, you'd fetch this from a DB or local storage
     const savedList = localStorage.getItem('myShoppingList');
     if (savedList) {
       setMyShoppingList(JSON.parse(savedList));
+    }
+    const savedSections = localStorage.getItem('shoppingListSections');
+     if (savedSections) {
+      const parsedSections = JSON.parse(savedSections);
+      // Ensure all sections are present, even if new ones were added to the code
+      setSections(initialSections.map(s => parsedSections.find((ps: Section) => ps.id === s.id) || s));
     }
   }, []);
 
@@ -126,10 +136,26 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     setIsConfirmOpen(true);
   }
 
+  const updateSections = (newSections: Section[]) => {
+      setSections(newSections);
+      localStorage.setItem('shoppingListSections', JSON.stringify(newSections));
+  };
+
   const toggleSectionVisibility = (sectionId: string) => {
-    setHiddenSections(prev => 
-      prev.includes(sectionId) ? prev.filter(id => id !== sectionId) : [...prev, sectionId]
+    const newSections = sections.map(sec => 
+        sec.id === sectionId ? { ...sec, isVisible: !sec.isVisible } : sec
     );
+    updateSections(newSections);
+  };
+
+  const moveSection = (index: number, direction: 'up' | 'down') => {
+    const newSections = [...sections];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex >= 0 && newIndex < newSections.length) {
+        const [movedSection] = newSections.splice(index, 1);
+        newSections.splice(newIndex, 0, movedSection);
+        updateSections(newSections);
+    }
   };
   
   const MyShoppingListComponent = (
@@ -265,76 +291,58 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
       </Card>
   );
 
-  const initialSections: Section[] = [
-    { id: 'myList', title: 'My Shopping List', component: MyShoppingListComponent },
-    { id: 'restock', title: 'Items to Restock', component: RestockComponent },
-    { id: 'aiGuide', title: 'AI Shopping Guide', component: AIGuideComponent },
-  ];
-
-  const [sections, setSections] = useState(initialSections);
-  
-    useEffect(() => {
-        setSections(prevSections =>
-            prevSections.map(sec => {
-                if (sec.id === 'myList') return { ...sec, component: MyShoppingListComponent };
-                if (sec.id === 'restock') return { ...sec, component: RestockComponent };
-                if (sec.id === 'aiGuide') return { ...sec, component: AIGuideComponent };
-                return sec;
-            })
-        );
-    }, [myShoppingList, inventory, aiShoppingList, isPending, error, personalDetails]);
-
-
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const items = Array.from(sections);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    setSections(items);
-  };
-  
-    const droppableContent = useMemo(() => (
-        <DroppableWrapper droppableId="shopping-list-sections">
-            {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-8">
-                {sections.map((section, index) => (
-                    <Draggable key={section.id} draggableId={section.id} index={index}>
-                        {(provided) => (
-                             <div ref={provided.innerRef} {...provided.draggableProps}>
-                                <Collapsible open={!hiddenSections.includes(section.id)} onOpenChange={() => toggleSectionVisibility(section.id)}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span {...provided.dragHandleProps}>
-                                            <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-                                        </span>
-                                        <CollapsibleTrigger asChild>
-                                            <Button variant="ghost" className="flex-1 justify-start p-0 h-auto">
-                                                <h2 className="text-xl font-bold tracking-tight">{section.title}</h2>
-                                            </Button>
-                                        </CollapsibleTrigger>
-                                         <Button variant="ghost" size="icon" onClick={() => toggleSectionVisibility(section.id)}>
-                                            {hiddenSections.includes(section.id) ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                                        </Button>
-                                    </div>
-                                    <CollapsibleContent>
-                                        {section.component}
-                                    </CollapsibleContent>
-                                </Collapsible>
-                            </div>
-                        )}
-                    </Draggable>
-                ))}
-                {provided.placeholder}
-                </div>
-            )}
-        </DroppableWrapper>
-    ), [sections, hiddenSections]);
-
+    const sectionComponents: Record<Section['id'], React.ReactNode> = {
+        myList: MyShoppingListComponent,
+        restock: RestockComponent,
+        aiGuide: AIGuideComponent
+    };
 
   return (
     <>
-    <DragDropContext onDragEnd={onDragEnd}>
-        {droppableContent}
-    </DragDropContext>
+        <div className="flex justify-end mb-4">
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                        <Settings className="h-4 w-4" />
+                        <span className="sr-only">Layout Settings</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {sections.map((section, index) => (
+                        <DropdownMenuSub key={section.id}>
+                            <DropdownMenuSubTrigger>{section.title}</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                                <DropdownMenuCheckboxItem
+                                    checked={section.isVisible}
+                                    onCheckedChange={() => toggleSectionVisibility(section.id)}
+                                >
+                                    Show Section
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => moveSection(index, 'up')} disabled={index === 0}>
+                                    <ChevronUp className="mr-2 h-4 w-4" />
+                                    Move Up
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => moveSection(index, 'down')} disabled={index === sections.length - 1}>
+                                     <ChevronDown className="mr-2 h-4 w-4" />
+                                    Move Down
+                                </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+
+        <div className="space-y-8">
+            {sections.map(section => 
+                section.isVisible ? (
+                    <div key={section.id}>
+                        {sectionComponents[section.id]}
+                    </div>
+                ) : null
+            )}
+        </div>
     
     <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <AlertDialogContent>
