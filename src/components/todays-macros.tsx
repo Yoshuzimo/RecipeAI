@@ -46,29 +46,9 @@ const chartConfig = {
   }
 }
 
-// Custom Tooltip for Daily view
-const DailyChartTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="p-4 bg-background border rounded-lg shadow-lg">
-        <p className="font-bold text-lg">{label}</p>
-        <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-            {data.dishes.map((dish: any, index: number) => (
-                <li key={index}>{dish.name}</li>
-            ))}
-        </ul>
-      </div>
-    );
-  }
-
-  return null;
-};
-
 const CustomTick = (props: any) => {
     const { x, y, payload } = props;
     
-    // Add a guard to prevent crash if payload is not what we expect
     if (!payload || !payload.payload) {
         return null;
     }
@@ -81,7 +61,7 @@ const CustomTick = (props: any) => {
           {meal}
         </text>
         {dishes.map((dish: any, index: number) => (
-           <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+           <text key={index} x={0} y={20} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
         ))}
@@ -133,8 +113,8 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4">
-        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
+        <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
+            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                 dataKey="meal"
@@ -143,6 +123,7 @@ export function TodaysMacros() {
                 tickMargin={8}
                 tick={<CustomTick />}
                 interval={0}
+                height={100}
                 />
                 <YAxis
                     tickLine={false}
@@ -150,7 +131,7 @@ export function TodaysMacros() {
                     tickMargin={8}
                     tickFormatter={(value) => `${value}g`}
                 />
-                <ChartTooltip content={<DailyChartTooltip />} cursor={{fill: 'hsl(var(--muted))'}} />
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="protein" fill="var(--color-protein)" radius={4} stackId="a" />
                 <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} stackId="a" />

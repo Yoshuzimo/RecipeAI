@@ -133,11 +133,12 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
 
   const CustomTick = (props: any) => {
     const { x, y, payload } = props;
-    const data = payload.payload;
-
-    if (!data) {
+    
+    if (!payload || !payload.payload) {
         return null;
     }
+    
+    const data = payload.payload;
     
     // The label for the tick (e.g., "Breakfast", "Mon", "Week 1")
     const tickLabel = data.meal || data.day || data.week;
@@ -150,13 +151,13 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
         </text>
         
         {subLabel && (
-            <text x={0} y={16} dy={15} textAnchor="middle" fill="#888" fontSize={12}>
+            <text x={0} y={20} dy={15} textAnchor="middle" fill="#888" fontSize={12}>
                 {subLabel}
             </text>
         )}
 
         {showDishes && data.dishes && data.dishes.map((dish: any, index: number) => (
-           <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+           <text key={index} x={0} y={35} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
         ))}
@@ -184,8 +185,8 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
         </Select>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[300px]">
-          <BarChart data={data} margin={{ top: 20, right: 20, bottom: showDishes ? 60 : 40, left: 20 }}>
+        <ChartContainer config={chartConfig} className="min-h-[400px]">
+          <BarChart data={data} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={dataKey}
@@ -194,7 +195,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
               tickMargin={8}
               tick={<CustomTick />}
               interval={0}
-              height={showDishes ? 80 : 60}
+              height={100}
             />
             <YAxis
                 tickLine={false}
@@ -202,7 +203,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
                 tickMargin={8}
                 tickFormatter={(value) => `${value}g`}
             />
-            <ChartTooltipContainer content={<DailyChartTooltip />} cursor={{fill: 'hsl(var(--muted))'}}/>
+            <ChartTooltipContainer content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}}/>
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
