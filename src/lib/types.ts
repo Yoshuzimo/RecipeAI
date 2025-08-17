@@ -33,3 +33,16 @@ export type Settings = {
     e2eEncryption: boolean;
     expiryNotifications: boolean;
 }
+
+export type Recipe = {
+    title: string;
+    description: string;
+    servings: number;
+    ingredients: string[];
+    instructions: string[];
+    macros: {
+        protein: number;
+        carbs: number;
+        fat: number;
+    };
+};

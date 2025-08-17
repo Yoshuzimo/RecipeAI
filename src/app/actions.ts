@@ -4,11 +4,13 @@
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { getPersonalDetails, getUnitSystem } from "@/lib/data";
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItem, Recipe } from "@/lib/types";
 import { z } from "zod";
 
 const suggestionSchema = z.object({
   cravingsOrMood: z.string().optional(),
+  recipeToAdjust: z.string().optional(),
+  newServingSize: z.coerce.number().optional(),
 });
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
@@ -61,6 +63,8 @@ export async function handleGenerateSuggestions(
 ) {
   const validatedFields = suggestionSchema.safeParse({
     cravingsOrMood: formData.get("cravingsOrMood"),
+    recipeToAdjust: formData.get("recipeToAdjust"),
+    newServingSize: formData.get("newServingSize"),
   });
 
   if (!validatedFields.success) {
@@ -70,8 +74,38 @@ export async function handleGenerateSuggestions(
     };
   }
 
-  const cravingsOrMood = validatedFields.data.cravingsOrMood;
+  const { cravingsOrMood, recipeToAdjust, newServingSize } = validatedFields.data;
   
+  if (recipeToAdjust && newServingSize) {
+    try {
+        const recipe: Recipe = JSON.parse(recipeToAdjust);
+        const result = await generateMealSuggestions({
+            recipeToAdjust: recipe,
+            newServingSize: newServingSize,
+            unitSystem: await getUnitSystem(),
+            // Pass dummy data for other fields as they aren't used for adjustments
+            currentInventory: "",
+            expiringIngredients: "",
+            personalDetails: "",
+            todaysMacros: { protein: 0, carbs: 0, fat: 0 },
+            mealsEatenToday: [],
+        });
+        // The AI returns the single adjusted recipe inside the suggestions array
+        const adjustedRecipe = result.suggestions[0];
+        // We need to return it in a way that the frontend can replace the original
+        return {
+            suggestions: null, // No new suggestions
+            adjustedRecipe: adjustedRecipe,
+            originalRecipeTitle: recipe.title,
+            error: null
+        };
+    } catch(e) {
+        console.error("Error adjusting recipe", e);
+        return { error: { form: "Failed to adjust recipe. Please try again." }, suggestions: null };
+    }
+  }
+
+
   const now = new Date();
   const expiringSoonThreshold = new Date();
   expiringSoonThreshold.setDate(now.getDate() + 3);
