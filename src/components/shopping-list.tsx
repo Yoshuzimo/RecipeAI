@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -79,7 +80,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const { register, handleSubmit, reset } = useForm<AddItemForm>();
 
-  const lowOnStockItems = inventory.filter(item => (item.packageCount * item.packageSize) < 2 && item.unit === 'pcs' || (item.packageCount * item.packageSize) < 200 && (item.unit === 'g' || item.unit === 'ml'));
+  const lowOnStockItems = inventory.filter(item => (item.totalQuantity / item.originalQuantity) < 0.25);
 
   const checkedItems = useMemo(() => myShoppingList.filter(item => item.checked), [myShoppingList]);
   const hasCheckedItems = checkedItems.length > 0;
@@ -214,7 +215,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     <Card>
       <CardHeader>
         <CardTitle>Items to Restock</CardTitle>
-        <CardDescription>These items are running low in your inventory. Click to add them to your list.</CardDescription>
+        <CardDescription>These items have less than 25% remaining. Click to add them to your list.</CardDescription>
       </CardHeader>
       <CardContent>
           {lowOnStockItems.length > 0 ? (
@@ -229,7 +230,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                       {lowOnStockItems.map(item => (
                       <TableRow key={item.id} onClick={() => handleSuggestionClick({ item: item.name, quantity: `1 ${item.unit}`})} className="cursor-pointer">
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell>{(item.packageSize * item.packageCount).toFixed(2)}{item.unit}</TableCell>
+                          <TableCell>{item.totalQuantity.toFixed(2)}{item.unit}</TableCell>
                       </TableRow>
                       ))}
                   </TableBody>

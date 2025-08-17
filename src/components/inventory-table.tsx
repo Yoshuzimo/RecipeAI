@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { InventoryItemGroup } from "@/lib/types";
@@ -64,7 +65,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
                 <TableRow key={group.name} onClick={() => onRowClick(group)} className="cursor-pointer">
                   <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell>
-                    {group.totalQuantity} {group.unit}
+                    {group.totalQuantity.toFixed(2)} {group.unit}
                   </TableCell>
                   <TableCell>
                     {group.items.length}

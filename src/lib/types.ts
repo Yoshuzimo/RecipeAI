@@ -1,4 +1,5 @@
 
+
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon';
 
 export type StorageLocation = {
@@ -15,8 +16,10 @@ export type GroupedByLocation = {
 export type InventoryItem = {
   id: string;
   name: string;
-  packageSize: number;
-  packageCount: number;
+  // The original size of the package when it was full
+  originalQuantity: number; 
+  // The current remaining quantity in the package
+  totalQuantity: number; 
   unit: Unit;
   expiryDate: Date;
   locationId: string;
@@ -54,11 +57,17 @@ export type Macros = {
     fat: number;
 };
 
+export type RecipeIngredient = {
+    name: string;
+    notes?: string; // e.g., "chopped", "to taste", "about 1 cup"
+}
+
 export type Recipe = {
     title: string;
     description: string;
     servings: number;
-    ingredients: string[];
+    ingredients: string[]; // Keep original strings for display
+    parsedIngredients: RecipeIngredient[]; // Parsed ingredients for AI processing
     instructions: string[];
     macros: Macros;
 };

@@ -42,7 +42,7 @@ export default function InventoryClient({
           }
           const group = acc[key];
           group.items.push(item);
-          group.totalQuantity += (item.packageSize * item.packageCount);
+          group.totalQuantity += item.totalQuantity;
           const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
           group.items = sortedItems;
           group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
@@ -83,6 +83,11 @@ export default function InventoryClient({
   };
 
   const handleItemUpdated = (updatedItem: InventoryItem) => {
+    // If an item's quantity becomes 0, it is effectively removed.
+    if (updatedItem.totalQuantity <= 0) {
+        handleItemRemoved(updatedItem.id);
+        return;
+    }
     const newFlatInventory = flatInventory.map(item => item.id === updatedItem.id ? updatedItem : item);
     updateState(newFlatInventory);
   };

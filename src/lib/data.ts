@@ -1,5 +1,5 @@
 
-import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation } from "./types";
+import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, RecipeIngredient } from "./types";
 import { v4 as uuidv4 } from 'uuid';
 
 const today = new Date();
@@ -21,16 +21,16 @@ let MOCK_STORAGE_LOCATIONS: StorageLocation[] = [
 ];
 
 let MOCK_INVENTORY: InventoryItem[] = [
-  { id: '1', name: 'Chicken Breast', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
-  { id: '1a', name: 'Chicken Breast', packageSize: 1.5, packageCount: 1, unit: 'lbs', expiryDate: nextWeek, locationId: 'freezer-1' },
-  { id: '2', name: 'Broccoli', packageSize: 12, packageCount: 1, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
-  { id: '3', name: 'Milk', packageSize: 1, packageCount: 1, unit: 'gallon', expiryDate: tomorrow, locationId: 'fridge-1' },
-  { id: '4', name: 'Eggs', packageSize: 12, packageCount: 1, unit: 'pcs', expiryDate: nextWeek, locationId: 'fridge-1' },
-  { id: '5', name: 'Tomatoes', packageSize: 1, packageCount: 5, unit: 'pcs', expiryDate: nextWeek, locationId: 'pantry-1' },
-  { id: '6', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: yesterday, locationId: 'fridge-1' },
-  { id: '6a', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: threeDaysFromNow, locationId: 'freezer-1' },
-  { id: '7', name: 'Cheddar Cheese', packageSize: 8, packageCount: 1, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
-  { id: '8', name: 'Lettuce', packageSize: 1, packageCount: 1, unit: 'pcs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
+  { id: '1', name: 'Chicken Breast', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
+  { id: '1a', name: 'Chicken Breast', originalQuantity: 1.5, totalQuantity: 1.5, unit: 'lbs', expiryDate: nextWeek, locationId: 'freezer-1' },
+  { id: '2', name: 'Broccoli', originalQuantity: 12, totalQuantity: 12, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '3', name: 'Milk', originalQuantity: 1, totalQuantity: 0.5, unit: 'gallon', expiryDate: tomorrow, locationId: 'fridge-1' },
+  { id: '4', name: 'Eggs', originalQuantity: 12, totalQuantity: 8, unit: 'pcs', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '5', name: 'Tomatoes', originalQuantity: 5, totalQuantity: 5, unit: 'pcs', expiryDate: nextWeek, locationId: 'pantry-1' },
+  { id: '6', name: 'Ground Beef', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: yesterday, locationId: 'fridge-1' },
+  { id: '6a', name: 'Ground Beef', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: threeDaysFromNow, locationId: 'freezer-1' },
+  { id: '7', name: 'Cheddar Cheese', originalQuantity: 8, totalQuantity: 6, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '8', name: 'Lettuce', originalQuantity: 1, totalQuantity: 1, unit: 'pcs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
 ];
 
 let MOCK_PERSONAL_DETAILS: PersonalDetails = {
@@ -119,9 +119,21 @@ export async function getInventory(): Promise<InventoryItem[]> {
   return MOCK_INVENTORY;
 }
 
-export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> {
+type AddItemData = {
+    name: string;
+    totalQuantity: number;
+    unit: Unit;
+    expiryDate: Date;
+    locationId: string;
+}
+
+export async function addInventoryItem(item: AddItemData): Promise<InventoryItem> {
   await new Promise(resolve => setTimeout(resolve, 500));
-  const newItem = { ...item, id: Math.random().toString(36).substring(2, 9) };
+  const newItem: InventoryItem = { 
+      ...item, 
+      id: uuidv4(),
+      originalQuantity: item.totalQuantity, // When adding, original and total are the same
+    };
   MOCK_INVENTORY.push(newItem);
   return newItem;
 }
@@ -132,8 +144,15 @@ export async function updateInventoryItem(updatedItem: InventoryItem): Promise<I
     if (index === -1) {
         throw new Error("Item not found");
     }
-    MOCK_INVENTORY[index] = updatedItem;
-    return updatedItem;
+    // If total quantity is 0 or less, remove it
+    if (updatedItem.totalQuantity <= 0) {
+        MOCK_INVENTORY.splice(index, 1);
+        // Return a sentinel or different value to indicate removal
+        return {...updatedItem, totalQuantity: 0};
+    } else {
+        MOCK_INVENTORY[index] = updatedItem;
+        return updatedItem;
+    }
 }
 
 export async function removeInventoryItem(itemId: string): Promise<{ id: string }> {
@@ -163,13 +182,6 @@ export async function getSettings(): Promise<Settings> {
     await new Promise(resolve => setTimeout(resolve, 100));
     const settings = mockLocalStorage.get('settings');
     return settings ? JSON.parse(settings) : MOCK_SETTINGS;
-}
-
-export async function saveSettings(settings: Settings): Promise<Settings> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    MOCK_SETTINGS = settings;
-    mockLocalStorage.set('settings', JSON.stringify(settings));
-    return MOCK_SETTINGS;
 }
 
 export async function getUnitSystem(): Promise<'us' | 'metric'> {

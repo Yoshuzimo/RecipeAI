@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
-import { addInventoryItem, getUnitSystem } from "@/lib/data";
+import { addInventoryItem, getUnitSystem, getStorageLocations } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,20 +41,20 @@ import type { ShoppingListItem } from "./shopping-list";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { useEffect, useState } from "react";
-import type { Unit } from "@/lib/types";
+import type { Unit, StorageLocation } from "@/lib/types";
 
 const itemSchema = z.object({
   name: z.string(),
-  packageSize: z.coerce.number().positive({
-    message: "Package size must be a positive number.",
-  }),
-  packageCount: z.coerce.number().int().positive({
-      message: "Number of packages must be a positive whole number."
+  totalQuantity: z.coerce.number().positive({
+    message: "Quantity must be a positive number.",
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
     required_error: "An expiry date is required.",
   }),
+  locationId: z.string({
+      required_error: "A storage location is required."
+  })
 });
 
 const formSchema = z.object({
@@ -90,11 +91,14 @@ export function BuyItemsDialog({
 }) {
   const { toast } = useToast();
   const [availableUnits, setAvailableUnits] = useState(usUnits);
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   
   useEffect(() => {
     async function fetchUnitSystem() {
       const system = await getUnitSystem();
       setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+      const locations = await getStorageLocations();
+      setStorageLocations(locations);
     }
     fetchUnitSystem();
   }, [isOpen]);
@@ -104,13 +108,27 @@ export function BuyItemsDialog({
     defaultValues: {
       items: items.map(item => ({
         name: item.item,
-        packageSize: 1,
-        packageCount: 1,
+        totalQuantity: 1,
         unit: 'pcs',
         expiryDate: addDays(new Date(), 7),
+        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || ""
       })),
     },
   });
+  
+  useEffect(() => {
+    if (storageLocations.length > 0) {
+        const pantryId = storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0].id;
+        const defaultItems = items.map(item => ({
+             name: item.item,
+            totalQuantity: 1,
+            unit: 'pcs',
+            expiryDate: addDays(new Date(), 7),
+            locationId: pantryId,
+        }));
+        form.setValue('items', defaultItems);
+    }
+  }, [storageLocations, items, form]);
 
   const { fields } = useFieldArray({
     control: form.control,
@@ -156,10 +174,10 @@ export function BuyItemsDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
-                                name={`items.${index}.packageSize`}
+                                name={`items.${index}.totalQuantity`}
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Package Size</FormLabel>
+                                    <FormLabel>Quantity</FormLabel>
                                     <FormControl>
                                     <Input type="number" placeholder="e.g., 1.5" {...field} />
                                     </FormControl>
@@ -192,13 +210,22 @@ export function BuyItemsDialog({
                         </div>
                         <FormField
                             control={form.control}
-                            name={`items.${index}.packageCount`}
+                            name={`items.${index}.locationId`}
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Number of Packages</FormLabel>
+                                <FormLabel>Storage Location</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                <Input type="number" {...field} />
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Select a location" />
+                                    </SelectTrigger>
                                 </FormControl>
+                                <SelectContent>
+                                    {storageLocations.map(location => (
+                                        <SelectItem key={location.id} value={location.id}>{location.name} ({location.type})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                             )}

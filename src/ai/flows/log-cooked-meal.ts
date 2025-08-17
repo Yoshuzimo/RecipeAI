@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview This file defines a Genkit flow for logging a cooked meal, deducting ingredients from inventory,
- * and creating a new leftover inventory item.
+ * and creating a new leftover inventory item. This flow is responsible for unit conversions.
  *
  * - logCookedMeal - A function that processes the cooking of a recipe.
  * - LogCookedMealInput - The input type for the function.
@@ -18,10 +18,24 @@ const LeftoverDestinationSchema = z.object({
   servings: z.number().describe("The number of servings being stored in this location."),
 });
 
+const InventoryItemSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    totalQuantity: z.number(),
+    unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
+    expiryDate: z.string(),
+    locationId: z.string(),
+});
+
+const RecipeIngredientSchema = z.object({
+    name: z.string(),
+    notes: z.string().optional(),
+});
+
 const LogCookedMealInputSchema = z.object({
   recipe: z.object({
     title: z.string(),
-    ingredients: z.array(z.string()),
+    parsedIngredients: z.array(RecipeIngredientSchema),
     servings: z.number(),
     macros: z.object({
         protein: z.number(),
@@ -29,7 +43,7 @@ const LogCookedMealInputSchema = z.object({
         fat: z.number(),
     }),
   }),
-  currentInventory: z.string().describe("A comma-separated list of ingredients currently in the user's inventory, including quantities and expiration dates."),
+  currentInventory: z.array(InventoryItemSchema).describe("A list of all items currently in the user's inventory."),
   servingsEaten: z.number().describe("The number of servings eaten by the user."),
   servingsEatenByOthers: z.number().describe("The number of servings eaten by others (for calculation purposes only)."),
   fridgeLeftovers: z.array(LeftoverDestinationSchema).describe("A list of fridge locations and the number of servings to store in each."),
@@ -40,7 +54,10 @@ export type LogCookedMealInput = z.infer<typeof LogCookedMealInputSchema>;
 
 
 const LogCookedMealOutputSchema = z.object({
-    updatedInventory: z.string().describe("The user's inventory after deducting the recipe ingredients. This should be a list of items to remove or update."),
+    inventoryUpdates: z.array(z.object({
+        itemId: z.string().describe("The ID of the inventory item to update."),
+        newQuantity: z.number().describe("The new totalQuantity for the inventory item. If the item is fully used, this should be 0.")
+    })).describe("A list of inventory items to update with their new quantities."),
     leftoverItems: z.array(z.object({
         name: z.string().describe("The name of the leftover item to be created (e.g., 'Leftover - Recipe Title')."),
         quantity: z.number().describe("The number of servings remaining."),
@@ -64,22 +81,40 @@ const prompt = ai.definePrompt({
   name: 'logCookedMealPrompt',
   input: {schema: LogCookedMealInputSchema},
   output: {schema: LogCookedMealOutputSchema},
-  prompt: `You are an inventory and nutrition logging assistant for a recipe app. The user has just cooked a recipe. 
+  prompt: `You are an intelligent inventory and nutrition logging assistant. The user has cooked a recipe.
 
-Your tasks are:
-1.  **Deduct Ingredients**: Analyze the recipe's ingredients and determine which items need to be removed or have their quantities reduced from the user's current inventory. The output should only be the items that need to be changed.
-2.  **Create Leftover Items**: Based on the 'fridgeLeftovers' and 'freezerLeftovers' input, create new leftover inventory items for each destination that has servings.
-    - The name for all leftovers should be "Leftover - {{{recipe.title}}}".
-3.  **Calculate Macros**: Calculate the total protein, carbs, and fat consumed **by the user only**. This is (servingsEaten * macros per serving).
-4.  **Format Output**: Provide a list of inventory updates, a list of new leftover items, and the total consumed macros.
+**Your Primary Task:**
+Accurately calculate the new quantity for each inventory item used in the recipe and determine the leftover details. You MUST perform unit conversions where necessary.
+
+**Unit Conversion Table (use these for all calculations):**
+*   1 lb = 16 oz = 453.592 g
+*   1 kg = 1000 g = 2.20462 lbs
+*   1 gallon = 4 quarts = 8 pints = 16 cups = 128 fl oz = 3.785 L
+*   1 L = 1000 mL
+*   1 cup = 8 fl oz = 236.588 mL
+*   For "pcs" (pieces), you must use reasonable estimations. Examples:
+    *   1 medium chicken breast is about 6-8 oz.
+    *   1 large egg is about 2 oz.
+    *   1 medium apple is about 6 oz.
+    *   Use the ingredient name and notes to make the best estimation.
+
+**Detailed Instructions:**
+1.  **Analyze Recipe Ingredients**: For each ingredient in 'recipe.parsedIngredients', determine how much of it is needed for the recipe.
+2.  **Match to Inventory**: Find the corresponding item(s) in the 'currentInventory'. You should match by name. If multiple packages exist (e.g., one in fridge, one in freezer), deduct from the one with the earliest expiry date first.
+3.  **Calculate Deduction**:
+    *   Convert the recipe ingredient's unit to the inventory item's unit if they differ.
+    *   Calculate the new 'totalQuantity' for the affected inventory item. \`newQuantity = currentQuantity - usedQuantity\`.
+    *   The 'newQuantity' cannot be negative. If more is required than available, use up the entire package and set 'newQuantity' to 0.
+4.  **Create Inventory Updates**: For every inventory item that was used, create an object in the 'inventoryUpdates' array containing the 'itemId' and the calculated 'newQuantity'.
+5.  **Create Leftover Items**: Based on 'fridgeLeftovers' and 'freezerLeftovers', create new items for the 'leftoverItems' array. Only create items if servings > 0. The name for all leftovers should be "Leftover - {{{recipe.title}}}".
+6.  **Calculate Macros**: Calculate the total protein, carbs, and fat consumed **by the user only**. This is (servingsEaten * macros per serving).
 
 **User's Context:**
-*   **Recipe Cooked:** {{{recipe.title}}}
-*   **Recipe Ingredients:** 
-{{#each recipe.ingredients}}
-- {{{this}}}
+*   **Recipe Cooked:** {{{recipe.title}}} (Total Servings Made: {{{recipe.servings}}})
+*   **Recipe Ingredients Used:** 
+{{#each recipe.parsedIngredients}}
+- {{{this.name}}} {{#if this.notes}}({{{this.notes}}}){{/if}}
 {{/each}}
-*   **Total Servings Made:** {{{recipe.servings}}}
 *   **Macros Per Serving:** Protein: {{{recipe.macros.protein}}}g, Carbs: {{{recipe.macros.carbs}}}g, Fat: {{{recipe.macros.fat}}}g
 *   **Servings Eaten by User:** {{{servingsEaten}}}
 *   **Servings Eaten by Others:** {{{servingsEatenByOthers}}}
@@ -91,11 +126,13 @@ Your tasks are:
 {{#each freezerLeftovers}}
 - {{{this.servings}}} servings to location {{{this.locationId}}}
 {{/each}}
-*   **Current Inventory:** {{{currentInventory}}}
+*   **Current Inventory (Before Cooking):** 
+{{#each currentInventory}}
+- ID: {{{this.id}}}, Name: {{{this.name}}}, Qty: {{{this.totalQuantity}}}{{{this.unit}}}, Expires: {{{this.expiryDate}}}, Location: {{{this.locationId}}}
+{{/each}}
 *   **Unit System:** {{{unitSystem}}}
 
-Based on this, determine the inventory changes, the leftover details for each destination, and the consumed macros.
-If a location has 0 servings going to it, do not create an entry for it in the leftoverItems array.
+Generate the precise \`inventoryUpdates\`, \`leftoverItems\`, and \`macrosConsumed\`.
 `,
 });
 

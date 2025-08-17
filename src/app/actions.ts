@@ -1,4 +1,5 @@
 
+
 "use server";
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
@@ -6,15 +7,15 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution } from "@/lib/types";
-import { addDays } from "date-fns";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient } from "@/lib/types";
+import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 
 const inventoryItemSchema = z.object({
   id: z.string(),
   name: z.string(),
-  packageSize: z.number(),
-  packageCount: z.number(),
+  totalQuantity: z.number(),
+  originalQuantity: z.number(),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
   locationId: z.string(),
@@ -56,13 +57,13 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
         const itemExpiryDate = new Date(item.expiryDate);
         const key = `${item.name} (${item.unit})`;
         if (acc[key]) {
-            acc[key].totalQuantity += (item.packageSize * item.packageCount);
+            acc[key].totalQuantity += item.totalQuantity;
             if (itemExpiryDate < acc[key].earliestExpiry) {
                 acc[key].earliestExpiry = itemExpiryDate;
             }
         } else {
             acc[key] = {
-                totalQuantity: (item.packageSize * item.packageCount),
+                totalQuantity: item.totalQuantity,
                 unit: item.unit,
                 earliestExpiry: itemExpiryDate,
                 name: item.name,
@@ -77,6 +78,18 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
         )
         .join(', ');
 }
+
+// Simple parser for ingredients. A more sophisticated NLP-based parser would be better.
+function parseIngredients(ingredients: string[]): RecipeIngredient[] {
+    return ingredients.map(ing => {
+        // This is a very basic parser, assuming the name is the main part.
+        // It doesn't handle quantities well, but gives the AI the parts.
+        const name = ing.split(',')[0].trim();
+        const notes = ing.includes(',') ? ing.substring(ing.indexOf(',') + 1).trim() : undefined;
+        return { name, notes };
+    });
+}
+
 
 export async function handleGenerateSuggestions(formData: FormData) {
   let log = "Button clicked.\n";
@@ -121,7 +134,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
         // We need to return it in a way that the frontend can replace the original
         return {
             suggestions: null, // No new suggestions
-            adjustedRecipe: adjustedRecipe,
+            adjustedRecipe: { ...adjustedRecipe, parsedIngredients: parseIngredients(adjustedRecipe.ingredients) },
             originalRecipeTitle: recipeToAdjust.title,
             error: null,
              debugInfo: {
@@ -169,8 +182,13 @@ export async function handleGenerateSuggestions(formData: FormData) {
 
   try {
     const result = await generateMealSuggestions(promptInput);
+    const suggestionsWithParsed = result.suggestions.map(recipe => ({
+        ...recipe,
+        parsedIngredients: parseIngredients(recipe.ingredients),
+    }))
+
     return { 
-        suggestions: result.suggestions, 
+        suggestions: suggestionsWithParsed,
         error: null, 
         debugInfo: {
             promptInput: log,
@@ -254,26 +272,38 @@ export async function handleLogCookedMeal(
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const inventory = await getInventory();
-    const currentInventoryString = formatInventoryToString(inventory);
     const unitSystem = await getUnitSystem();
+
+    const inventoryForAI = inventory.map(item => ({
+        ...item,
+        expiryDate: item.expiryDate.toISOString(),
+    }));
 
     try {
         const result = await logCookedMeal({
-            recipe,
-            currentInventory: currentInventoryString,
+            recipe: {
+                title: recipe.title,
+                parsedIngredients: recipe.parsedIngredients,
+                servings: recipe.servings,
+                macros: recipe.macros
+            },
+            currentInventory: inventoryForAI,
             servingsEaten,
             servingsEatenByOthers,
             fridgeLeftovers,
             freezerLeftovers,
             unitSystem
         });
-
-        // This is a simplified deduction logic. A real app would need to parse AI response
-        // and match it precisely with inventory items, which is very complex.
-        // For this demo, we'll just assume the first ingredient was used up.
-        // A more robust solution would be implemented in a real application.
-        if (inventory.length > 0) {
-           // Simplified logic for demo purposes
+        
+        // Apply inventory updates from AI
+        for (const update of result.inventoryUpdates) {
+            const itemToUpdate = inventory.find(i => i.id === update.itemId);
+            if (itemToUpdate) {
+                await updateInventoryItem({
+                    ...itemToUpdate,
+                    totalQuantity: update.newQuantity,
+                });
+            }
         }
         
         // Add new leftover items to inventory
@@ -286,8 +316,7 @@ export async function handleLogCookedMeal(
                     
                     await addInventoryItem({
                         name: leftover.name,
-                        packageSize: leftover.quantity,
-                        packageCount: 1,
+                        totalQuantity: leftover.quantity,
                         unit: 'pcs', // Leftovers are in "pieces" or servings
                         expiryDate,
                         locationId: leftover.locationId,
@@ -339,5 +368,3 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
         return { success: false, error };
     }
 }
-
-    

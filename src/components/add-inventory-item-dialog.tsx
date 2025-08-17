@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,11 +44,8 @@ const formSchema = z.object({
   name: z.string().min(2, {
     message: "Item name must be at least 2 characters.",
   }),
-  packageSize: z.coerce.number().positive({
-    message: "Package size must be a positive number.",
-  }),
-  packageCount: z.coerce.number().int().positive({
-      message: "Number of packages must be a positive whole number."
+  totalQuantity: z.coerce.number().positive({
+    message: "Quantity must be a positive number.",
   }),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
@@ -92,8 +90,7 @@ export function AddInventoryItemDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      packageSize: 1,
-      packageCount: 1,
+      totalQuantity: 1,
       unit: "lbs",
     },
   });
@@ -115,8 +112,7 @@ export function AddInventoryItemDialog({
         fetchData();
         form.reset({
             name: "",
-            packageSize: 1,
-            packageCount: 1,
+            totalQuantity: 1,
             unit: unitSystem === 'us' ? 'lbs' : 'kg',
             expiryDate: addDays(new Date(), 7),
             locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
@@ -169,10 +165,10 @@ export function AddInventoryItemDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="packageSize"
+                name="totalQuantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Package Size</FormLabel>
+                    <FormLabel>Quantity</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="e.g., 1.5" {...field} />
                     </FormControl>
@@ -203,19 +199,6 @@ export function AddInventoryItemDialog({
                 )}
               />
             </div>
-             <FormField
-                control={form.control}
-                name="packageCount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Number of Packages</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
              <FormField
                 control={form.control}
                 name="locationId"
