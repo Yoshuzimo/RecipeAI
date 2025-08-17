@@ -98,6 +98,13 @@ export function BuyItemsDialog({
   const { toast } = useToast();
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      items: [],
+    },
+  });
   
   useEffect(() => {
     async function fetchUnitSystem() {
@@ -111,30 +118,24 @@ export function BuyItemsDialog({
     }
   }, [isOpen]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      items: [],
-    },
-  });
-  
   useEffect(() => {
     if (isOpen && storageLocations.length > 0) {
         const pantryId = storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0].id;
-        const defaultItems = items.map(item => {
-            const doesNotExpire = ['salt', 'sugar', 'honey'].some(nonExp => item.item.toLowerCase().includes(nonExp));
-            return {
-                name: item.item,
-                totalQuantity: 1,
-                unit: 'pcs' as Unit,
-                expiryDate: doesNotExpire ? undefined : addDays(new Date(), 7),
-                locationId: pantryId,
-                doesNotExpire: doesNotExpire,
-            }
+        form.reset({
+            items: items.map(item => {
+                const doesNotExpire = ['salt', 'sugar', 'honey'].some(nonExp => item.item.toLowerCase().includes(nonExp));
+                return {
+                    name: item.item,
+                    totalQuantity: 1,
+                    unit: 'pcs' as Unit,
+                    expiryDate: doesNotExpire ? undefined : addDays(new Date(), 7),
+                    locationId: pantryId,
+                    doesNotExpire: doesNotExpire,
+                }
+            })
         });
-        form.reset({ items: defaultItems });
     }
-  }, [storageLocations, items, form, isOpen]);
+  }, [isOpen, storageLocations, items, form]);
 
   const { fields } = useFieldArray({
     control: form.control,
@@ -322,4 +323,5 @@ export function BuyItemsDialog({
     </Dialog>
   );
 }
- 
+
+    
