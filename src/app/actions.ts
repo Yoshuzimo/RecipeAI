@@ -3,12 +3,12 @@
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
-import { getUnitSystem } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
 import { z } from "zod";
 
 const suggestionSchema = z.object({
-  cravingsOrMood: z.string().min(1, "This field is required."),
+  cravingsOrMood: z.string().optional(),
 });
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
@@ -66,6 +66,7 @@ export async function handleGenerateSuggestions(
   if (!validatedFields.success) {
     return {
       error: validatedFields.error.flatten().fieldErrors,
+      suggestions: null
     };
   }
 
@@ -82,6 +83,13 @@ export async function handleGenerateSuggestions(
   const currentInventoryString = formatInventoryToString(inventory);
   const expiringIngredientsString = formatInventoryToString(expiringIngredients);
   const unitSystem = await getUnitSystem();
+  const personalDetails = await getPersonalDetails();
+  const personalDetailsString = JSON.stringify(personalDetails, null, 2);
+
+  // In a real app, this data would come from the user's daily log
+  const mockTodaysMacros = { protein: 95, carbs: 155, fat: 65 };
+  const mockMealsEatenToday = ["Oatmeal with berries", "Chicken salad wrap"];
+
 
   try {
     const result = await generateMealSuggestions({
@@ -89,11 +97,14 @@ export async function handleGenerateSuggestions(
       currentInventory: currentInventoryString,
       expiringIngredients: expiringIngredientsString,
       unitSystem,
+      personalDetails: personalDetailsString,
+      todaysMacros: mockTodaysMacros,
+      mealsEatenToday: mockMealsEatenToday,
     });
     return { suggestions: result.suggestions, error: null };
   } catch (error) {
     console.error(error);
-    return { error: "Failed to generate suggestions. Please try again.", suggestions: null };
+    return { error: { form: "Failed to generate suggestions. Please try again." }, suggestions: null };
   }
 }
 
