@@ -23,6 +23,7 @@ const initialState = {
   adjustedRecipe: null,
   originalRecipeTitle: null,
   debugInfo: null,
+  inventory: [],
 };
 
 function SubmitButton() {
@@ -68,11 +69,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     if (state.suggestions) {
         setSuggestions(state.suggestions);
     }
-    // This was the bug. The action returns an inventory property on the new state object,
-    // which was not being used. The component now uses that to update its local inventory state.
-    const returnedInventory = (state as any).inventory;
-    if (returnedInventory) { // Check if inventory is returned
-        setInventory(returnedInventory);
+    if (state.inventory && state.inventory.length > 0) {
+        setInventory(state.inventory);
     }
     if (state.adjustedRecipe && state.originalRecipeTitle) {
       setSuggestions(prev => 
@@ -82,6 +80,9 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
      if (state.debugInfo) {
       setPromptInput(state.debugInfo.promptInput);
       setRawResponse(state.debugInfo.rawResponse);
+    } else {
+      setPromptInput(null);
+      setRawResponse(null);
     }
   }, [state]);
 
@@ -127,7 +128,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>AI Meal Planner</CardTitle>
           <CardDescription>Get recipe suggestions based on your inventory, preferences, and daily nutritional needs.</CardDescription>
         </CardHeader>
         <CardContent>
