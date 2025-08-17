@@ -160,13 +160,23 @@ export function CalorieLineChart({
 
                             const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
                             const runningTotal = value;
+                            const showDishBreakdown = payload.dishes.length > 1;
+
+                            const calculateDishCalories = (dish: any) => {
+                                return (dish.protein * 4) + (dish.carbs * 4) + (dish.fat * 9);
+                            };
 
                             return (
                                 <div className="text-sm">
                                     <p className="font-bold">{payload?.meal} ({format(payload?.loggedAt, "p")})</p>
-                                    <p>{mealCalories.toFixed(0)} calories ({runningTotal} total)</p>
+                                    <p>{mealCalories.toFixed(0)} calories ({runningTotal.toFixed(0)} total)</p>
                                     <ul className="list-disc list-inside text-muted-foreground">
-                                        {payload?.dishes?.map((d: any) => <li key={d.name}>{d.name}</li>)}
+                                        {payload?.dishes?.map((dish: any) => (
+                                            <li key={dish.name}>
+                                                {dish.name}
+                                                {showDishBreakdown && ` (${calculateDishCalories(dish).toFixed(0)} cal)`}
+                                            </li>
+                                        ))}
                                     </ul>
                                 </div>
                             )
