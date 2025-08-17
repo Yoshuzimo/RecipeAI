@@ -39,24 +39,25 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                      tooltip={{
-                        children: item.label,
-                        className: "font-body",
-                      }}
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={{
+                      children: item.label,
+                      className: "font-body",
+                    }}
+                  >
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3",
+                        "group-data-[state=collapsed]:justify-center"
+                      )}
                     >
-                      <Link className={cn(
-                          "flex items-center gap-3",
-                          "group-data-[state=collapsed]:justify-center"
-                      )}>
-                        <item.icon className="h-5 w-5" />
-                        <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </Link>
+                      <item.icon className="h-5 w-5" />
+                      <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
