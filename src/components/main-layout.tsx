@@ -1,0 +1,69 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { Home, Settings, Warehouse } from "lucide-react";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+} from "@/components/ui/sidebar";
+import { Logo } from "@/components/icons";
+import { cn } from "@/lib/utils";
+
+const menuItems = [
+  { href: "/", label: "Meal Planner", icon: Home },
+  { href: "/inventory", label: "Inventory", icon: Warehouse },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen">
+        <Sidebar className="h-full">
+          <SidebarHeader className="p-4">
+            <Link href="/" className="flex items-center gap-2">
+              <Logo className="w-8 h-8 text-primary" />
+              <span className="font-bold text-lg group-data-[state=collapsed]:hidden">RecipeAI</span>
+            </Link>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <Link href={item.href} legacyBehavior passHref>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                      tooltip={{
+                        children: item.label,
+                        className: "font-body",
+                      }}
+                    >
+                      <Link className={cn(
+                          "flex items-center gap-3",
+                          "group-data-[state=collapsed]:justify-center"
+                      )}>
+                        <item.icon className="h-5 w-5" />
+                        <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset className="flex-1 bg-background">{children}</SidebarInset>
+      </div>
+    </SidebarProvider>
+  );
+}
