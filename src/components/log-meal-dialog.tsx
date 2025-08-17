@@ -48,6 +48,7 @@ export function LogMealDialog({
 }) {
   const { toast } = useToast();
   const [servingsEaten, setServingsEaten] = useState(1);
+  const [servingsEatenByOthers, setServingsEatenByOthers] = useState(0);
   const [storageMethod, setStorageMethod] = useState("Fridge");
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
@@ -55,17 +56,31 @@ export function LogMealDialog({
   useEffect(() => {
     if(isOpen) {
         setServingsEaten(1);
+        setServingsEatenByOthers(0);
         setStorageMethod("Fridge");
         setMealType(getDefaultMealType());
     }
   }, [isOpen]);
 
+  const totalServingsEaten = servingsEaten + servingsEatenByOthers;
+  const servingsLeft = recipe.servings - totalServingsEaten;
 
-  const servingsLeft = recipe.servings - servingsEaten;
+  const handleServingsChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) => {
+      let value = parseInt(e.target.value, 10) || 0;
+      setter(value);
+  }
+
+  // Ensure user and others' servings don't exceed total
+  useEffect(() => {
+    if (servingsEaten + servingsEatenByOthers > recipe.servings) {
+        setServingsEatenByOthers(recipe.servings - servingsEaten);
+    }
+  }, [servingsEaten, servingsEatenByOthers, recipe.servings]);
+
 
   const handleSubmit = async () => {
     setIsPending(true);
-    const result = await handleLogCookedMeal(recipe, servingsEaten, storageMethod, mealType);
+    const result = await handleLogCookedMeal(recipe, servingsEaten, servingsEatenByOthers, storageMethod, mealType);
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -108,17 +123,31 @@ export function LogMealDialog({
                 </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="servings-eaten">How many servings did you eat?</Label>
-            <Input
-              id="servings-eaten"
-              type="number"
-              value={servingsEaten}
-              onChange={(e) => setServingsEaten(Math.min(recipe.servings, Math.max(0, parseInt(e.target.value, 10))))}
-              min={0}
-              max={recipe.servings}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="servings-eaten">Servings You Ate</Label>
+                <Input
+                id="servings-eaten"
+                type="number"
+                value={servingsEaten}
+                onChange={(e) => handleServingsChange(e, setServingsEaten)}
+                min={0}
+                max={recipe.servings - servingsEatenByOthers}
+                />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="servings-eaten-by-others">Servings Others Ate</Label>
+                <Input
+                id="servings-eaten-by-others"
+                type="number"
+                value={servingsEatenByOthers}
+                onChange={(e) => handleServingsChange(e, setServingsEatenByOthers)}
+                min={0}
+                max={recipe.servings - servingsEaten}
+                />
+            </div>
           </div>
+
           {servingsLeft > 0 && (
              <div className="space-y-2">
                 <Label htmlFor="storage-method">Where are the {servingsLeft} leftover serving(s) stored?</Label>

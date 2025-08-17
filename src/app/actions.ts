@@ -242,6 +242,7 @@ export async function handleGenerateSubstitutions(
 export async function handleLogCookedMeal(
     recipe: Recipe,
     servingsEaten: number,
+    servingsEatenByOthers: number,
     storageMethod: string,
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
@@ -254,6 +255,7 @@ export async function handleLogCookedMeal(
             recipe,
             currentInventory: currentInventoryString,
             servingsEaten,
+            servingsEatenByOthers,
             storageMethod,
             unitSystem
         });

@@ -25,7 +25,8 @@ const LogCookedMealInputSchema = z.object({
     }),
   }),
   currentInventory: z.string().describe("A comma-separated list of ingredients currently in the user's inventory, including quantities and expiration dates."),
-  servingsEaten: z.number(),
+  servingsEaten: z.number().describe("The number of servings eaten by the user."),
+  servingsEatenByOthers: z.number().describe("The number of servings eaten by others."),
   storageMethod: z.string().describe("Where the leftovers are stored (e.g., Fridge, Freezer)."),
   unitSystem: z.enum(["us", "metric"]),
 });
@@ -60,8 +61,8 @@ const prompt = ai.definePrompt({
 
 Your tasks are:
 1.  **Deduct Ingredients**: Analyze the recipe's ingredients and determine which items need to be removed or have their quantities reduced from the user's current inventory. The output should only be the items that need to be changed.
-2.  **Calculate Leftovers**: Calculate if there are any leftover servings based on the total servings in the recipe and the servings eaten.
-3.  **Calculate Macros**: Calculate the total protein, carbs, and fat consumed by the user. This is (servingsEaten * macros per serving).
+2.  **Calculate Leftovers**: Calculate if there are any leftover servings based on the total servings in the recipe and the total servings eaten (by user and by others).
+3.  **Calculate Macros**: Calculate the total protein, carbs, and fat consumed **by the user only**. This is (servingsEaten * macros per serving).
 4.  **Format Output**: Provide a list of inventory updates, a new leftover item if applicable, and the total macros consumed.
 
 **User's Context:**
@@ -73,6 +74,7 @@ Your tasks are:
 *   **Total Servings Made:** {{{recipe.servings}}}
 *   **Macros Per Serving:** Protein: {{{recipe.macros.protein}}}g, Carbs: {{{recipe.macros.carbs}}}g, Fat: {{{recipe.macros.fat}}}g
 *   **Servings Eaten by User:** {{{servingsEaten}}}
+*   **Servings Eaten by Others:** {{{servingsEatenByOthers}}}
 *   **Current Inventory:** {{{currentInventory}}}
 *   **Storage Method for Leftovers:** {{{storageMethod}}}
 *   **Unit System:** {{{unitSystem}}}
@@ -94,4 +96,3 @@ const logCookedMealFlow = ai.defineFlow(
     return output!;
   }
 );
-
