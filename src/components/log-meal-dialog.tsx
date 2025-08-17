@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { handleLogCookedMeal } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 
@@ -49,38 +50,47 @@ export function LogMealDialog({
   const { toast } = useToast();
   const [servingsEaten, setServingsEaten] = useState(1);
   const [servingsEatenByOthers, setServingsEatenByOthers] = useState(0);
-  const [storageMethod, setStorageMethod] = useState("Fridge");
+  const [fridgeLeftovers, setFridgeLeftovers] = useState(0);
+  const [freezerLeftovers, setFreezerLeftovers] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
 
+  // Reset state and calculate initial leftovers when dialog opens or recipe changes
   useEffect(() => {
-    if(isOpen) {
-        setServingsEaten(1);
-        setServingsEatenByOthers(0);
-        setStorageMethod("Fridge");
-        setMealType(getDefaultMealType());
+    if (isOpen) {
+      const initialServingsEaten = 1;
+      const initialServingsEatenByOthers = 0;
+      const remaining = recipe.servings - initialServingsEaten - initialServingsEatenByOthers;
+      
+      setServingsEaten(initialServingsEaten);
+      setServingsEatenByOthers(initialServingsEatenByOthers);
+      setFridgeLeftovers(Math.max(0, remaining));
+      setFreezerLeftovers(0);
+      setMealType(getDefaultMealType());
     }
-  }, [isOpen]);
+  }, [isOpen, recipe.servings]);
+  
+  const totalServingsDistributed = servingsEaten + servingsEatenByOthers + fridgeLeftovers + freezerLeftovers;
+  const remainingServings = recipe.servings - totalServingsDistributed;
+  const isOverallocated = remainingServings < 0;
 
-  const totalServingsEaten = servingsEaten + servingsEatenByOthers;
-  const servingsLeft = recipe.servings - totalServingsEaten;
-
-  const handleServingsChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) => {
-      let value = parseInt(e.target.value, 10) || 0;
-      setter(value);
+  const handleNumericChange = (value: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
+      const num = parseInt(value, 10);
+      setter(isNaN(num) ? 0 : num);
   }
-
-  // Ensure user and others' servings don't exceed total
-  useEffect(() => {
-    if (servingsEaten + servingsEatenByOthers > recipe.servings) {
-        setServingsEatenByOthers(recipe.servings - servingsEaten);
-    }
-  }, [servingsEaten, servingsEatenByOthers, recipe.servings]);
-
-
+  
   const handleSubmit = async () => {
+    if (isOverallocated) {
+        toast({
+            variant: "destructive",
+            title: "Too many servings",
+            description: "The total number of servings distributed cannot exceed the servings made."
+        });
+        return;
+    }
+
     setIsPending(true);
-    const result = await handleLogCookedMeal(recipe, servingsEaten, servingsEatenByOthers, storageMethod, mealType);
+    const result = await handleLogCookedMeal(recipe, servingsEaten, servingsEatenByOthers, fridgeLeftovers, freezerLeftovers, mealType);
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -105,7 +115,7 @@ export function LogMealDialog({
         <DialogHeader>
           <DialogTitle>Log Your Meal: {recipe.title}</DialogTitle>
           <DialogDescription>
-            Deduct ingredients from your inventory and add any leftovers. Total servings made: {recipe.servings}.
+            Account for all servings to deduct ingredients and log leftovers. Total made: {recipe.servings}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -123,6 +133,7 @@ export function LogMealDialog({
                 </SelectContent>
             </Select>
           </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
                 <Label htmlFor="servings-eaten">Servings You Ate</Label>
@@ -130,9 +141,8 @@ export function LogMealDialog({
                 id="servings-eaten"
                 type="number"
                 value={servingsEaten}
-                onChange={(e) => handleServingsChange(e, setServingsEaten)}
+                onChange={(e) => handleNumericChange(e.target.value, setServingsEaten)}
                 min={0}
-                max={recipe.servings - servingsEatenByOthers}
                 />
             </div>
              <div className="space-y-2">
@@ -141,33 +151,59 @@ export function LogMealDialog({
                 id="servings-eaten-by-others"
                 type="number"
                 value={servingsEatenByOthers}
-                onChange={(e) => handleServingsChange(e, setServingsEatenByOthers)}
+                onChange={(e) => handleNumericChange(e.target.value, setServingsEatenByOthers)}
                 min={0}
-                max={recipe.servings - servingsEaten}
                 />
             </div>
           </div>
-
-          {servingsLeft > 0 && (
-             <div className="space-y-2">
-                <Label htmlFor="storage-method">Where are the {servingsLeft} leftover serving(s) stored?</Label>
-                 <Select value={storageMethod} onValueChange={setStorageMethod}>
-                    <SelectTrigger id="storage-method">
-                        <SelectValue placeholder="Select storage location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Fridge">Fridge (Expires in ~3 days)</SelectItem>
-                        <SelectItem value="Freezer">Freezer (Expires in ~2 months)</SelectItem>
-                    </SelectContent>
-                 </Select>
+          
+           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="fridge-leftovers">Servings to Fridge</Label>
+                <Input
+                id="fridge-leftovers"
+                type="number"
+                value={fridgeLeftovers}
+                onChange={(e) => handleNumericChange(e.target.value, setFridgeLeftovers)}
+                min={0}
+                />
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="freezer-leftovers">Servings to Freezer</Label>
+                <Input
+                id="freezer-leftovers"
+                type="number"
+                value={freezerLeftovers}
+                onChange={(e) => handleNumericChange(e.target.value, setFreezerLeftovers)}
+                min={0}
+                />
+            </div>
+          </div>
+          
+          {isOverallocated ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Overallocated</AlertTitle>
+              <AlertDescription>
+                You have allocated {Math.abs(remainingServings)} more serving(s) than were made.
+              </AlertDescription>
+            </Alert>
+          ) : (
+             <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Servings Check</AlertTitle>
+              <AlertDescription>
+                {remainingServings} of {recipe.servings} servings are unallocated.
+              </AlertDescription>
+            </Alert>
           )}
+
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
+          <Button onClick={handleSubmit} disabled={isPending || isOverallocated}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isPending ? "Logging..." : "Log Meal & Update Inventory"}
           </Button>

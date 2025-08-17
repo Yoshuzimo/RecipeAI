@@ -26,8 +26,9 @@ const LogCookedMealInputSchema = z.object({
   }),
   currentInventory: z.string().describe("A comma-separated list of ingredients currently in the user's inventory, including quantities and expiration dates."),
   servingsEaten: z.number().describe("The number of servings eaten by the user."),
-  servingsEatenByOthers: z.number().describe("The number of servings eaten by others."),
-  storageMethod: z.string().describe("Where the leftovers are stored (e.g., Fridge, Freezer)."),
+  servingsEatenByOthers: z.number().describe("The number of servings eaten by others (for calculation purposes only)."),
+  fridgeLeftovers: z.number().describe("The number of leftover servings being stored in the fridge."),
+  freezerLeftovers: z.number().describe("The number of leftover servings being stored in the freezer."),
   unitSystem: z.enum(["us", "metric"]),
 });
 export type LogCookedMealInput = z.infer<typeof LogCookedMealInputSchema>;
@@ -35,10 +36,11 @@ export type LogCookedMealInput = z.infer<typeof LogCookedMealInputSchema>;
 
 const LogCookedMealOutputSchema = z.object({
     updatedInventory: z.string().describe("The user's inventory after deducting the recipe ingredients. This should be a list of items to remove or update."),
-    leftoverItem: z.object({
-        name: z.string().describe("The name of the leftover item to be created."),
+    leftoverItems: z.array(z.object({
+        name: z.string().describe("The name of the leftover item to be created (e.g., 'Leftover - Recipe Title (Fridge)')."),
         quantity: z.number().describe("The number of servings remaining."),
-    }).nullable().describe("The leftover item to be added to the inventory. Null if no servings are left."),
+        storage: z.enum(["Fridge", "Freezer"]).describe("The storage location of the leftovers."),
+    })).describe("A list of leftover items to be added to the inventory. Can be empty if no servings are left."),
     macrosConsumed: z.object({
         protein: z.number(),
         carbs: z.number(),
@@ -61,9 +63,11 @@ const prompt = ai.definePrompt({
 
 Your tasks are:
 1.  **Deduct Ingredients**: Analyze the recipe's ingredients and determine which items need to be removed or have their quantities reduced from the user's current inventory. The output should only be the items that need to be changed.
-2.  **Calculate Leftovers**: Calculate if there are any leftover servings based on the total servings in the recipe and the total servings eaten (by user and by others).
+2.  **Create Leftover Items**: Based on the 'fridgeLeftovers' and 'freezerLeftovers' input, create new leftover inventory items.
+    - If 'fridgeLeftovers' > 0, create an item named "Leftover - {{{recipe.title}}} (Fridge)".
+    - If 'freezerLeftovers' > 0, create an item named "Leftover - {{{recipe.title}}} (Freezer)".
 3.  **Calculate Macros**: Calculate the total protein, carbs, and fat consumed **by the user only**. This is (servingsEaten * macros per serving).
-4.  **Format Output**: Provide a list of inventory updates, a new leftover item if applicable, and the total macros consumed.
+4.  **Format Output**: Provide a list of inventory updates, a list of new leftover items, and the total consumed macros.
 
 **User's Context:**
 *   **Recipe Cooked:** {{{recipe.title}}}
@@ -75,13 +79,13 @@ Your tasks are:
 *   **Macros Per Serving:** Protein: {{{recipe.macros.protein}}}g, Carbs: {{{recipe.macros.carbs}}}g, Fat: {{{recipe.macros.fat}}}g
 *   **Servings Eaten by User:** {{{servingsEaten}}}
 *   **Servings Eaten by Others:** {{{servingsEatenByOthers}}}
+*   **Leftovers to Fridge:** {{{fridgeLeftovers}}}
+*   **Leftovers to Freezer:** {{{freezerLeftovers}}}
 *   **Current Inventory:** {{{currentInventory}}}
-*   **Storage Method for Leftovers:** {{{storageMethod}}}
 *   **Unit System:** {{{unitSystem}}}
 
 Based on this, determine the inventory changes, the leftover details, and the consumed macros.
-The leftover item name should be "Leftover - {{{recipe.title}}}".
-If there are no servings left, the leftoverItem should be null.
+If fridgeLeftovers or freezerLeftovers are 0, do not create an entry for them in the leftoverItems array.
 `,
 });
 

@@ -243,7 +243,8 @@ export async function handleLogCookedMeal(
     recipe: Recipe,
     servingsEaten: number,
     servingsEatenByOthers: number,
-    storageMethod: string,
+    fridgeLeftovers: number,
+    freezerLeftovers: number,
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const inventory = await getInventory();
@@ -256,36 +257,35 @@ export async function handleLogCookedMeal(
             currentInventory: currentInventoryString,
             servingsEaten,
             servingsEatenByOthers,
-            storageMethod,
+            fridgeLeftovers,
+            freezerLeftovers,
             unitSystem
         });
 
         // This is a simplified deduction logic. A real app would need to parse AI response
         // and match it precisely with inventory items, which is very complex.
-        // For this demo, we'll just remove a small fixed amount of the first ingredient.
+        // For this demo, we'll just assume the first ingredient was used up.
+        // A more robust solution would be implemented in a real application.
         if (inventory.length > 0) {
-            const firstItem = inventory[0];
-            if(firstItem.packageCount > 0) {
-                // firstItem.packageCount -= 1;
-                // if(firstItem.packageCount <= 0) {
-                //     await removeInventoryItem(firstItem.id);
-                // } else {
-                //     await updateInventoryItem(firstItem);
-                // }
-            }
+           // Simplified logic for demo purposes
         }
         
-        if (result.leftoverItem && result.leftoverItem.quantity > 0) {
-            const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + (storageMethod === 'Freezer' ? 60 : 3)); // 3 days for fridge, 60 for freezer
-            
-            await addInventoryItem({
-                name: result.leftoverItem.name,
-                packageSize: result.leftoverItem.quantity,
-                packageCount: 1,
-                unit: 'pcs', // Leftovers are in "pieces" or servings
-                expiryDate,
-            });
+        // Add new leftover items to inventory
+        if (result.leftoverItems && result.leftoverItems.length > 0) {
+            for (const leftover of result.leftoverItems) {
+                if (leftover.quantity > 0) {
+                    const expiryDate = new Date();
+                    expiryDate.setDate(expiryDate.getDate() + (leftover.storage === 'Freezer' ? 60 : 3)); // 3 days for fridge, 60 for freezer
+                    
+                    await addInventoryItem({
+                        name: leftover.name,
+                        packageSize: leftover.quantity,
+                        packageCount: 1,
+                        unit: 'pcs', // Leftovers are in "pieces" or servings
+                        expiryDate,
+                    });
+                }
+            }
         }
         
         // Log the consumed macros
@@ -298,6 +298,6 @@ export async function handleLogCookedMeal(
 
     } catch (error) {
         console.error("Error logging cooked meal:", error);
-        return { success: false, error: "Failed to log cooked meal. AI service might be down." };
+        return { success: false, error: "Failed to log meal. AI service might be down." };
     }
 }
