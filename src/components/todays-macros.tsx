@@ -23,12 +23,17 @@ import { getTodaysMacros } from "@/lib/data"
 import type { DailyMacros } from "@/lib/types"
 
 const dailyGoals = {
+    calories: 2200,
     protein: 180,
     carbs: 300,
     fat: 100
 }
 
 const chartConfig = {
+  calories: {
+    label: "Calories",
+    color: "hsl(var(--accent))",
+  },
   protein: {
     label: "Protein",
     color: "hsl(var(--primary))",
@@ -58,31 +63,37 @@ export function TodaysMacros() {
   }, []);
 
   const chartData = React.useMemo(() => {
-     return dailyData.map(d => ({
-        meal: d.meal,
-        protein: d.totals.protein,
-        carbs: d.totals.carbs,
-        fat: d.totals.fat,
-        dishes: d.dishes,
-    }));
+     return dailyData.map(d => {
+        const calories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
+        return {
+            meal: d.meal,
+            calories,
+            protein: d.totals.protein,
+            carbs: d.totals.carbs,
+            fat: d.totals.fat,
+            dishes: d.dishes,
+        }
+     });
   }, [dailyData]);
 
   const totals = React.useMemo(() => {
-    return dailyData.reduce((acc, meal) => {
-        acc.protein += meal.totals.protein;
-        acc.carbs += meal.totals.carbs;
-        acc.fat += meal.totals.fat;
+    return chartData.reduce((acc, meal) => {
+        acc.calories += meal.calories;
+        acc.protein += meal.protein;
+        acc.carbs += meal.carbs;
+        acc.fat += meal.fat;
         return acc;
-    }, { protein: 0, carbs: 0, fat: 0 });
-  }, [dailyData]);
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  }, [chartData]);
 
   const remaining = {
+    calories: Math.max(0, dailyGoals.calories - totals.calories),
     protein: Math.max(0, dailyGoals.protein - totals.protein),
     carbs: Math.max(0, dailyGoals.carbs - totals.carbs),
     fat: Math.max(0, dailyGoals.fat - totals.fat),
   }
 
-  const CustomTick = (props: any) => {
+  const CustomMacroTick = (props: any) => {
     const { x, y, payload } = props;
     const mealName = payload.value;
     const dataEntry = chartData.find(d => d.meal === mealName);
@@ -104,6 +115,19 @@ export function TodaysMacros() {
       </g>
     );
   };
+  
+    const CustomCalorieTick = (props: any) => {
+    const { x, y, payload } = props;
+    const mealName = payload.value;
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
+          {mealName}
+        </text>
+      </g>
+    );
+  };
 
 
   return (
@@ -111,7 +135,31 @@ export function TodaysMacros() {
       <CardHeader>
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
-      <CardContent className="pb-4">
+      <CardContent className="pb-4 space-y-8">
+        <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="meal"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tick={<CustomCalorieTick />}
+                  interval={0}
+                  height={40}
+                />
+                <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) => `${value} kcal`}
+                />
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="calories" fill="var(--color-calories)" radius={4} />
+            </BarChart>
+        </ChartContainer>
+
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
                 <CartesianGrid vertical={false} />
@@ -120,7 +168,7 @@ export function TodaysMacros() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tick={<CustomTick />}
+                  tick={<CustomMacroTick />}
                   interval={0}
                   height={100}
                 />
@@ -140,7 +188,13 @@ export function TodaysMacros() {
       </CardContent>
        <CardFooter className="flex-col items-start gap-4">
         <Separator />
-        <div className="flex w-full justify-around gap-4 text-center">
+        <div className="flex w-full justify-around gap-2 text-center">
+            <div>
+                <p className="text-sm text-muted-foreground">Calories</p>
+                <p className="font-bold text-lg">{totals.calories.toFixed(0)} / <span className="text-muted-foreground font-normal">{dailyGoals.calories}</span></p>
+                <p className="text-xs text-green-600">{remaining.calories.toFixed(0)} left</p>
+            </div>
+            <Separator orientation="vertical" className="h-auto" />
             <div>
                 <p className="text-sm text-muted-foreground">Protein</p>
                 <p className="font-bold text-lg">{totals.protein.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.protein}g</span></p>
