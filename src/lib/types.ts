@@ -6,6 +6,14 @@ export type InventoryItem = {
   expiryDate: Date;
 };
 
+export type InventoryItemGroup = {
+  name: string;
+  items: InventoryItem[];
+  totalQuantity: number;
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs';
+  nextExpiry: Date | null;
+}
+
 export type PersonalDetails = {
   healthGoals?: string;
   dietaryRestrictions?: string;

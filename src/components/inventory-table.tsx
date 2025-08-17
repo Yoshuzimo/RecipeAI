@@ -1,6 +1,6 @@
 "use client";
 
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItemGroup } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -14,10 +14,14 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-function getItemStatus(expiryDate: Date): {
+function getItemStatus(expiryDate: Date | null): {
   label: "Expired" | "Expiring Soon" | "Fresh";
   className: string;
 } {
+  if (!expiryDate) {
+    return { label: "Fresh", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300 border-gray-200 dark:border-gray-900/80" };
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const expiry = new Date(expiryDate);
@@ -38,8 +42,7 @@ function getItemStatus(expiryDate: Date): {
   return { label: "Fresh", className: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-900/80" };
 }
 
-export function InventoryTable({ data, onRowClick }: { data: InventoryItem[], onRowClick: (item: InventoryItem) => void }) {
-  const sortedData = [...data].sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[], onRowClick: (group: InventoryItemGroup) => void }) {
 
   return (
     <Card>
@@ -47,22 +50,26 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItem[], on
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead>Expiry Date</TableHead>
+            <TableHead>Total Quantity</TableHead>
+            <TableHead>Packages</TableHead>
+            <TableHead>Next Expiry</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedData.length > 0 ? (
-            sortedData.map((item) => {
-              const status = getItemStatus(item.expiryDate);
+          {data.length > 0 ? (
+            data.map((group) => {
+              const status = getItemStatus(group.nextExpiry);
               return (
-                <TableRow key={item.id} onClick={() => onRowClick(item)} className="cursor-pointer">
-                  <TableCell className="font-medium">{item.name}</TableCell>
+                <TableRow key={group.name} onClick={() => onRowClick(group)} className="cursor-pointer">
+                  <TableCell className="font-medium">{group.name}</TableCell>
                   <TableCell>
-                    {item.quantity} {item.unit}
+                    {group.totalQuantity} {group.unit}
                   </TableCell>
-                  <TableCell>{format(item.expiryDate, "PPP")}</TableCell>
+                  <TableCell>
+                    {group.items.length}
+                  </TableCell>
+                  <TableCell>{group.nextExpiry ? format(group.nextExpiry, "PPP") : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn("capitalize", status.className)}>
                       {status.label}
@@ -73,7 +80,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItem[], on
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 No items in inventory.
               </TableCell>
             </TableRow>

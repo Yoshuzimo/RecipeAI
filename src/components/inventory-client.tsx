@@ -1,41 +1,82 @@
 "use client";
 
-import { useState } from "react";
-import type { InventoryItem } from "@/lib/types";
+import { useState, useMemo } from "react";
+import type { InventoryItem, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
-import { EditInventoryItemDialog } from "./edit-inventory-item-dialog";
+import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 
 export default function InventoryClient({
   initialData,
+  allItems
 }: {
-  initialData: InventoryItem[];
+  initialData: InventoryItemGroup[];
+  allItems: InventoryItem[];
 }) {
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialData);
+  const [inventoryGroups, setInventoryGroups] = useState<InventoryItemGroup[]>(initialData);
+  const [flatInventory, setFlatInventory] = useState<InventoryItem[]>(allItems);
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<InventoryItemGroup | null>(null);
+
+  const updateState = (newFlatInventory: InventoryItem[]) => {
+      const grouped = newFlatInventory.reduce<InventoryItemGroup[]>((acc, item) => {
+        let group = acc.find(g => g.name === item.name && g.unit === item.unit);
+        if (!group) {
+          group = { name: item.name, items: [], totalQuantity: 0, unit: item.unit, nextExpiry: null };
+          acc.push(group);
+        }
+        group.items.push(item);
+        group.totalQuantity += item.quantity;
+        const sortedItems = group.items.sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime());
+        group.items = sortedItems;
+        group.nextExpiry = sortedItems[0]?.expiryDate ?? null;
+        return acc;
+      }, []);
+
+      const sortedGrouped = grouped.sort((a,b) => {
+        if (!a.nextExpiry) return 1;
+        if (!b.nextExpiry) return -1;
+        return a.nextExpiry.getTime() - b.nextExpiry.getTime();
+      });
+
+      setFlatInventory(newFlatInventory);
+      setInventoryGroups(sortedGrouped);
+
+      // If a group is being viewed, update its state as well
+      if (selectedGroup) {
+        const updatedGroup = sortedGrouped.find(g => g.name === selectedGroup.name);
+        if (updatedGroup) {
+            setSelectedGroup(updatedGroup);
+        } else {
+            // The group was deleted (e.g. last item removed)
+            setIsViewDialogOpen(false);
+            setSelectedGroup(null);
+        }
+      }
+  }
+
 
   const handleItemAdded = (newItem: InventoryItem) => {
-    setInventory((prev) => [...prev, newItem].sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime()));
+    updateState([...flatInventory, newItem]);
   };
 
   const handleItemUpdated = (updatedItem: InventoryItem) => {
-    setInventory((prev) => 
-      prev.map(item => item.id === updatedItem.id ? updatedItem : item)
-         .sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime())
-    );
+    const newFlatInventory = flatInventory.map(item => item.id === updatedItem.id ? updatedItem : item);
+    updateState(newFlatInventory);
   };
   
   const handleItemRemoved = (itemId: string) => {
-    setInventory((prev) => prev.filter(item => item.id !== itemId));
+    const newFlatInventory = flatInventory.filter(item => item.id !== itemId);
+    updateState(newFlatInventory);
   }
 
-  const handleRowClick = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setIsEditDialogOpen(true);
+  const handleRowClick = (group: InventoryItemGroup) => {
+    setSelectedGroup(group);
+    setIsViewDialogOpen(true);
   };
 
   return (
@@ -55,7 +96,7 @@ export default function InventoryClient({
         </div>
       </div>
 
-      <InventoryTable data={inventory} onRowClick={handleRowClick} />
+      <InventoryTable data={inventoryGroups} onRowClick={handleRowClick} />
 
       <AddInventoryItemDialog
         isOpen={isAddDialogOpen}
@@ -63,11 +104,11 @@ export default function InventoryClient({
         onItemAdded={handleItemAdded}
       />
 
-      {selectedItem && (
-        <EditInventoryItemDialog
-          isOpen={isEditDialogOpen}
-          setIsOpen={setIsEditDialogOpen}
-          item={selectedItem}
+      {selectedGroup && (
+        <ViewInventoryItemDialog
+          isOpen={isViewDialogOpen}
+          setIsOpen={setIsViewDialogOpen}
+          group={selectedGroup}
           onItemUpdated={handleItemUpdated}
           onItemRemoved={handleItemRemoved}
         />

@@ -11,7 +11,29 @@ const suggestionSchema = z.object({
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
     if (!inventory || inventory.length === 0) return "None";
-    return inventory.map(item => `${item.name} (${item.quantity}${item.unit}, expires ${item.expiryDate.toLocaleDateString()})`).join(', ');
+    
+    // Aggregate quantities for items with the same name
+    const aggregatedInventory = inventory.reduce((acc, item) => {
+        if (acc[item.name]) {
+            acc[item.name].totalQuantity += item.quantity;
+            if (item.expiryDate < acc[item.name].earliestExpiry) {
+                acc[item.name].earliestExpiry = item.expiryDate;
+            }
+        } else {
+            acc[item.name] = {
+                totalQuantity: item.quantity,
+                unit: item.unit,
+                earliestExpiry: item.expiryDate
+            };
+        }
+        return acc;
+    }, {} as Record<string, { totalQuantity: number; unit: string; earliestExpiry: Date }>);
+
+    return Object.entries(aggregatedInventory)
+        .map(([name, data]) => 
+            `${name} (${data.totalQuantity}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
+        )
+        .join(', ');
 }
 
 export async function handleGenerateSuggestions(
