@@ -105,7 +105,7 @@ export default function InventoryClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
           <p className="text-muted-foreground">
-            Manage your kitchen ingredients and leftovers.
+            Manage your kitchen ingredients and leftovers. (You can add or remove storage locations in Settings).
           </p>
         </div>
         <div className="flex items-center space-x-2">
