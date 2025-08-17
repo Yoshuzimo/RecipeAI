@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useFormStatus, useFormState } from "react-dom";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const handleGenerateSuggestionsWithInventory = handleGenerateSuggestions.bind(null, inventory);
 
-  const [state, formAction] = useFormState(handleGenerateSuggestionsWithInventory, initialState);
+  const [state, formAction] = useActionState(handleGenerateSuggestionsWithInventory, initialState);
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
