@@ -8,18 +8,20 @@ import { getPersonalDetails, getUnitSystem } from "@/lib/data";
 import type { InventoryItem, Recipe, Substitution } from "@/lib/types";
 import { z } from "zod";
 
+const inventoryItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  packageSize: z.number(),
+  packageCount: z.number(),
+  unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
+  expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
+});
+
 const suggestionSchema = z.object({
   inventory: z.string().transform((val, ctx) => {
     try {
       const parsed = JSON.parse(val);
-      const inventorySchema = z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        quantity: z.number(),
-        unit: z.string(),
-        expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
-      }));
-      return inventorySchema.parse(parsed);
+      return z.array(inventoryItemSchema).parse(parsed);
     } catch (e) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -30,7 +32,7 @@ const suggestionSchema = z.object({
   }),
   cravingsOrMood: z.string().optional(),
    recipeToAdjust: z.string().optional().transform((val, ctx) => {
-    if (!val || val === 'null') return undefined;
+    if (!val || val === 'null' || val === 'undefined') return undefined;
     try {
         return JSON.parse(val) as Recipe;
     } catch(e) {
@@ -48,13 +50,13 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
     const aggregatedInventory = inventory.reduce((acc, item) => {
         const key = `${item.name} (${item.unit})`;
         if (acc[key]) {
-            acc[key].totalQuantity += item.quantity;
+            acc[key].totalQuantity += (item.packageSize * item.packageCount);
             if (item.expiryDate < acc[key].earliestExpiry) {
                 acc[key].earliestExpiry = item.expiryDate;
             }
         } else {
             acc[key] = {
-                totalQuantity: item.quantity,
+                totalQuantity: (item.packageSize * item.packageCount),
                 unit: item.unit,
                 earliestExpiry: item.expiryDate,
                 name: item.name,
