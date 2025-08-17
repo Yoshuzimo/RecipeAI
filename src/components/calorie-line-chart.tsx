@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine } from "recharts"
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip } from "recharts"
 
 import {
   ChartContainer,
@@ -11,8 +11,14 @@ import {
 } from "@/components/ui/chart"
 import type { DailyMacros } from "@/lib/types"
 
+type ChartDataPoint = {
+    label: string; // e.g., "Breakfast", "Mon", "Week 1"
+    calories: number;
+    subLabels?: string[]; // e.g., dish names, date
+};
+
 const chartConfig = {
-  runningTotal: {
+  calories: {
     label: "Calories",
     color: "hsl(var(--primary))",
   },
@@ -21,36 +27,65 @@ const chartConfig = {
   }
 }
 
-export function CalorieLineChart({ dailyData, dailyGoal }: { dailyData: DailyMacros[], dailyGoal: number }) {
+export function CalorieLineChart({ 
+    data, 
+    goal,
+    timeframe 
+}: { 
+    data: any[], 
+    goal?: number, 
+    timeframe: "daily" | "weekly" | "monthly"
+}) {
 
   const chartData = React.useMemo(() => {
-    let runningTotal = 0;
-    return dailyData.map(d => {
-        const mealCalories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
-        runningTotal += mealCalories;
-        return {
-            meal: d.meal,
-            dishes: d.dishes,
-            runningTotal,
+    if (timeframe === 'daily') {
+        let runningTotal = 0;
+        return data.map(d => {
+            const mealCalories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
+            runningTotal += mealCalories;
+            return {
+                label: d.meal,
+                calories: runningTotal,
+                subLabels: d.dishes.map((dish: any) => dish.name),
+            }
+        });
+    }
+    
+    // For weekly and monthly, it's not a running total
+    return data.map(d => {
+        let subLabels: string[] = [];
+        let label = "";
+        if (timeframe === 'weekly') {
+            label = d.day;
+            subLabels = [d.date];
+        } else { // monthly
+            label = d.week;
+            subLabels = [d.dateRange];
         }
-    });
-  }, [dailyData]);
+
+        return {
+            label,
+            calories: d.calories,
+            subLabels,
+        }
+    })
+  }, [data, timeframe]);
 
   const CustomTick = (props: any) => {
     const { x, y, payload } = props;
-    const mealName = payload.value;
-    const dataEntry = chartData.find(d => d.meal === mealName);
+    const label = payload.value;
+    const dataEntry = chartData.find(d => d.label === label);
     
     if (!dataEntry) return null;
 
     return (
       <g transform={`translate(${x},${y})`}>
         <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
-          {mealName}
+          {dataEntry.label}
         </text>
-        {dataEntry.dishes.map((dish, index) => (
+        {dataEntry.subLabels?.map((subLabel, index) => (
            <text key={index} x={0} y={20} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
-                {dish.name}
+                {subLabel}
             </text>
         ))}
       </g>
@@ -58,7 +93,7 @@ export function CalorieLineChart({ dailyData, dailyGoal }: { dailyData: DailyMac
   };
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
         <LineChart
             data={chartData}
             margin={{
@@ -70,7 +105,7 @@ export function CalorieLineChart({ dailyData, dailyGoal }: { dailyData: DailyMac
         >
             <CartesianGrid vertical={false} />
             <XAxis
-                dataKey="meal"
+                dataKey="label"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
@@ -86,14 +121,14 @@ export function CalorieLineChart({ dailyData, dailyGoal }: { dailyData: DailyMac
                 tickFormatter={(value) => `${value}`}
             />
             <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
-            <ReferenceLine y={dailyGoal} label="Goal" stroke="red" strokeDasharray="3 3" />
+            {goal && <ReferenceLine y={goal} label="Goal" stroke="red" strokeDasharray="3 3" />}
             <Line
-                dataKey="runningTotal"
+                dataKey="calories"
                 type="monotone"
-                stroke="var(--color-runningTotal)"
+                stroke="var(--color-calories)"
                 strokeWidth={2}
                 dot={{
-                    fill: "var(--color-runningTotal)",
+                    fill: "var(--color-calories)",
                 }}
                 activeDot={{
                     r: 6,

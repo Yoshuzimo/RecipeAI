@@ -22,13 +22,9 @@ import { Separator } from "./ui/separator"
 import { getTodaysMacros } from "@/lib/data"
 import type { DailyMacros } from "@/lib/types"
 import { CalorieLineChart } from "./calorie-line-chart"
+import { MOCK_NUTRITION_DATA } from "@/lib/mock-nutrition-data"
 
-const dailyGoals = {
-    calories: 2200,
-    protein: 180,
-    carbs: 300,
-    fat: 100
-}
+const dailyGoals = MOCK_NUTRITION_DATA;
 
 const chartConfig = {
   protein: {
@@ -84,10 +80,10 @@ export function TodaysMacros() {
   }, [chartData]);
 
   const remaining = {
-    calories: Math.max(0, dailyGoals.calories - totals.calories),
-    protein: Math.max(0, dailyGoals.protein - totals.protein),
-    carbs: Math.max(0, dailyGoals.carbs - totals.carbs),
-    fat: Math.max(0, dailyGoals.fat - totals.fat),
+    calories: Math.max(0, dailyGoals.dailyGoal - totals.calories),
+    protein: Math.max(0, dailyGoals.proteinGoal - totals.protein),
+    carbs: Math.max(0, dailyGoals.carbsGoal - totals.carbs),
+    fat: Math.max(0, dailyGoals.fatGoal - totals.fat),
   }
 
   const CustomMacroTick = (props: any) => {
@@ -119,7 +115,7 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart dailyData={dailyData} dailyGoal={dailyGoals.calories} />
+        <CalorieLineChart data={dailyData} goal={dailyGoals.dailyGoal} timeframe="daily" />
         
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
@@ -152,25 +148,25 @@ export function TodaysMacros() {
         <div className="flex w-full justify-around gap-2 text-center">
             <div>
                 <p className="text-sm text-muted-foreground">Calories</p>
-                <p className="font-bold text-lg">{totals.calories.toFixed(0)} / <span className="text-muted-foreground font-normal">{dailyGoals.calories}</span></p>
+                <p className="font-bold text-lg">{totals.calories.toFixed(0)} / <span className="text-muted-foreground font-normal">{dailyGoals.dailyGoal}</span></p>
                 <p className="text-xs text-green-600">{remaining.calories.toFixed(0)} left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
             <div>
                 <p className="text-sm text-muted-foreground">Protein</p>
-                <p className="font-bold text-lg">{totals.protein.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.protein}g</span></p>
+                <p className="font-bold text-lg">{totals.protein.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.proteinGoal}g</span></p>
                 <p className="text-xs text-green-600">{remaining.protein.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
              <div>
                 <p className="text-sm text-muted-foreground">Carbs</p>
-                <p className="font-bold text-lg">{totals.carbs.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.carbs}g</span></p>
+                <p className="font-bold text-lg">{totals.carbs.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.carbsGoal}g</span></p>
                 <p className="text-xs text-green-600">{remaining.carbs.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
              <div>
                 <p className="text-sm text-muted-foreground">Fat</p>
-                <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.fat}g</span></p>
+                <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.fatGoal}g</span></p>
                 <p className="text-xs text-green-600">{remaining.fat.toFixed(0)}g left</p>
             </div>
         </div>
