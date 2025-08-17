@@ -22,6 +22,8 @@ import { getInventory } from "@/lib/data";
 
 const initialState = {
   suggestions: null,
+  adjustedRecipe: null,
+  originalRecipeTitle: null,
   error: null,
   debugInfo: {
     promptInput: "AI prompt will appear here...",
@@ -55,6 +57,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
+      // Ensure inventory is in a hidden field to be sent with the form
+      const currentInventoryJSON = JSON.stringify(inventory);
+      formData.set('inventory', currentInventoryJSON);
+
       const result = await handleGenerateSuggestions(formData);
       setError(result.error);
       if (result.debugInfo) {
@@ -89,6 +95,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const getIngredientStatus = (ingredient: string) => {
       const now = new Date();
       now.setHours(0,0,0,0);
+      // Find any inventory item whose name is a substring of the ingredient string
       const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
       if (inventoryItem) {
           const expiryDate = new Date(inventoryItem.expiryDate);
@@ -105,23 +112,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       const status = getIngredientStatus(ingredient);
       if (status.startsWith('expired')) {
           setIngredientToCheck({recipe, ingredient});
-          // Find all packages for the expired item
-          const ingredientName = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()))?.name;
-          if (ingredientName) {
-            const items = inventory.filter(item => item.name === ingredientName);
-            const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
-            const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
-            const unit = items.length > 0 ? items[0].unit : 'pcs';
-
-            setGroupToView({
-                name: ingredientName,
-                items,
-                totalQuantity,
-                unit,
-                nextExpiry,
-            });
-            setIsViewInventoryDialogOpen(true);
-          }
+          setIsExpiredCheckDialogOpen(true);
       } else {
           handleOpenSubstitutions(recipe, [ingredient]);
       }
@@ -134,18 +125,32 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   }
   
   const handleExpiredCheckComplete = (isGood: boolean) => {
+      setIsExpiredCheckDialogOpen(false);
       if (ingredientToCheck) {
-          const { recipe, ingredient } = ingredientToCheck;
           if(isGood) {
-            // User says it's good, so don't force substitution
-            handleOpenSubstitutions(recipe, []);
+            // User says it's good, so take them to substitutions but don't pre-select anything
+            handleOpenSubstitutions(ingredientToCheck.recipe, []);
           } else {
-            // User says it's spoiled, pre-select it for substitution
-            handleOpenSubstitutions(recipe, [ingredient]);
+            // User says it's spoiled, open the inventory view to manage packages
+            const ingredientName = inventory.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()))?.name;
+            if (ingredientName) {
+                const items = inventory.filter(item => item.name === ingredientName);
+                const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
+                const nextExpiry = items.length > 0 ? items.sort((a,b) => a.expiryDate.getTime() - b.expiryDate.getTime())[0].expiryDate : null;
+                const unit = items.length > 0 ? items[0].unit : 'pcs';
+
+                setGroupToView({
+                    name: ingredientName,
+                    items,
+                    totalQuantity,
+                    unit,
+                    nextExpiry,
+                });
+                setIsViewInventoryDialogOpen(true);
+            }
           }
       }
-      setIsExpiredCheckDialogOpen(false);
-      setIngredientToCheck(null);
+      // Don't reset ingredientToCheck here, we need it for the inventory dialog logic
   }
 
   const handleSubstitutionsApplied = (updatedRecipe: Recipe) => {
@@ -155,7 +160,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       setRecipeForSubstitutions(null);
   }
 
-  const handleInventoryUpdate = async () => {
+  const handleInventoryUpdateAndCheckSubstitutions = async () => {
     const updatedInventory = await getInventory(); // Re-fetch inventory
     setInventory(updatedInventory);
 
@@ -173,9 +178,15 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             });
             // Item was fully removed, so force substitution
             handleOpenSubstitutions(recipe, [ingredient]);
+        } else {
+            toast({
+                title: "Inventory Updated",
+                description: `Inventory for ${ingredientName} has been updated.`,
+            })
         }
     }
     setIngredientToCheck(null); // Reset after handling
+    setGroupToView(null);
   };
 
 
@@ -184,7 +195,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form ref={formRef} action={handleSubmit} className="space-y-4">
+          <form ref={formRef} onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(new FormData(e.currentTarget));
+            }} className="space-y-4">
              <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
@@ -269,7 +283,13 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                         </AccordionTrigger>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
-                                 <form action={handleSubmit} className="flex items-center gap-4">
+                                 <form onSubmit={(e) => {
+                                      e.preventDefault();
+                                      const formData = new FormData(e.currentTarget);
+                                      const newServingSize = (e.nativeEvent.submitter as HTMLButtonElement).value;
+                                      formData.set('newServingSize', newServingSize);
+                                      handleSubmit(formData);
+                                    }} className="flex items-center gap-4">
                                      <h4 className="font-semibold">Servings</h4>
                                      <div className="flex items-center gap-2">
                                         <Button
@@ -385,13 +405,13 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
           setIsOpen={(open) => {
             if (!open) {
                 // When dialog closes, refresh inventory and check if substitutions are needed
-                handleInventoryUpdate();
+                handleInventoryUpdateAndCheckSubstitutions();
             }
             setIsViewInventoryDialogOpen(open);
           }}
           group={groupToView}
-          onItemUpdated={handleInventoryUpdate}
-          onItemRemoved={handleInventoryUpdate}
+          onItemUpdated={handleInventoryUpdateAndCheckSubstitutions}
+          onItemRemoved={handleInventoryUpdateAndCheckSubstitutions}
         />
       )}
     </>

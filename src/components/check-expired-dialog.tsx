@@ -31,12 +31,12 @@ export function CheckExpiredDialog({
           <AlertDialogTitle>Is this item still good?</AlertDialogTitle>
           <AlertDialogDescription>
             Your <span className="font-semibold text-foreground">{ingredientName}</span> is past its expiration date. Please check if it's still safe to eat before using.
-            If you're unsure, it's best to substitute it.
+            If you're unsure, it's best to remove the spoiled items from your inventory.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => onConfirm(false)}>It's Spoiled (Substitute)</AlertDialogCancel>
-          <AlertDialogAction onClick={() => onConfirm(true)}>It's Still Good</AlertDialogAction>
+          <AlertDialogCancel onClick={() => onConfirm(true)}>It's Still Good</AlertDialogCancel>
+          <AlertDialogAction onClick={() => onConfirm(false)}>It's Spoiled (Manage Items)</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
