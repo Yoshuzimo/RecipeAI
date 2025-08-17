@@ -17,8 +17,8 @@ import { Logo } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { href: "/overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/", label: "Meal Planner", icon: Home },
+  { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/meal-planner", label: "Meal Planner", icon: Home },
   { href: "/inventory", label: "Inventory", icon: Warehouse },
   { href: "/nutrition", label: "Nutrition", icon: BarChart },
   { href: "/settings", label: "Settings", icon: Settings },
