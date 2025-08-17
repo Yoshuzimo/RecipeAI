@@ -18,7 +18,7 @@ import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { getInventory } from "@/lib/data";
-import { useRateLimiter } from "@/hooks/use-rate-limiter";
+import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 
 
 const initialState = {

@@ -20,7 +20,7 @@ import { Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { useRateLimiter } from "@/hooks/use-rate-limiter";
+import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 
 enum SubstitutionMode {
   None,

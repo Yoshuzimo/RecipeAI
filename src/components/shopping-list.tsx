@@ -17,7 +17,7 @@ import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
 import { v4 as uuidv4 } from 'uuid';
 import { BuyItemsDialog } from "./buy-items-dialog";
-import { useRateLimiter } from "@/hooks/use-rate-limiter";
+import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 
 export type ShoppingListItem = {
     id: string;
