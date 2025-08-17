@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Settings, Warehouse } from "lucide-react";
+import { Home, Settings, Warehouse, LayoutDashboard, BarChart } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -17,8 +17,10 @@ import { Logo } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
+  { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/", label: "Meal Planner", icon: Home },
   { href: "/inventory", label: "Inventory", icon: Warehouse },
+  { href: "/nutrition", label: "Nutrition", icon: BarChart },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

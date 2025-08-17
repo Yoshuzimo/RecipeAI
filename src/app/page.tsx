@@ -1,6 +1,8 @@
 import MainLayout from "@/components/main-layout";
 import { MealPlanner } from "@/components/meal-planner";
 import { getInventory } from "@/lib/data";
+import Link from 'next/link';
+import { Button } from "@/components/ui/button";
 
 export default async function Home() {
   const inventory = await getInventory();
