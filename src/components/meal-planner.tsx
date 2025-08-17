@@ -58,8 +58,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const servingsFormRef = useRef<HTMLFormElement>(null);
 
   // Debugging state
-  const [promptInput, setPromptInput] = useState<string | null>("AI prompt will appear here...");
-  const [rawResponse, setRawResponse] = useState<string | null>("Raw AI response will appear here...");
+  const [promptInput, setPromptInput] = useState<string>("AI prompt will appear here...");
+  const [rawResponse, setRawResponse] = useState<string>("Raw AI response will appear here...");
 
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
