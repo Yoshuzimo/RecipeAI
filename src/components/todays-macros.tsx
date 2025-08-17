@@ -67,6 +67,12 @@ const DailyChartTooltip = ({ active, payload, label }: any) => {
 
 const CustomTick = (props: any) => {
     const { x, y, payload } = props;
+    
+    // Add a guard to prevent crash if payload is not what we expect
+    if (!payload || !payload.payload) {
+        return null;
+    }
+
     const { meal, dishes } = payload.payload;
 
     return (
