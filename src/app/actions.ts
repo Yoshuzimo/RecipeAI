@@ -29,7 +29,15 @@ const suggestionSchema = z.object({
     }
   }),
   cravingsOrMood: z.string().optional(),
-  recipeToAdjust: z.string().optional(),
+   recipeToAdjust: z.string().optional().transform((val, ctx) => {
+    if (!val) return undefined;
+    try {
+        return JSON.parse(val) as Recipe;
+    } catch(e) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid recipe format" });
+        return z.NEVER;
+    }
+  }),
   newServingSize: z.coerce.number().optional(),
 });
 
@@ -62,10 +70,7 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
         .join(', ');
 }
 
-export async function handleGenerateSuggestions(
-  prevState: any,
-  formData: FormData
-) {
+export async function handleGenerateSuggestions(formData: FormData) {
   let log = "Button clicked.\n";
   const validatedFields = suggestionSchema.safeParse({
     inventory: formData.get("inventory"),
@@ -92,9 +97,8 @@ export async function handleGenerateSuggestions(
   
   if (recipeToAdjust && newServingSize) {
     try {
-        const recipe: Recipe = JSON.parse(recipeToAdjust);
         const result = await generateMealSuggestions({
-            recipeToAdjust: recipe,
+            recipeToAdjust: recipeToAdjust,
             newServingSize: newServingSize,
             unitSystem: await getUnitSystem(),
             // Pass dummy data for other fields as they aren't used for adjustments
@@ -109,7 +113,7 @@ export async function handleGenerateSuggestions(
         return {
             suggestions: null, // No new suggestions
             adjustedRecipe: adjustedRecipe,
-            originalRecipeTitle: recipe.title,
+            originalRecipeTitle: recipeToAdjust.title,
             error: null,
              debugInfo: {
                 promptInput: result.promptInput ? JSON.stringify(result.promptInput, null, 2) : "Prompt for recipe adjustment.",

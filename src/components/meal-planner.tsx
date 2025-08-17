@@ -1,8 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { useFormStatus, useActionState } from "react-dom";
+import React, { useState, useTransition, useRef } from "react";
 import { handleGenerateSuggestions } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -29,68 +28,43 @@ const initialState = {
   },
 };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Generating...
-        </>
-      ) : (
-        <>
-          <Sparkles className="mr-2 h-4 w-4" />
-          Generate Suggestions
-        </>
-      )}
-    </Button>
-  );
-}
-
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
 
 export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   
-  const [state, formAction] = useActionState(handleGenerateSuggestions, initialState);
-  
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
+  const [error, setError] = useState<any | null>(null);
   const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
+  const [isPending, startTransition] = useTransition();
 
   const formRef = useRef<HTMLFormElement>(null);
-  const servingsFormRef = useRef<HTMLFormElement>(null);
   
-  // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
   const [initialIngredientsToSub, setInitialIngredientsToSub] = useState<string[]>([]);
   
-  // Expiry check state
   const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
   const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
 
-
-  useEffect(() => {
-    if (state) {
-      if (state.error) {
-        // We only want to update suggestions if there are new ones, not on error
-      } else {
-        setSuggestions(state.suggestions ?? suggestions);
+  const handleSubmit = (formData: FormData) => {
+    startTransition(async () => {
+      const result = await handleGenerateSuggestions(formData);
+      setError(result.error);
+      setDebugInfo(result.debugInfo);
+      
+      if (result.suggestions) {
+        setSuggestions(result.suggestions);
       }
       
-      setDebugInfo(state.debugInfo);
-      
-      if (state.adjustedRecipe && state.originalRecipeTitle) {
+      if (result.adjustedRecipe && result.originalRecipeTitle) {
         setSuggestions(prev => 
-            prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
+            prev?.map(s => s.title === result.originalRecipeTitle ? result.adjustedRecipe! : s) || null
         );
-       }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-
+      }
+    });
+  };
 
   const handleSaveRecipe = (recipe: Recipe) => {
     // In a real app, this would save to a database.
@@ -137,10 +111,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       if (ingredientToCheck) {
           const { recipe, ingredient } = ingredientToCheck;
           if(isGood) {
-            // If they say it's good, just open substitutions normally
             handleOpenSubstitutions(recipe, []);
           } else {
-            // If it's spoiled, open substitutions with the item pre-selected
             handleOpenSubstitutions(recipe, [ingredient]);
           }
       }
@@ -161,7 +133,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form ref={formRef} action={formAction} className="space-y-4">
+          <form ref={formRef} action={handleSubmit} className="space-y-4">
              <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
@@ -173,19 +145,31 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                 placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
                 className="mt-1"
               />
-              {state?.error?.cravingsOrMood && (
+              {error?.cravingsOrMood && (
                 <p className="text-sm font-medium text-destructive mt-1">
-                  {state.error.cravingsOrMood[0]}
+                  {error.cravingsOrMood[0]}
                 </p>
               )}
             </div>
-            <SubmitButton />
+            <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Suggestions
+                </>
+              )}
+            </Button>
           </form>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
-        {useFormStatus().pending && !state.adjustedRecipe ? (
+        {isPending ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
                <Card key={i}>
@@ -228,14 +212,14 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                         </AccordionTrigger>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
-                                <form ref={servingsFormRef} action={formAction} className="flex items-center gap-4">
+                                <form action={handleSubmit} className="flex items-center gap-4">
                                      <h4 className="font-semibold">Servings</h4>
                                      <div className="flex items-center gap-2">
                                         <Button
                                             type="submit"
                                             name="newServingSize"
                                             value={recipe.servings - 1}
-                                            disabled={recipe.servings <= 1 || useFormStatus().pending}
+                                            disabled={recipe.servings <= 1 || isPending}
                                             size="icon"
                                             variant="outline"
                                         >
@@ -246,7 +230,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                             type="submit"
                                             name="newServingSize"
                                             value={recipe.servings + 1}
-                                            disabled={useFormStatus().pending}
+                                            disabled={isPending}
                                             size="icon"
                                             variant="outline"
                                         >
@@ -305,8 +289,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             </p>
           </div>
         )}
-        {state.error?.form && (
-           <p className="text-sm font-medium text-destructive mt-2">{state.error.form[0]}</p>
+        {error?.form && (
+           <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
         )}
       </div>
 
