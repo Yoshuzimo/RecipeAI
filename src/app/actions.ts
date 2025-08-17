@@ -51,20 +51,20 @@ const suggestionSchema = z.object({
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
     if (!inventory || inventory.length === 0) return "None";
-    
-    // Aggregate quantities for items with the same name
+
     const aggregatedInventory = inventory.reduce((acc, item) => {
+        const itemExpiryDate = new Date(item.expiryDate);
         const key = `${item.name} (${item.unit})`;
         if (acc[key]) {
             acc[key].totalQuantity += (item.packageSize * item.packageCount);
-            if (item.expiryDate < acc[key].earliestExpiry) {
-                acc[key].earliestExpiry = item.expiryDate;
+            if (itemExpiryDate < acc[key].earliestExpiry) {
+                acc[key].earliestExpiry = itemExpiryDate;
             }
         } else {
             acc[key] = {
                 totalQuantity: (item.packageSize * item.packageCount),
                 unit: item.unit,
-                earliestExpiry: item.expiryDate,
+                earliestExpiry: itemExpiryDate,
                 name: item.name,
             };
         }
@@ -73,7 +73,7 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
 
     return Object.values(aggregatedInventory)
         .map(data => 
-            `${data.name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
+            `${data.name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${new Date(data.earliestExpiry).toLocaleDateString()})`
         )
         .join(', ');
 }
@@ -141,7 +141,10 @@ export async function handleGenerateSuggestions(formData: FormData) {
   expiringSoonThreshold.setDate(now.getDate() + 3);
 
   const expiringIngredients = inventory.filter(
-    (item) => item.expiryDate > now && item.expiryDate <= expiringSoonThreshold
+    (item) => {
+        const itemExpiryDate = new Date(item.expiryDate);
+        return itemExpiryDate > now && itemExpiryDate <= expiringSoonThreshold
+    }
   );
 
   const currentInventoryString = formatInventoryToString(inventory);
@@ -312,7 +315,7 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
     const threeDaysFromNow = new Date(today.setDate(today.getDate() + 3));
     
     // The new expiry date is 3 days from now or the original expiry date, whichever is sooner.
-    const newExpiryDate = new Date(Math.min(threeDaysFromNow.getTime(), item.expiryDate.getTime()));
+    const newExpiryDate = new Date(Math.min(threeDaysFromNow.getTime(), new Date(item.expiryDate).getTime()));
 
     const updatedItem: InventoryItem = {
         ...item,
@@ -336,3 +339,5 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
         return { success: false, error };
     }
 }
+
+    
