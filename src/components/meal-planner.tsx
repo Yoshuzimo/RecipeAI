@@ -15,12 +15,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./
 import { Badge } from "./ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SubstitutionsDialog } from "./substitutions-dialog";
+import { Textarea } from "./ui/textarea";
 
 const initialState = {
   suggestions: null,
   error: null,
   adjustedRecipe: null,
   originalRecipeTitle: null,
+  debugInfo: null,
 };
 
 function SubmitButton() {
@@ -54,6 +56,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const formRef = useRef<HTMLFormElement>(null);
   const servingsFormRef = useRef<HTMLFormElement>(null);
 
+  // Debugging state
+  const [promptInput, setPromptInput] = useState<string | null>(null);
+  const [rawResponse, setRawResponse] = useState<string | null>(null);
+
   // Substitution state
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -65,13 +71,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     // This was the bug. The action returns an inventory property on the new state object,
     // which was not being used. The component now uses that to update its local inventory state.
     const returnedInventory = (state as any).inventory;
-    if (returnedInventory && returnedInventory.length > 0) {
+    if (returnedInventory) { // Check if inventory is returned
         setInventory(returnedInventory);
     }
     if (state.adjustedRecipe && state.originalRecipeTitle) {
       setSuggestions(prev => 
         prev?.map(s => s.title === state.originalRecipeTitle ? state.adjustedRecipe! : s) || null
       );
+    }
+     if (state.debugInfo) {
+      setPromptInput(state.debugInfo.promptInput);
+      setRawResponse(state.debugInfo.rawResponse);
     }
   }, [state]);
 
@@ -268,6 +278,20 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
            <p className="text-sm font-medium text-destructive mt-2">{state.error.form}</p>
         )}
       </div>
+
+       {promptInput && rawResponse && (
+        <div className="mt-8 space-y-4">
+          <h3 className="text-xl font-bold">Debug Info</h3>
+          <div className="space-y-2">
+            <Label htmlFor="prompt-input">Prompt Input</Label>
+            <Textarea id="prompt-input" readOnly value={promptInput} className="h-64 font-mono text-xs" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="raw-response">Raw AI Response</Label>
+            <Textarea id="raw-response" readOnly value={rawResponse} className="h-64 font-mono text-xs" />
+          </div>
+        </div>
+      )}
     </div>
      {isSubstitutionsDialogOpen && recipeForSubstitutions && (
         <SubstitutionsDialog

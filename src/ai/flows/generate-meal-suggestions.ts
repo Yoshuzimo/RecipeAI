@@ -68,9 +68,19 @@ export type GenerateMealSuggestionsOutput = z.infer<
   typeof GenerateMealSuggestionsOutputSchema
 >;
 
+// Enhanced output for debugging
+const DebugGenerateMealSuggestionsOutputSchema = GenerateMealSuggestionsOutputSchema.extend({
+  promptInput: GenerateMealSuggestionsInputSchema.optional(),
+  rawOutput: z.string().optional(),
+});
+export type DebugGenerateMealSuggestionsOutput = z.infer<
+  typeof DebugGenerateMealSuggestionsOutputSchema
+>;
+
+
 export async function generateMealSuggestions(
   input: GenerateMealSuggestionsInput
-): Promise<GenerateMealSuggestionsOutput> {
+): Promise<DebugGenerateMealSuggestionsOutput> {
   return generateMealSuggestionsFlow(input);
 }
 
@@ -123,10 +133,20 @@ const generateMealSuggestionsFlow = ai.defineFlow(
   {
     name: 'generateMealSuggestionsFlow',
     inputSchema: GenerateMealSuggestionsInputSchema,
-    outputSchema: GenerateMealSuggestionsOutputSchema,
+    outputSchema: DebugGenerateMealSuggestionsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const llmResponse = await prompt(input);
+    const output = llmResponse.output;
+
+    if (!output) {
+      throw new Error("Failed to get a valid response from the AI.");
+    }
+    
+    return {
+        suggestions: output.suggestions,
+        promptInput: input,
+        rawOutput: JSON.stringify(output, null, 2),
+    };
   }
 );

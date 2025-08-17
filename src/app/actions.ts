@@ -109,17 +109,26 @@ export async function handleGenerateSuggestions(
   // In a real app, this data would come from the user's daily log
   const mockTodaysMacros = { protein: 95, carbs: 155, fat: 65 };
 
-
-  try {
-    const result = await generateMealSuggestions({
+  const promptInput = {
       cravingsOrMood,
       currentInventory: currentInventoryString,
       expiringIngredients: expiringIngredientsString,
       unitSystem,
       personalDetails: personalDetailsString,
       todaysMacros: mockTodaysMacros,
-    });
-    return { suggestions: result.suggestions, error: null, inventory };
+    };
+
+  try {
+    const result = await generateMealSuggestions(promptInput);
+    return { 
+        suggestions: result.suggestions, 
+        error: null, 
+        inventory,
+        debugInfo: {
+            promptInput: JSON.stringify(result.promptInput, null, 2),
+            rawResponse: result.rawOutput
+        }
+    };
   } catch (error) {
     console.error(error);
     return { error: { form: "Failed to generate suggestions. Please try again." }, suggestions: null };
