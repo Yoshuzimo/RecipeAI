@@ -8,7 +8,7 @@ import { handleGenerateShoppingList } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Sparkles, AlertCircle, PlusCircle, Trash2, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Sparkles, AlertCircle, PlusCircle, Trash2, Settings, ChevronDown, ChevronUp, ShoppingBag } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Skeleton } from "./ui/skeleton";
 import { Input } from "./ui/input";
@@ -57,6 +57,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<ShoppingListItem | null>(null);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+  const [isBuyConfirmOpen, setIsBuyConfirmOpen] = useState(false);
   const [sections, setSections] = useState<Section[]>(initialSections);
 
   useEffect(() => {
@@ -76,6 +77,8 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const { register, handleSubmit, reset } = useForm<AddItemForm>();
 
   const lowOnStockItems = inventory.filter(item => item.quantity < 2 && item.unit === 'pcs' || item.quantity < 200 && (item.unit === 'g' || item.unit === 'ml'));
+
+  const hasCheckedItems = useMemo(() => myShoppingList.some(item => item.checked), [myShoppingList]);
 
   const handleGenerate = () => {
     startTransition(async () => {
@@ -147,6 +150,13 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     );
     updateSections(newSections);
   };
+
+  const handleConfirmBuy = () => {
+    const newList = myShoppingList.filter(item => !item.checked);
+    setMyShoppingList(newList);
+    localStorage.setItem('myShoppingList', JSON.stringify(newList));
+    setIsBuyConfirmOpen(false);
+  }
 
   const moveSection = (index: number, direction: 'up' | 'down') => {
     const newSections = [...sections];
@@ -343,36 +353,60 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                 ) : null
             )}
         </div>
-    
-    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Add to your list?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Do you want to add "{itemToAdd?.item}" to your personal shopping list?
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setItemToAdd(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAdd}>Add</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
 
-    <AlertDialog open={isRemoveConfirmOpen} onOpenChange={setIsRemoveConfirmOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This will permanently remove "{itemToRemove?.item}" from your shopping list.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setItemToRemove(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+        {hasCheckedItems && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2">
+                <Button size="lg" onClick={() => setIsBuyConfirmOpen(true)}>
+                    <ShoppingBag className="mr-2 h-5 w-5" />
+                    Buy Checked Items
+                </Button>
+            </div>
+        )}
+    
+        <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Add to your list?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Do you want to add "{itemToAdd?.item}" to your personal shopping list?
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setItemToAdd(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmAdd}>Add</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isRemoveConfirmOpen} onOpenChange={setIsRemoveConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently remove "{itemToRemove?.item}" from your shopping list.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setItemToRemove(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        
+        <AlertDialog open={isBuyConfirmOpen} onOpenChange={setIsBuyConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Finalize Purchase?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will remove all checked items from your shopping list. Are you sure you want to proceed?
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmBuy}>Yes, Buy Them</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </>
   );
 }
