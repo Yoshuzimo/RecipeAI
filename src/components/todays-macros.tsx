@@ -57,11 +57,11 @@ const CustomTick = (props: any) => {
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
           {meal}
         </text>
         {dishes.map((dish: any, index: number) => (
-           <text key={index} x={0} y={20} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+           <text key={index} x={0} y={20} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
         ))}

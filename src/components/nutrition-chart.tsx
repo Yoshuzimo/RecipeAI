@@ -69,49 +69,22 @@ const chartConfig = {
   }
 }
 
-// Custom Tooltip for Daily view
-const DailyChartTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    // Defensively check if dishes exist
-    if (!data.dishes || data.dishes.length === 0) {
-        // Fallback to default tooltip content if no dishes
-        return <ChartTooltipContent active={active} payload={payload} label={label} />;
-    }
-    return (
-      <div className="p-4 bg-background border rounded-lg shadow-lg">
-        <p className="font-bold text-lg">{label}</p>
-        <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-            {data.dishes.map((dish: any, index: number) => (
-                <li key={index}>{dish.name}</li>
-            ))}
-        </ul>
-      </div>
-    );
-  }
-
-  return null;
-};
-
-
 export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily")
 
-  const { data, dataKey, description, showDishes } = React.useMemo(() => {
+  const { data, dataKey, description } = React.useMemo(() => {
     switch (timeframe) {
       case "weekly":
         return { 
             data: MOCK_DATA.weekly, 
             dataKey: "day",
-            description: "A summary of your weekly intake, day by day.",
-            showDishes: false,
+            description: "A summary of your weekly intake, day by day."
         }
       case "monthly":
         return { 
             data: MOCK_DATA.monthly, 
             dataKey: "week",
-            description: "A summary of your monthly intake, week by week.",
-            showDishes: false,
+            description: "A summary of your monthly intake, week by week."
         }
       case "daily":
       default:
@@ -125,8 +98,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
         return { 
             data: formattedDailyData,
             dataKey: "meal",
-            description: "A summary of your daily intake, meal by meal.",
-            showDishes: true,
+            description: "A summary of your daily intake, meal by meal."
         }
     }
   }, [timeframe, dailyData]);
@@ -138,26 +110,27 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
         return null;
     }
     
-    const data = payload.payload;
-    
-    // The label for the tick (e.g., "Breakfast", "Mon", "Week 1")
-    const tickLabel = data.meal || data.day || data.week;
-    const subLabel = data.date || data.dateRange;
+    const { meal, dishes, day, date, week, dateRange } = payload.payload;
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
-          {tickLabel}
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
+          {meal || day || week}
         </text>
         
-        {subLabel && (
-            <text x={0} y={20} dy={15} textAnchor="middle" fill="#888" fontSize={12}>
-                {subLabel}
+        {date && (
+            <text x={0} y={15} dy={16} textAnchor="middle" fill="#888" fontSize={10}>
+                {date}
+            </text>
+        )}
+        {dateRange && (
+            <text x={0} y={15} dy={16} textAnchor="middle" fill="#888" fontSize={10}>
+                {dateRange}
             </text>
         )}
 
-        {showDishes && data.dishes && data.dishes.map((dish: any, index: number) => (
-           <text key={index} x={0} y={35} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
+        {dishes && dishes.map((dish: any, index: number) => (
+           <text key={index} x={0} y={30} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
         ))}
