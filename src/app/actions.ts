@@ -29,7 +29,7 @@ const suggestionSchema = z.object({
     }
   }),
   cravingsOrMood: z.string().optional(),
-   recipeToAdjust: z.string().optional().transform((val, ctx) => {
+   recipeToAdjust: z.string().optional().nullable().transform((val, ctx) => {
     if (!val) return undefined;
     try {
         return JSON.parse(val) as Recipe;
