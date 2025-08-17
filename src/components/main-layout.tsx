@@ -1,8 +1,9 @@
+
 "use client";
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark } from "lucide-react";
+import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark, Gem } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -24,6 +25,7 @@ const menuItems = [
   { href: "/nutrition", label: "Nutrition", icon: BarChart },
   { href: "/saved-recipes", label: "Saved Recipes", icon: Bookmark },
   { href: "/personal-details", label: "Personal Details", icon: FileText },
+  { href: "/subscriptions", label: "Subscriptions", icon: Gem },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

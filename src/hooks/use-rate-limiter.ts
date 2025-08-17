@@ -2,7 +2,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useToast } from './use-toast';
+import { Button } from '@/components/ui/button';
 
 const RATE_LIMIT = 3; // requests
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
@@ -41,7 +43,15 @@ export function useRateLimiter() {
       toast({
         variant: "destructive",
         title: "You're doing that a bit too fast!",
-        description: `Please wait ${waitTime} more seconds before trying again.`,
+        description: (
+          <div className="space-y-2">
+            <p>Please wait {waitTime} more seconds before trying again.</p>
+            <p className="font-semibold">Tired of limitations? Get premium!</p>
+            <Button asChild size="sm">
+              <Link href="/subscriptions">Upgrade Now</Link>
+            </Button>
+          </div>
+        ),
       });
 
       // Start a countdown timer
