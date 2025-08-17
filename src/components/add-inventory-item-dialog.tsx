@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addInventoryItem, getUnitSystem } from "@/lib/data";
+import { addInventoryItem, getUnitSystem, getStorageLocations } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,7 +37,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import type { Unit } from "@/lib/types";
+import type { Unit, StorageLocation } from "@/lib/types";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -53,6 +53,9 @@ const formSchema = z.object({
   expiryDate: z.date({
     required_error: "An expiry date is required.",
   }),
+  locationId: z.string({
+    required_error: "A storage location is required.",
+  })
 });
 
 const metricUnits: { value: Unit, label: string }[] = [
@@ -83,16 +86,23 @@ export function AddInventoryItemDialog({
   const { toast } = useToast();
   const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
   const [availableUnits, setAvailableUnits] = useState(usUnits);
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
 
   useEffect(() => {
-    async function fetchUnitSystem() {
+    async function fetchData() {
       const system = await getUnitSystem();
       setUnitSystem(system);
       setAvailableUnits(system === 'us' ? usUnits : metricUnits);
       form.setValue('unit', system === 'us' ? 'lbs' : 'kg');
+
+      const locations = await getStorageLocations();
+      setStorageLocations(locations);
+      if (locations.length > 0) {
+        form.setValue('locationId', locations.find(l => l.type === 'Pantry')?.id || locations[0].id);
+      }
     }
     if (isOpen) {
-        fetchUnitSystem();
+        fetchData();
         // Set default expiry date to 7 days from now
         form.setValue('expiryDate', addDays(new Date(), 7));
     }
@@ -123,6 +133,7 @@ export function AddInventoryItemDialog({
         packageCount: 1,
         unit: unitSystem === 'us' ? 'lbs' : 'kg',
         expiryDate: addDays(new Date(), 7),
+        locationId: storageLocations.find(l => l.type === 'Pantry')?.id || storageLocations[0]?.id
       });
     } catch (error) {
       toast({
@@ -203,6 +214,28 @@ export function AddInventoryItemDialog({
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+             <FormField
+                control={form.control}
+                name="locationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Storage Location</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a location" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {storageLocations.map(location => (
+                            <SelectItem key={location.id} value={location.id}>{location.name} ({location.type})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

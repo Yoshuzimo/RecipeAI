@@ -23,10 +23,8 @@ import type { InventoryItem } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Trash2, Refrigerator, Loader2 } from "lucide-react";
+import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
-import { handleTransferItemToFridge } from "@/app/actions";
-import { useState } from "react";
 
 const formSchema = z.object({
   packageSize: z.coerce.number().positive({
@@ -50,7 +48,6 @@ export function EditInventoryItemDialog({
   onItemRemoved: (itemId: string) => void;
 }) {
   const { toast } = useToast();
-  const [isTransferring, setIsTransferring] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -61,8 +58,6 @@ export function EditInventoryItemDialog({
     },
   });
   
-  const isFreezerItem = item.name.includes('(Freezer)');
-
   async function onEditSubmit(values: z.infer<typeof formSchema>) {
     // If the count is 0, treat it as a removal
     if (values.packageCount === 0) {
@@ -107,26 +102,6 @@ export function EditInventoryItemDialog({
         });
     }
   }
-
-  const handleTransfer = async () => {
-    setIsTransferring(true);
-    const result = await handleTransferItemToFridge(item);
-    if (result.success && result.updatedItem) {
-        onItemUpdated(result.updatedItem);
-        toast({
-            title: "Item Transferred",
-            description: `${item.name} moved to fridge. Expiry updated.`,
-        });
-    } else {
-        toast({
-            variant: "destructive",
-            title: "Transfer Failed",
-            description: result.error,
-        });
-    }
-    setIsTransferring(false);
-  }
-
 
   return (
     <Form {...form}>
@@ -202,12 +177,6 @@ export function EditInventoryItemDialog({
                 <Trash2 className="h-4 w-4" />
             </Button>
             <div className="flex gap-2">
-                {isFreezerItem && (
-                    <Button type="button" variant="outline" onClick={handleTransfer} disabled={isTransferring}>
-                        {isTransferring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Refrigerator className="mr-2 h-4 w-4" />}
-                        {isTransferring ? 'Transferring...' : 'Transfer to Fridge'}
-                    </Button>
-                )}
                 <DialogClose asChild>
                     <Button type="submit" disabled={form.formState.isSubmitting}>
                         {form.formState.isSubmitting ? "Saving..." : "Save"}

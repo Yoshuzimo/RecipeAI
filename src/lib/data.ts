@@ -1,6 +1,7 @@
 
 
-import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit } from "./types";
+
+import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation } from "./types";
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -14,17 +15,23 @@ twoDaysFromNow.setDate(today.getDate() + 2);
 const threeDaysFromNow = new Date(today);
 threeDaysFromNow.setDate(today.getDate() + 3);
 
+let MOCK_STORAGE_LOCATIONS: StorageLocation[] = [
+    { id: 'fridge-1', name: 'Main Fridge', type: 'Fridge' },
+    { id: 'freezer-1', name: 'Main Freezer', type: 'Freezer' },
+    { id: 'pantry-1', name: 'Pantry', type: 'Pantry' },
+];
+
 let MOCK_INVENTORY: InventoryItem[] = [
-  { id: '1', name: 'Chicken Breast', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: twoDaysFromNow },
-  { id: '1a', name: 'Chicken Breast', packageSize: 1.5, packageCount: 1, unit: 'lbs', expiryDate: nextWeek },
-  { id: '2', name: 'Broccoli', packageSize: 12, packageCount: 1, unit: 'oz', expiryDate: nextWeek },
-  { id: '3', name: 'Milk', packageSize: 1, packageCount: 1, unit: 'gallon', expiryDate: tomorrow },
-  { id: '4', name: 'Eggs', packageSize: 12, packageCount: 1, unit: 'pcs', expiryDate: nextWeek },
-  { id: '5', name: 'Tomatoes', packageSize: 1, packageCount: 5, unit: 'pcs', expiryDate: nextWeek },
-  { id: '6', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: yesterday },
-  { id: '6a', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: threeDaysFromNow },
-  { id: '7', name: 'Cheddar Cheese', packageSize: 8, packageCount: 1, unit: 'oz', expiryDate: nextWeek },
-  { id: '8', name: 'Lettuce', packageSize: 1, packageCount: 1, unit: 'pcs', expiryDate: twoDaysFromNow },
+  { id: '1', name: 'Chicken Breast', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
+  { id: '1a', name: 'Chicken Breast', packageSize: 1.5, packageCount: 1, unit: 'lbs', expiryDate: nextWeek, locationId: 'freezer-1' },
+  { id: '2', name: 'Broccoli', packageSize: 12, packageCount: 1, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '3', name: 'Milk', packageSize: 1, packageCount: 1, unit: 'gallon', expiryDate: tomorrow, locationId: 'fridge-1' },
+  { id: '4', name: 'Eggs', packageSize: 12, packageCount: 1, unit: 'pcs', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '5', name: 'Tomatoes', packageSize: 1, packageCount: 5, unit: 'pcs', expiryDate: nextWeek, locationId: 'pantry-1' },
+  { id: '6', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: yesterday, locationId: 'fridge-1' },
+  { id: '6a', name: 'Ground Beef', packageSize: 1, packageCount: 1, unit: 'lbs', expiryDate: threeDaysFromNow, locationId: 'freezer-1' },
+  { id: '7', name: 'Cheddar Cheese', packageSize: 8, packageCount: 1, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
+  { id: '8', name: 'Lettuce', packageSize: 1, packageCount: 1, unit: 'pcs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
 ];
 
 let MOCK_PERSONAL_DETAILS: PersonalDetails = {
@@ -60,6 +67,11 @@ let MOCK_TODAYS_MACROS: DailyMacros[] = [
 
 // Simulate client-side local storage
 const mockLocalStorage = new Map<string, string>();
+
+export async function getStorageLocations(): Promise<StorageLocation[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return MOCK_STORAGE_LOCATIONS;
+}
 
 export async function getInventory(): Promise<InventoryItem[]> {
   // Simulate API delay

@@ -2,6 +2,12 @@
 
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon';
 
+export type StorageLocation = {
+  id: string;
+  name: string;
+  type: 'Fridge' | 'Freezer' | 'Pantry';
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export type InventoryItem = {
   packageCount: number;
   unit: Unit;
   expiryDate: Date;
+  locationId: string;
 };
 
 export type InventoryItemGroup = {
@@ -65,4 +72,3 @@ export type DailyMacros = {
     dishes: LoggedDish[];
     totals: Macros;
 };
-

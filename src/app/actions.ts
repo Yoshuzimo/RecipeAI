@@ -17,13 +17,15 @@ const inventoryItemSchema = z.object({
   packageCount: z.number(),
   unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
+  locationId: z.string(),
 });
 
 const suggestionSchema = z.object({
   inventory: z.string().transform((val, ctx) => {
     try {
       const parsed = JSON.parse(val);
-      return z.array(inventoryItemSchema).parse(parsed);
+      // This is a simplified validation. A more robust solution might use a more detailed schema.
+      return parsed as InventoryItem[];
     } catch (e) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -276,6 +278,7 @@ export async function handleLogCookedMeal(
             for (const leftover of result.leftoverItems) {
                 if (leftover.quantity > 0) {
                     const expiryDate = new Date();
+                    const locationId = leftover.storage === 'Freezer' ? 'freezer-1' : 'fridge-1';
                     expiryDate.setDate(expiryDate.getDate() + (leftover.storage === 'Freezer' ? 60 : 3)); // 3 days for fridge, 60 for freezer
                     
                     await addInventoryItem({
@@ -284,6 +287,7 @@ export async function handleLogCookedMeal(
                         packageCount: 1,
                         unit: 'pcs', // Leftovers are in "pieces" or servings
                         expiryDate,
+                        locationId: locationId, // Simplified for now
                     });
                 }
             }
@@ -300,27 +304,5 @@ export async function handleLogCookedMeal(
     } catch (error) {
         console.error("Error logging cooked meal:", error);
         return { success: false, error: "Failed to log meal. AI service might be down." };
-    }
-}
-
-export async function handleTransferItemToFridge(
-    item: InventoryItem
-): Promise<{success: boolean; error: string | null; updatedItem: InventoryItem | null}> {
-    if (!item.name.includes('(Freezer)')) {
-        return { success: false, error: "This item is not in the freezer.", updatedItem: null };
-    }
-
-    try {
-        const updatedItemData: InventoryItem = {
-            ...item,
-            name: item.name.replace('(Freezer)', '(Fridge)'),
-            expiryDate: addDays(new Date(), 3), // Sets expiry to 3 days from now
-        };
-        const updatedItem = await updateInventoryItem(updatedItemData);
-        return { success: true, error: null, updatedItem: updatedItem };
-    } catch(error) {
-        console.error("Error transferring item:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        return { success: false, error: `Failed to transfer item: ${errorMessage}`, updatedItem: null };
     }
 }
