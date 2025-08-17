@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import type { InventoryItem } from "@/lib/types";
 import { handleGenerateShoppingList } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -270,6 +270,18 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   ];
 
   const [sections, setSections] = useState(initialSections);
+  
+    useEffect(() => {
+        setSections(prevSections =>
+            prevSections.map(sec => {
+                if (sec.id === 'myList') return { ...sec, component: MyShoppingListComponent };
+                if (sec.id === 'restock') return { ...sec, component: RestockComponent };
+                if (sec.id === 'aiGuide') return { ...sec, component: AIGuideComponent };
+                return sec;
+            })
+        );
+    }, [myShoppingList, inventory, aiShoppingList, isPending, error, personalDetails]);
+
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -278,11 +290,8 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     items.splice(result.destination.index, 0, reorderedItem);
     setSections(items);
   };
-
-
-  return (
-    <>
-    <DragDropContext onDragEnd={onDragEnd}>
+  
+    const droppableContent = useMemo(() => (
         <Droppable droppableId="shopping-list-sections">
             {(provided) => (
                 <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-8">
@@ -316,6 +325,13 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
                 </div>
             )}
         </Droppable>
+    ), [sections, hiddenSections]);
+
+
+  return (
+    <>
+    <DragDropContext onDragEnd={onDragEnd}>
+        {droppableContent}
     </DragDropContext>
     
     <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
@@ -350,3 +366,5 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     </>
   );
 }
+
+    
