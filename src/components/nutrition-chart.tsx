@@ -73,6 +73,11 @@ const chartConfig = {
 const DailyChartTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    // Defensively check if dishes exist
+    if (!data.dishes || data.dishes.length === 0) {
+        // Fallback to default tooltip content if no dishes
+        return <ChartTooltipContent active={active} payload={payload} label={label} />;
+    }
     return (
       <div className="p-4 bg-background border rounded-lg shadow-lg">
         <p className="font-bold text-lg">{label}</p>
@@ -128,18 +133,25 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
 
   const CustomTick = (props: any) => {
     const { x, y, payload } = props;
-    const { meal, dishes } = payload.payload;
+    const data = payload.payload;
 
-    if (!showDishes) {
-        return <text x={x} y={y} dy={16} textAnchor="middle" fill="#666" fontSize={12}>{meal}</text>
+    if (!data) {
+        return null;
+    }
+    
+    // The label for the tick (e.g., "Breakfast", "Mon", "Week 1")
+    const tickLabel = data.meal || data.day || data.week;
+
+    if (!showDishes || !data.dishes) {
+        return <text x={x} y={y} dy={16} textAnchor="middle" fill="#666" fontSize={12}>{tickLabel}</text>
     }
 
     return (
       <g transform={`translate(${x},${y})`}>
         <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={14} fontWeight="bold">
-          {meal}
+          {tickLabel}
         </text>
-        {dishes.map((dish: any, index: number) => (
+        {data.dishes.map((dish: any, index: number) => (
            <text key={index} x={0} y={16} dy={(index + 1) * 15} textAnchor="middle" fill="#888" fontSize={10}>
                 {dish.name}
             </text>
@@ -176,7 +188,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tick={showDishes ? <CustomTick /> : true}
+              tick={<CustomTick />}
               interval={0}
             />
             <YAxis
@@ -185,7 +197,7 @@ export function NutritionChart({ dailyData }: { dailyData: DailyMacros[] }) {
                 tickMargin={8}
                 tickFormatter={(value) => `${value}g`}
             />
-            <ChartTooltipContainer content={showDishes ? <DailyChartTooltip /> : <ChartTooltipContent />} cursor={{fill: 'hsl(var(--muted))'}}/>
+            <ChartTooltipContainer content={<DailyChartTooltip />} cursor={{fill: 'hsl(var(--muted))'}}/>
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
