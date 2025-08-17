@@ -39,7 +39,7 @@ let MOCK_PERSONAL_DETAILS: PersonalDetails = {
 let MOCK_SETTINGS: Settings = {
     unitSystem: 'us',
     aiFeatures: true,
-    e2eEncryption: false,
+    e2eEncryption: true,
     expiryNotifications: true,
 };
 

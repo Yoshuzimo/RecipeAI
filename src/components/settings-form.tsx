@@ -22,7 +22,7 @@ export function SettingsForm() {
   const [settings, setSettings] = useState<Settings>({
     unitSystem: "us",
     aiFeatures: true,
-    e2eEncryption: false,
+    e2eEncryption: true,
     expiryNotifications: true,
   });
   
@@ -94,21 +94,6 @@ export function SettingsForm() {
                 id="ai-features" 
                 checked={settings.aiFeatures}
                 onCheckedChange={(checked) => handleSettingChange("aiFeatures", checked)}
-              />
-            </div>
-            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="e2e-encryption" className="text-base">
-                  End-to-End Encryption
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Secure your sensitive health data. (UI only)
-                </p>
-              </div>
-              <Switch 
-                id="e2e-encryption" 
-                checked={settings.e2eEncryption}
-                onCheckedChange={(checked) => handleSettingChange("e2eEncryption", checked)}
               />
             </div>
             <div className="flex flex-row items-center justify-between rounded-lg border p-4">
