@@ -1,9 +1,10 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addInventoryItem } from "@/lib/data";
+import { addInventoryItem, getUnitSystem } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +36,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import type { Unit } from "@/lib/types";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -43,11 +46,27 @@ const formSchema = z.object({
   quantity: z.coerce.number().positive({
     message: "Quantity must be a positive number.",
   }),
-  unit: z.enum(["g", "kg", "ml", "l", "pcs"]),
+  unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
     required_error: "An expiry date is required.",
   }),
 });
+
+const metricUnits: { value: Unit, label: string }[] = [
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'kg', label: 'Kilograms (kg)' },
+    { value: 'ml', label: 'Milliliters (ml)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+];
+
+const usUnits: { value: Unit, label: string }[] = [
+    { value: 'oz', label: 'Ounces (oz)' },
+    { value: 'lbs', label: 'Pounds (lbs)' },
+    { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
+    { value: 'gallon', label: 'Gallons' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+];
 
 export function AddInventoryItemDialog({
   isOpen,
@@ -59,12 +78,27 @@ export function AddInventoryItemDialog({
   onItemAdded: (item: any) => void;
 }) {
   const { toast } = useToast();
+  const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
+  const [availableUnits, setAvailableUnits] = useState(usUnits);
+
+  useEffect(() => {
+    async function fetchUnitSystem() {
+      const system = await getUnitSystem();
+      setUnitSystem(system);
+      setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+      form.setValue('unit', system === 'us' ? 'lbs' : 'kg');
+    }
+    if (isOpen) {
+        fetchUnitSystem();
+    }
+  }, [isOpen]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       quantity: 0,
-      unit: "g",
+      unit: "lbs",
     },
   });
 
@@ -119,7 +153,7 @@ export function AddInventoryItemDialog({
                   <FormItem>
                     <FormLabel>Quantity</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 500" {...field} />
+                      <Input type="number" placeholder="e.g., 1.5" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -138,11 +172,9 @@ export function AddInventoryItemDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="g">Grams (g)</SelectItem>
-                        <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                        <SelectItem value="ml">Milliliters (ml)</SelectItem>
-                        <SelectItem value="l">Liters (l)</SelectItem>
-                        <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                        {availableUnits.map(unit => (
+                            <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

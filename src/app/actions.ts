@@ -1,7 +1,9 @@
+
 "use server";
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
+import { getUnitSystem } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
 import { z } from "zod";
 
@@ -15,7 +17,23 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
     // Aggregate quantities for items with the same name
     const aggregatedInventory = inventory.reduce((acc, item) => {
         if (acc[item.name]) {
-            acc[item.name].totalQuantity += item.quantity;
+            // This is a simplified aggregation. A real app might need unit conversion.
+            if (acc[item.name].unit === item.unit) {
+                acc[item.name].totalQuantity += item.quantity;
+            } else {
+                 // If units are different, just list them separately for now.
+                 const uniqueName = `${item.name} (${item.unit})`;
+                 if (acc[uniqueName]) {
+                     acc[uniqueName].totalQuantity += item.quantity;
+                 } else {
+                     acc[uniqueName] = {
+                         totalQuantity: item.quantity,
+                         unit: item.unit,
+                         earliestExpiry: item.expiryDate
+                     }
+                 }
+                 return acc;
+            }
             if (item.expiryDate < acc[item.name].earliestExpiry) {
                 acc[item.name].earliestExpiry = item.expiryDate;
             }
@@ -31,7 +49,7 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
 
     return Object.entries(aggregatedInventory)
         .map(([name, data]) => 
-            `${name} (${data.totalQuantity}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
+            `${name} (${data.totalQuantity.toFixed(1)}${data.unit}, expires ~${data.earliestExpiry.toLocaleDateString()})`
         )
         .join(', ');
 }
@@ -63,12 +81,14 @@ export async function handleGenerateSuggestions(
 
   const currentInventoryString = formatInventoryToString(inventory);
   const expiringIngredientsString = formatInventoryToString(expiringIngredients);
+  const unitSystem = await getUnitSystem();
 
   try {
     const result = await generateMealSuggestions({
       cravingsOrMood,
       currentInventory: currentInventoryString,
       expiringIngredients: expiringIngredientsString,
+      unitSystem,
     });
     return { suggestions: result.suggestions, error: null };
   } catch (error) {
@@ -87,12 +107,14 @@ export async function handleGenerateShoppingList(
   const consumptionHistory = "User has eaten a lot of chicken, broccoli, and rice this month.";
 
   const personalDetailsString = JSON.stringify(personalDetails, null, 2);
+  const unitSystem = await getUnitSystem();
 
   try {
     const result = await generateShoppingList({
       currentInventory: currentInventoryString,
       personalDetails: personalDetailsString,
       consumptionHistory,
+      unitSystem,
     });
     return { shoppingList: result.shoppingList, error: null };
   } catch (error) {

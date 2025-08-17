@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -27,6 +28,7 @@ const GenerateShoppingListInputSchema = z.object({
     .describe(
       'A summary of what the user has consumed over the last month to understand their habits.'
     ),
+  unitSystem: z.enum(["us", "metric"]).describe("The unit system the user prefers (us or metric).")
 });
 export type GenerateShoppingListInput = z.infer<
   typeof GenerateShoppingListInputSchema
@@ -60,7 +62,7 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateShoppingListOutputSchema},
   prompt: `You are a shopping list assistant. Your task is to generate a shopping list based on the user's current inventory, personal details, and consumption history. 
 
-Prioritize items that are running low or are essential for upcoming meals that align with the user's preferences. Suggest reasonable quantities.
+Prioritize items that are running low or are essential for upcoming meals that align with the user's preferences. Suggest reasonable quantities in the user's preferred unit system: {{{unitSystem}}}.
 
 User's Current Inventory:
 {{{currentInventory}}}

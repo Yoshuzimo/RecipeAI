@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -21,6 +22,7 @@ const GenerateMealSuggestionsInputSchema = z.object({
   expiringIngredients: z
     .string()
     .describe('A list of ingredients that are about to expire soon.'),
+   unitSystem: z.enum(["us", "metric"]).describe("The unit system the user prefers (us or metric).")
 });
 export type GenerateMealSuggestionsInput = z.infer<
   typeof GenerateMealSuggestionsInputSchema
@@ -47,6 +49,7 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateMealSuggestionsInputSchema},
   output: {schema: GenerateMealSuggestionsOutputSchema},
   prompt: `You are a meal planning assistant. Your task is to suggest 3-5 meal or snack options based on the user's cravings, current inventory, and ingredients that are about to expire.
+Please provide all quantities and measurements in the user's preferred unit system: {{{unitSystem}}}.
 
 User is in the mood for: {{{cravingsOrMood}}}
 Current Inventory: {{{currentInventory}}}

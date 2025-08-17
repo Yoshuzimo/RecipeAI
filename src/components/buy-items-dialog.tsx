@@ -1,9 +1,10 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
-import { addInventoryItem } from "@/lib/data";
+import { addInventoryItem, getUnitSystem } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,13 +39,15 @@ import { cn } from "@/lib/utils";
 import type { ShoppingListItem } from "./shopping-list";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
+import { useEffect, useState } from "react";
+import type { Unit } from "@/lib/types";
 
 const itemSchema = z.object({
   name: z.string(),
   quantity: z.coerce.number().positive({
     message: "Quantity must be a positive number.",
   }),
-  unit: z.enum(["g", "kg", "ml", "l", "pcs"]),
+  unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
   expiryDate: z.date({
     required_error: "An expiry date is required.",
   }),
@@ -53,6 +56,23 @@ const itemSchema = z.object({
 const formSchema = z.object({
   items: z.array(itemSchema),
 });
+
+const metricUnits: { value: Unit, label: string }[] = [
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'kg', label: 'Kilograms (kg)' },
+    { value: 'ml', label: 'Milliliters (ml)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+];
+
+const usUnits: { value: Unit, label: string }[] = [
+    { value: 'oz', label: 'Ounces (oz)' },
+    { value: 'lbs', label: 'Pounds (lbs)' },
+    { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
+    { value: 'gallon', label: 'Gallons' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+];
+
 
 export function BuyItemsDialog({
   isOpen,
@@ -66,6 +86,16 @@ export function BuyItemsDialog({
   onComplete: () => void;
 }) {
   const { toast } = useToast();
+  const [availableUnits, setAvailableUnits] = useState(usUnits);
+  
+  useEffect(() => {
+    async function fetchUnitSystem() {
+      const system = await getUnitSystem();
+      setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+    }
+    fetchUnitSystem();
+  }, [isOpen]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -127,7 +157,7 @@ export function BuyItemsDialog({
                                 <FormItem>
                                     <FormLabel>Quantity</FormLabel>
                                     <FormControl>
-                                    <Input type="number" placeholder="e.g., 500" {...field} />
+                                    <Input type="number" placeholder="e.g., 1.5" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -146,11 +176,9 @@ export function BuyItemsDialog({
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="g">Grams (g)</SelectItem>
-                                        <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                                        <SelectItem value="ml">Milliliters (ml)</SelectItem>
-                                        <SelectItem value="l">Liters (l)</SelectItem>
-                                        <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                                       {availableUnits.map(unit => (
+                                            <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />
