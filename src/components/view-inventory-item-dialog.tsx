@@ -143,7 +143,11 @@ export function ViewInventoryItemDialog({
                             <Controller
                                 name={`${size}.partial`}
                                 control={control}
-                                render={({ field: { onChange, value } }) => (
+                                render={({ field: { onChange, value } }) => {
+                                    const isNonDivisible = isNonDivisiblePiece(group.name, group.unit);
+                                    const displayValue = isNonDivisible ? Math.round(value) : Math.round((value / size) * 100);
+
+                                    return (
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <Label>Partial Container</Label>
@@ -154,33 +158,34 @@ export function ViewInventoryItemDialog({
                                                 value={[value]}
                                                 onValueChange={(vals) => onChange(vals[0])}
                                                 max={size}
-                                                step={isNonDivisiblePiece(group.name, group.unit) ? 1 : size / 100}
+                                                step={isNonDivisible ? 1 : size / 100}
                                                 className="flex-1"
                                             />
-                                            <Input
-                                                type="number"
-                                                value={value}
-                                                onChange={(e) => {
-                                                    const numValue = parseFloat(e.target.value);
-                                                    if (!isNaN(numValue)) {
-                                                        onChange(numValue);
-                                                    }
-                                                }}
-                                                 onBlur={(e) => {
-                                                    let numValue = parseFloat(e.target.value);
-                                                    if (isNaN(numValue) || numValue < 0) {
-                                                        numValue = 0;
-                                                    } else if (numValue > size) {
-                                                        numValue = size;
-                                                    }
-                                                    onChange(numValue);
-                                                }}
-                                                className="w-28"
-                                                step={isNonDivisiblePiece(group.name, group.unit) ? 1 : "0.01"}
-                                            />
+                                             <div className="relative w-28">
+                                                <Input
+                                                    type="number"
+                                                    value={displayValue}
+                                                    onChange={(e) => {
+                                                        const numValue = parseInt(e.target.value, 10);
+                                                        if (!isNaN(numValue)) {
+                                                            const newActualValue = isNonDivisible
+                                                                ? numValue
+                                                                : (numValue / 100) * size;
+                                                            onChange(Math.max(0, Math.min(size, newActualValue)));
+                                                        }
+                                                    }}
+                                                    className={!isNonDivisible ? "pr-6" : ""}
+                                                />
+                                                {!isNonDivisible && (
+                                                    <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
+                                                    %
+                                                    </span>
+                                                )}
+                                             </div>
                                         </div>
                                     </div>
-                                )}
+                                    )
+                                }}
                             />
                         </div>
                     ))
