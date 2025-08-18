@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,22 +53,27 @@ export function AddIngredientToRecipeDialog({
 
   const [availableUnits, setAvailableUnits] = useState(usUnits);
 
-  useState(() => {
+  useEffect(() => {
     async function fetchUnits() {
         const system = await getUnitSystem();
         const units = system === 'us' ? usUnits : metricUnits;
         setAvailableUnits(units);
         setUnit(units.find(u => u.value === 'pcs') ? 'pcs' : units[0].value);
     }
-    fetchUnits();
-  });
+    if (isOpen) {
+      fetchUnits();
+    }
+  }, [isOpen]);
 
 
   const filteredInventory = useMemo(() => {
-    if (!ingredientName) return inventory;
-    return inventory.filter(item =>
-      item.name.toLowerCase().includes(ingredientName.toLowerCase())
-    );
+    const uniqueNames = new Set(inventory.map(item => item.name.toLowerCase()));
+    if (!ingredientName) return Array.from(uniqueNames).map(name => ({ id: name, name }));
+    
+    return Array.from(uniqueNames).filter(name =>
+      name.toLowerCase().includes(ingredientName.toLowerCase())
+    ).map(name => ({ id: name, name }));
+
   }, [ingredientName, inventory]);
 
   const handleSelect = (name: string) => {
@@ -124,7 +129,7 @@ export function AddIngredientToRecipeDialog({
                                 <CommandItem
                                     key={item.id}
                                     value={item.name}
-                                    onSelect={() => handleSelect(item.name)}
+                                    onSelect={handleSelect}
                                 >
                                     {item.name}
                                 </CommandItem>
