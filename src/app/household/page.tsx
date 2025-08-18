@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { handleInviteUser } from "./actions";
 
 // Mock data for now
 const householdMembers = [
@@ -20,17 +21,6 @@ const householdMembers = [
   { id: "user2", name: "Jordan", avatar: "/avatars/02.png" },
   { id: "user3", name: "Taylor", avatar: "/avatars/03.png" },
 ];
-
-// Placeholder server action
-const handleInviteUser = async (email: string) => {
-    console.log(`Inviting user with email: ${email}`);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (email.includes("fail")) {
-        return { success: false, error: "This user could not be invited." };
-    }
-    return { success: true };
-};
 
 
 export default function HouseholdPage() {

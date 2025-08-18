@@ -130,13 +130,17 @@ export async function handleGenerateSuggestions(formData: FormData) {
         expiringIngredients: "", // Removed expiring ingredients calculation
         personalDetails: JSON.stringify(personalDetails),
         todaysMacros: JSON.stringify(aggregatedMacros),
+        recipeToAdjust: formData.get('recipeToAdjust') as string || undefined,
+        newServingSize: formData.get('newServingSize') ? parseInt(formData.get('newServingSize') as string, 10) : undefined,
     };
-
+    
     const result = await generateMealSuggestions(promptInput);
 
     return {
       error: null,
       suggestions: result.suggestions,
+      adjustedRecipe: result.adjustedRecipe,
+      originalRecipeTitle: result.originalRecipeTitle,
       debugInfo: { promptInput: JSON.stringify(promptInput, null, 2), rawResponse: JSON.stringify(result, null, 2) }
     };
   } catch (error) {
@@ -215,28 +219,27 @@ export async function handleLogCookedMeal(
             storageLocations: JSON.stringify(storageLocations),
         });
 
-        // The firestore SDK is not available in the serverless environment
-        // const batch = writeBatch(adminDb);
+        const batch = writeBatch(adminDb);
 
-        // // Handle item updates
-        // result.itemUpdates.forEach(update => {
-        //     const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
-        //     batch.update(itemRef, { totalQuantity: update.newQuantity });
-        // });
+        // Handle item updates
+        result.itemUpdates.forEach(update => {
+            const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
+            batch.update(itemRef, { totalQuantity: update.newQuantity });
+        });
 
-        // // Handle item removals
-        // result.itemsToRemove.forEach(itemId => {
-        //     const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
-        //     batch.delete(itemRef);
-        // });
+        // Handle item removals
+        result.itemsToRemove.forEach(itemId => {
+            const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
+            batch.delete(itemRef);
+        });
         
-        // // Handle new leftovers
-        // result.newLeftovers.forEach(leftover => {
-        //     const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
-        //     batch.set(itemRef, leftover);
-        // });
+        // Handle new leftovers
+        result.newLeftovers.forEach(leftover => {
+            const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
+            batch.set(itemRef, leftover);
+        });
         
-        // await batch.commit();
+        await batch.commit();
 
         const macrosConsumed: Macros = {
             protein: recipe.macros.protein * servingsEaten,
@@ -506,20 +509,6 @@ export async function handleReportSpoilage(
 }
 
 
-// Placeholder function for inviting a user
-export async function handleInviteUser(email: string) {
-    console.log(`Inviting user with email: ${email}`);
-    // In a real application, you would:
-    // 1. Generate a unique, short-lived invite token.
-    // 2. Store the token in Firestore with the household ID and an expiry date.
-    // 3. Use an email service (like Firebase Extensions for Email) to send an invite link.
-    // e.g., `https://your-app-url.com/invite?token=UNIQUE_TOKEN`
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (email.includes("fail")) {
-        return { success: false, error: "This user could not be invited." };
-    }
-    return { success: true };
-}
 
 
 // These functions need to be callable from the client, so they need to be exported from here
