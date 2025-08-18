@@ -62,11 +62,12 @@ export function AddIngredientDialog({
 
   const filteredInventory = useMemo(() => {
     if (!searchTerm) return [];
-    return inventory
-      .filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .slice(0, 5); // Limit to 5 suggestions
+    const matchingItems = inventory.filter((item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    // Deduplicate based on name
+    const uniqueItems = Array.from(new Map(matchingItems.map(item => [item.name.toLowerCase(), item])).values());
+    return uniqueItems.slice(0, 5); // Limit to 5 suggestions
   }, [searchTerm, inventory]);
 
   const handleSelectFromList = (name: string) => {
