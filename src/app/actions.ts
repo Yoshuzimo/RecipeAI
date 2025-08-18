@@ -35,33 +35,14 @@ import {
 } from "@/lib/data";
 import { addDays } from "date-fns";
 
-// --- Firebase Admin Initialization ---
-
-let adminInitialized = false;
-
-// This helper function initializes Firebase Admin and returns the db instance and FieldValue.
-// It ensures that initialization only happens once.
+// This is a placeholder function for getting the admin instance.
+// The actual implementation is at the bottom of the file, wrapped in a
+// server-only condition to prevent it from being bundled into the client.
 function getAdmin() {
-    if (!adminInitialized) {
-        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        if (!serviceAccountKey) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-        }
-        
-        const serviceAccount = JSON.parse(serviceAccountKey);
-
-        if (admin.apps.length === 0) {
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
-            });
-        }
-        adminInitialized = true;
-    }
-    return {
-        auth: getAuth(),
-        db: getFirestore(),
-        FieldValue,
-    };
+  if (global.adminInstance) {
+    return global.adminInstance;
+  }
+  throw new Error("Firebase Admin has not been initialized. This function should only be called on the server.");
 }
 
 
@@ -387,4 +368,39 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
+}
+
+
+// --- Firebase Admin Initialization (SERVER-ONLY) ---
+
+// This block of code will only be included in the server-side bundle,
+// preventing the 'firebase-admin' package from being sent to the client.
+if (typeof window === 'undefined') {
+  // Use a global variable to store the admin instance to avoid re-initialization
+  // in development with hot-reloading.
+  if (!global.adminInstance) {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in environment variables.');
+    }
+    
+    const serviceAccount = JSON.parse(serviceAccountKey);
+
+    if (admin.apps.length === 0) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    }
+
+    global.adminInstance = {
+      auth: getAuth(),
+      db: getFirestore(),
+      FieldValue,
+    };
+  }
+
+  // Redefine the getAdmin function for server-side execution.
+  // This will overwrite the placeholder function defined at the top of the file.
+  // @ts-ignore
+  getAdmin = () => global.adminInstance;
 }

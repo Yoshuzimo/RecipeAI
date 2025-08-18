@@ -1,8 +1,26 @@
 
+import * as admin from 'firebase-admin';
 import { getAuth } from "firebase-admin/auth";
-import { initFirebaseAdmin } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+function initFirebaseAdmin() {
+    if (admin.apps.length > 0) {
+        return;
+    }
+    
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
+    }
+    
+    const serviceAccount = JSON.parse(serviceAccountKey);
+
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
+}
+
 
 export async function POST(request: NextRequest) {
   initFirebaseAdmin();
@@ -45,5 +63,3 @@ export async function DELETE(request: NextRequest) {
   });
   return response;
 }
-
-    
