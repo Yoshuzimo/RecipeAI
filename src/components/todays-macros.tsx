@@ -19,12 +19,10 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart"
 import { Separator } from "./ui/separator"
-import { getClientTodaysMacros } from "@/app/actions"
-import type { DailyMacros } from "@/lib/types"
+import { getClientTodaysMacros, getSettings } from "@/app/actions"
+import type { DailyMacros, Settings } from "@/lib/types"
 import { CalorieLineChart } from "./calorie-line-chart"
-import { MOCK_NUTRITION_DATA } from "@/lib/mock-nutrition-data"
 
-const dailyGoals = MOCK_NUTRITION_DATA;
 
 const chartConfig = {
   protein: {
@@ -46,10 +44,13 @@ const chartConfig = {
 
 export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
+  const [settings, setSettings] = React.useState<Settings | null>(null);
 
   const fetchData = React.useCallback(async () => {
     const data = await getClientTodaysMacros();
     setDailyData(data);
+    const settingsData = await getSettings();
+    setSettings(settingsData);
   }, []);
 
   React.useEffect(() => {
@@ -80,12 +81,19 @@ export function TodaysMacros() {
         return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
   }, [chartData]);
+  
+  const goals = {
+      calories: settings?.calorieGoal || 2000,
+      protein: settings?.proteinGoal || 150,
+      carbs: settings?.carbsGoal || 250,
+      fat: settings?.fatGoal || 70,
+  }
 
   const remaining = {
-    calories: Math.max(0, dailyGoals.dailyGoal - totals.calories),
-    protein: Math.max(0, dailyGoals.proteinGoal - totals.protein),
-    carbs: Math.max(0, dailyGoals.carbsGoal - totals.carbs),
-    fat: Math.max(0, dailyGoals.fatGoal - totals.fat),
+    calories: Math.max(0, goals.calories - totals.calories),
+    protein: Math.max(0, goals.protein - totals.protein),
+    carbs: Math.max(0, goals.carbs - totals.carbs),
+    fat: Math.max(0, goals.fat - totals.fat),
   }
 
   const CustomMacroTick = (props: any) => {
@@ -117,7 +125,7 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={dailyData} goal={dailyGoals.dailyGoal} timeframe="daily" onDataChange={fetchData} />
+        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={fetchData} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
@@ -150,25 +158,25 @@ export function TodaysMacros() {
         <div className="flex w-full justify-around gap-2 text-center">
             <div>
                 <p className="text-sm text-muted-foreground">Calories</p>
-                <p className="font-bold text-lg">{totals.calories.toFixed(0)} / <span className="text-muted-foreground font-normal">{dailyGoals.dailyGoal}</span></p>
+                <p className="font-bold text-lg">{totals.calories.toFixed(0)} / <span className="text-muted-foreground font-normal">{goals.calories}</span></p>
                 <p className="text-xs text-green-600">{remaining.calories.toFixed(0)} left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
             <div>
                 <p className="text-sm text-muted-foreground">Protein</p>
-                <p className="font-bold text-lg">{totals.protein.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.proteinGoal}g</span></p>
+                <p className="font-bold text-lg">{totals.protein.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.protein}g</span></p>
                 <p className="text-xs text-green-600">{remaining.protein.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
              <div>
                 <p className="text-sm text-muted-foreground">Carbs</p>
-                <p className="font-bold text-lg">{totals.carbs.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.carbsGoal}g</span></p>
+                <p className="font-bold text-lg">{totals.carbs.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.carbs}g</span></p>
                 <p className="text-xs text-green-600">{remaining.carbs.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
              <div>
                 <p className="text-sm text-muted-foreground">Fat</p>
-                <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{dailyGoals.fatGoal}g</span></p>
+                <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.fat}g</span></p>
                 <p className="text-xs text-green-600">{remaining.fat.toFixed(0)}g left</p>
             </div>
         </div>

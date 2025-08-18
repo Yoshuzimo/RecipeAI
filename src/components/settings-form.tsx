@@ -10,27 +10,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { getSettings, saveSettings, getClientStorageLocations } from "@/app/actions";
 import type { Settings, StorageLocation } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { List, PlusCircle, Trash2, Pencil } from "lucide-react";
+import { PlusCircle, Pencil } from "lucide-react";
 import { AddStorageLocationDialog } from "./add-storage-location-dialog";
 import { EditStorageLocationDialog } from "./edit-storage-location-dialog";
+import { Loader2 } from "lucide-react";
 
 export function SettingsForm() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<Settings>({
-    unitSystem: "us",
-    aiFeatures: true,
-    e2eEncryption: true,
-    expiryNotifications: true,
-  });
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
   const [editLocation, setEditLocation] = useState<StorageLocation | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   useEffect(() => {
     async function loadData() {
@@ -43,13 +41,17 @@ export function SettingsForm() {
   }, []);
 
   const handleSettingChange = (key: keyof Settings, value: any) => {
-    setSettings(prev => ({...prev, [key]: value}));
+    setSettings(prev => (prev ? {...prev, [key]: value} : null));
   };
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!settings) return;
+    
+    setIsSaving(true);
     await saveSettings(settings);
-    // In a real app, we'd also save the storage locations here
+    setIsSaving(false);
+    
     toast({
       title: "Settings Saved",
       description: "Your preferences have been updated.",
@@ -67,12 +69,41 @@ export function SettingsForm() {
   const onLocationRemoved = (locationId: string) => {
     setStorageLocations(prev => prev.filter(l => l.id !== locationId));
   }
+  
+  if (!settings) {
+      return (
+          <div className="flex justify-center items-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+      )
+  }
 
 
   return (
     <>
     <form onSubmit={handleSubmit}>
       <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Account</CardTitle>
+                <CardDescription>Update your public profile information.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <Label htmlFor="displayName">Display Name</Label>
+                    <Input 
+                        id="displayName" 
+                        value={settings.displayName || ""} 
+                        onChange={(e) => handleSettingChange('displayName', e.target.value)}
+                        placeholder="e.g., Alex"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        This name will be visible to members of your household.
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Unit System</CardTitle>
@@ -110,7 +141,7 @@ export function SettingsForm() {
                                 <p className="font-medium">{location.name}</p>
                                 <p className="text-sm text-muted-foreground">{location.type}</p>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => setEditLocation(location)}>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => setEditLocation(location)}>
                                 <Pencil className="h-4 w-4" />
                             </Button>
                         </div>
@@ -127,7 +158,7 @@ export function SettingsForm() {
           <CardHeader>
             <CardTitle>Preferences</CardTitle>
             <CardDescription>
-              Customize your experience with RecipeAI.
+              Customize your experience with CookSmart.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -165,7 +196,10 @@ export function SettingsForm() {
         </Card>
       </div>
       <div className="mt-6 flex justify-end">
-        <Button type="submit">Save Changes</Button>
+        <Button type="submit" disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+        </Button>
       </div>
     </form>
      <AddStorageLocationDialog 
@@ -185,5 +219,3 @@ export function SettingsForm() {
     </>
   );
 }
-
-    

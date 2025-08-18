@@ -92,12 +92,13 @@ export function MarkPrivateDialog({
         <DialogHeader>
           <DialogTitle>Mark {group.name} as Private</DialogTitle>
           <DialogDescription>
-            Select a household member and choose which packages to assign to them.
+            Assign ownership of these items. This feature is a work in progress.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
             <ScrollArea className="h-96 pr-6 my-4">
                 <div className="space-y-8">
+                     <p className="text-sm text-muted-foreground">Household features are under development. The UI below is for demonstration purposes.</p>
                     <div className="space-y-2">
                         <Label htmlFor="destination">Owner</Label>
                         <Select onValueChange={setOwnerId} value={ownerId}>
@@ -164,7 +165,7 @@ export function MarkPrivateDialog({
             </ScrollArea>
              <DialogFooter className="mt-4">
                 <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending || householdMembers.length === 0}>
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
                     Confirm Ownership
                 </Button>

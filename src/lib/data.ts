@@ -34,11 +34,16 @@ export const seedInitialData = async (userId: string) => {
     // Seed default settings and personal details
     const settingsRef = userRef.collection("app-data").doc("settings");
     batch.set(settingsRef, {
+        displayName: 'New User',
         unitSystem: 'us',
         subscriptionStatus: 'free',
         aiFeatures: true,
         e2eEncryption: true,
         expiryNotifications: true,
+        calorieGoal: 2000,
+        proteinGoal: 150,
+        carbsGoal: 250,
+        fatGoal: 70,
     });
 
     const personalDetailsRef = userRef.collection("app-data").doc("personal-details");
@@ -160,11 +165,16 @@ export async function getSettings(userId: string): Promise<Settings> {
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
         const defaultSettings: Settings = {
+            displayName: "New User",
             unitSystem: 'us',
             subscriptionStatus: 'free',
             aiFeatures: true,
             e2eEncryption: true,
             expiryNotifications: true,
+            calorieGoal: 2000,
+            proteinGoal: 150,
+            carbsGoal: 250,
+            fatGoal: 70,
         };
         await docRef.set(defaultSettings);
         return defaultSettings;

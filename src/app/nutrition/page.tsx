@@ -15,8 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_NUTRITION_DATA } from "@/lib/mock-nutrition-data";
 import type { DailyMacros } from "@/lib/types";
+
+// Weekly and monthly data would come from a more complex query in a real app
+const MOCK_WEEKLY_DATA: any[] = [];
+const MOCK_MONTHLY_DATA: any[] = [];
+
 
 export default function NutritionPage() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
@@ -31,25 +35,22 @@ export default function NutritionPage() {
     fetchData();
   }, [fetchData]);
 
-  const { data, goal, description } = React.useMemo(() => {
+  const { data, description } = React.useMemo(() => {
     switch (timeframe) {
       case "weekly":
         return { 
-            data: MOCK_NUTRITION_DATA.weekly, 
-            goal: MOCK_NUTRITION_DATA.dailyGoal * 7,
+            data: MOCK_WEEKLY_DATA, 
             description: "Your total calorie intake per day for the last week."
         }
       case "monthly":
         return { 
-            data: MOCK_NUTRITION_DATA.monthly, 
-            goal: MOCK_NUTRITION_DATA.dailyGoal * 30,
+            data: MOCK_MONTHLY_DATA,
             description: "Your total calorie intake per week for the last month."
         }
       case "daily":
       default:
         return { 
             data: dailyData,
-            goal: MOCK_NUTRITION_DATA.dailyGoal,
             description: "A running total of your calorie intake for today."
         }
     }
@@ -71,8 +72,8 @@ export default function NutritionPage() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="weekly" disabled>Weekly (Coming Soon)</SelectItem>
+                <SelectItem value="monthly" disabled>Monthly (Coming Soon)</SelectItem>
             </SelectContent>
             </Select>
         </div>
@@ -83,7 +84,7 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dailyData} goal={goal} timeframe={timeframe} onDataChange={fetchData} />
+                <CalorieLineChart data={dailyData} timeframe={timeframe} onDataChange={fetchData} />
             </CardContent>
          </Card>
         {timeframe === 'daily' && <NutritionChart dailyData={dailyData} />}

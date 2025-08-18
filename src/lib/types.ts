@@ -60,11 +60,16 @@ export type PersonalDetails = {
 }
 
 export type Settings = {
+    displayName: string;
     unitSystem: "us" | "metric";
     subscriptionStatus: 'free' | 'premium';
     aiFeatures: boolean;
     e2eEncryption: boolean;
     expiryNotifications: boolean;
+    calorieGoal?: number;
+    proteinGoal?: number;
+    carbsGoal?: number;
+    fatGoal?: number;
 }
 
 export type Macros = {

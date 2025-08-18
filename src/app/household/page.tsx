@@ -6,7 +6,7 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserPlus, LogOut } from "lucide-react";
+import { UserPlus, LogOut, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { handleInviteUser } from "./actions";
-
-// Mock data for now
-const householdMembers = [
-  { id: "user1", name: "Alex (You)", avatar: "/avatars/01.png" },
-  { id: "user2", name: "Jordan", avatar: "/avatars/02.png" },
-  { id: "user3", name: "Taylor", avatar: "/avatars/03.png" },
-];
 
 
 export default function HouseholdPage() {
@@ -64,7 +57,7 @@ export default function HouseholdPage() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => setIsLeaveAlertOpen(true)}>
+            <Button variant="outline" onClick={() => setIsLeaveAlertOpen(true)} disabled>
                 <LogOut className="mr-2 h-4 w-4" />
                 Leave Household
             </Button>
@@ -119,23 +112,13 @@ export default function HouseholdPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6">
-            {householdMembers.map((member) => (
-              <div key={member.id} className="flex items-center justify-between space-x-4">
-                <div className="flex items-center space-x-4">
-                  <Avatar>
-                    <AvatarImage src={`https://i.pravatar.cc/150?u=${member.id}`} />
-                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium leading-none">{member.name}</p>
-                    <p className="text-sm text-muted-foreground">{member.id === 'user1' ? 'Admin' : 'Member'}</p>
-                  </div>
-                </div>
-                {member.id !== 'user1' && (
-                    <Button variant="outline" size="sm">Remove</Button>
-                )}
-              </div>
-            ))}
+             <div className="text-center py-20 border-2 border-dashed rounded-lg">
+                <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Household Management Coming Soon</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    You are not currently part of a household.
+                </p>
+            </div>
           </CardContent>
         </Card>
       </div>

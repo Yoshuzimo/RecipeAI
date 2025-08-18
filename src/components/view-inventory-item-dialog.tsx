@@ -48,13 +48,6 @@ type FormData = z.infer<typeof formSchema>;
 // List of keywords for items that are typically not divisible when measured in 'pcs'
 const nonDivisibleKeywords = ['egg', 'eggs'];
 
-// Mock data, in a real app this would come from a data source
-const MOCK_HOUSEHOLD: HouseholdMember[] = [
-    { id: "user1", name: "Alex", isCurrentUser: true },
-    { id: "user2", name: "Jordan", isCurrentUser: false },
-    { id: "user3", name: "Taylor", isCurrentUser: false },
-];
-
 export function ViewInventoryItemDialog({
   isOpen,
   setIsOpen,
@@ -275,7 +268,7 @@ export function ViewInventoryItemDialog({
                    <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
                       <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
                   </Button>
-                   <Button type="button" variant="outline" onClick={() => setIsMarkPrivateDialogOpen(true)}>
+                   <Button type="button" variant="outline" onClick={() => setIsMarkPrivateDialogOpen(true)} disabled>
                       <Lock className="mr-2 h-4 w-4" /> Mark Private
                   </Button>
                 </div>
@@ -323,7 +316,7 @@ export function ViewInventoryItemDialog({
             setIsOpen={setIsMarkPrivateDialogOpen}
             group={group}
             packageGroups={packageGroups}
-            householdMembers={MOCK_HOUSEHOLD}
+            householdMembers={[]}
             onUpdateComplete={(newInventory) => {
                 onUpdateComplete(newInventory);
                 setIsOpen(false);
