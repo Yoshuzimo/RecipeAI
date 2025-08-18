@@ -22,8 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
+import { AddIngredientToRecipeDialog } from "./add-ingredient-to-recipe-dialog";
+
 
 const formSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters."),
@@ -49,8 +49,7 @@ export function CreateRecipeDialog({
 }) {
     const { toast } = useToast();
     const [isPending, setIsPending] = useState(false);
-    const [isIngredientPopoverOpen, setIngredientPopoverOpen] = useState(false);
-    const [newIngredient, setNewIngredient] = useState("");
+    const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -66,14 +65,13 @@ export function CreateRecipeDialog({
         control: form.control,
         name: "ingredients",
     });
-
-    const handleAddIngredient = () => {
-        if (newIngredient.trim() !== "") {
-            append({ value: newIngredient.trim() });
-            setNewIngredient("");
-            setIngredientPopoverOpen(false);
+    
+    const handleAddIngredient = (ingredient: string) => {
+        if (ingredient.trim() !== "") {
+            append({ value: ingredient.trim() });
         }
-    }
+    };
+
 
     const onSubmit = async (data: FormData) => {
         setIsPending(true);
@@ -106,6 +104,7 @@ export function CreateRecipeDialog({
     }
     
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -142,65 +141,25 @@ export function CreateRecipeDialog({
                                 />
                                 <div className="space-y-2">
                                      <FormLabel>Ingredients</FormLabel>
-                                     {fields.map((field, index) => (
-                                         <div key={field.id} className="flex items-center gap-2">
-                                            <FormField
-                                                control={form.control}
-                                                name={`ingredients.${index}.value`}
-                                                render={({ field }) => (
-                                                    <Input {...field} className="flex-1"/>
-                                                )}
-                                            />
-                                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                         </div>
-                                     ))}
+                                     <div className="space-y-2">
+                                        {fields.map((field, index) => (
+                                            <div key={field.id} className="flex items-center gap-2">
+                                                <Input
+                                                    {...form.register(`ingredients.${index}.value`)}
+                                                    className="flex-1"
+                                                />
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                     </div>
                                      {form.formState.errors.ingredients?.root && (
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p>
                                      )}
-                                     <Popover open={isIngredientPopoverOpen} onOpenChange={setIngredientPopoverOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button type="button" variant="outline" className="w-full">
-                                                <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0">
-                                            <Command>
-                                                <CommandInput 
-                                                    placeholder="Search inventory or type new..."
-                                                    value={newIngredient}
-                                                    onValueChange={setNewIngredient}
-                                                />
-                                                <CommandList>
-                                                    <CommandEmpty>No results. Type and press Enter.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {inventory
-                                                            .filter(item => item.name.toLowerCase().includes(newIngredient.toLowerCase()))
-                                                            .map(item => (
-                                                                <CommandItem
-                                                                    key={item.id}
-                                                                    value={item.name}
-                                                                    onSelect={(currentValue) => {
-                                                                        append({ value: currentValue });
-                                                                        setNewIngredient("");
-                                                                        setIngredientPopoverOpen(false);
-                                                                    }}
-                                                                >
-                                                                    {item.name}
-                                                                </CommandItem>
-                                                            ))
-                                                        }
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                            <div className="p-2 border-t">
-                                                <Button className="w-full" onClick={handleAddIngredient} disabled={!newIngredient.trim()}>
-                                                    Add "{newIngredient.trim()}"
-                                                </Button>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+                                     <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                                    </Button>
                                 </div>
                                 <FormField
                                     control={form.control}
@@ -226,5 +185,14 @@ export function CreateRecipeDialog({
                 </Form>
             </DialogContent>
         </Dialog>
+
+        <AddIngredientToRecipeDialog
+            isOpen={isAddIngredientOpen}
+            setIsOpen={setIsAddIngredientOpen}
+            inventory={inventory}
+            onAddIngredient={handleAddIngredient}
+        />
+        </>
     );
 }
+
