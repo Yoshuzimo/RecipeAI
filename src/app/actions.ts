@@ -11,6 +11,8 @@ import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryIte
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { app } from "@/lib/firebase";
 
 const inventoryItemSchema = z.object({
   id: z.string(),
@@ -50,6 +52,33 @@ const suggestionSchema = z.object({
   }),
   newServingSize: z.string().nullable().optional().transform(val => val ? parseInt(val, 10) : undefined),
 });
+
+
+export async function handleSignUp(email: string, password: string, signUpCode: string): Promise<{ success: boolean; error?: any }> {
+    const SIGNUP_CODE = "testing123";
+    if (signUpCode !== SIGNUP_CODE) {
+        return { success: false, error: "Invalid sign-up code." };
+    }
+
+    try {
+        const auth = getAuth(app);
+        await createUserWithEmailAndPassword(auth, email, password);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function handleSignIn(email: string, password: string): Promise<{ success: boolean; error?: any }> {
+    try {
+        const auth = getAuth(app);
+        await signInWithEmailAndPassword(auth, email, password);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 
 function formatInventoryToString(inventory: InventoryItem[]): string {
     if (!inventory || inventory.length === 0) return "None";
