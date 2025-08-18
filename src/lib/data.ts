@@ -3,37 +3,10 @@ import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, St
 import { adminDb } from './firebase-admin';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup } from 'firebase/firestore';
 
-const today = new Date();
-const tomorrow = new Date(today);
-tomorrow.setDate(today.getDate() + 1);
-const yesterday = new Date(today);
-yesterday.setDate(today.getDate() - 1);
-const nextWeek = new Date(today);
-nextWeek.setDate(today.getDate() + 7);
-const twoDaysFromNow = new Date(today);
-twoDaysFromNow.setDate(today.getDate() + 2);
-const threeDaysFromNow = new Date(today);
-threeDaysFromNow.setDate(today.getDate() + 3);
-
-
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
     { name: 'Main Freezer', type: 'Freezer' },
     { name: 'Pantry', type: 'Pantry' },
-];
-
-const MOCK_INVENTORY: Omit<InventoryItem, 'id' | 'locationId'>[] = [
-  { name: 'Chicken Breast', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: twoDaysFromNow },
-  { name: 'Chicken Breast', originalQuantity: 1.5, totalQuantity: 1.5, unit: 'lbs', expiryDate: nextWeek },
-  { name: 'Broccoli', originalQuantity: 12, totalQuantity: 12, unit: 'oz', expiryDate: nextWeek },
-  { name: 'Milk', originalQuantity: 1, totalQuantity: 0.5, unit: 'gallon', expiryDate: tomorrow },
-  { name: 'Eggs', originalQuantity: 12, totalQuantity: 8, unit: 'pcs', expiryDate: nextWeek },
-  { name: 'Tomatoes', originalQuantity: 5, totalQuantity: 5, unit: 'pcs', expiryDate: nextWeek },
-  { name: 'Ground Beef', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: yesterday },
-  { name: 'Ground Beef', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: threeDaysFromNow },
-  { name: 'Cheddar Cheese', originalQuantity: 8, totalQuantity: 6, unit: 'oz', expiryDate: nextWeek },
-  { name: 'Lettuce', originalQuantity: 1, totalQuantity: 1, unit: 'pcs', expiryDate: twoDaysFromNow },
-  { name: 'Salt', originalQuantity: 1, totalQuantity: 1, unit: 'kg', expiryDate: null },
 ];
 
 export const seedInitialData = async (userId: string) => {
@@ -55,29 +28,9 @@ export const seedInitialData = async (userId: string) => {
 
     // Seed Storage Locations
     console.log(`DATA: Seeding storage locations.`);
-    const locationRefs: { [key: string]: string } = {};
     MOCK_STORAGE_LOCATIONS.forEach(loc => {
         const docRef = userRef.collection("storage-locations").doc();
         batch.set(docRef, loc);
-        // Store the generated ID to link inventory items
-        if (loc.name.includes('Fridge')) locationRefs.Fridge = docRef.id;
-        if (loc.name.includes('Freezer')) locationRefs.Freezer = docRef.id;
-        if (loc.name.includes('Pantry')) locationRefs.Pantry = docRef.id;
-    });
-    console.log(`DATA: Location refs created: ${JSON.stringify(locationRefs)}`);
-
-    // Seed Inventory
-    console.log(`DATA: Seeding inventory items.`);
-    MOCK_INVENTORY.forEach(item => {
-        const docRef = userRef.collection("inventory").doc();
-        let locationId = locationRefs.Pantry; // Default to pantry
-        if (item.name.includes('Chicken') || item.name.includes('Beef')) {
-            locationId = item.expiryDate && item.expiryDate > twoDaysFromNow ? locationRefs.Freezer : locationRefs.Fridge;
-        } else if (item.name.includes('Milk') || item.name.includes('Eggs') || item.name.includes('Cheese') || item.name.includes('Lettuce') || item.name.includes('Broccoli')) {
-            locationId = locationRefs.Fridge;
-        }
-        
-        batch.set(docRef, {...item, locationId});
     });
     
     // Seed default settings and personal details
