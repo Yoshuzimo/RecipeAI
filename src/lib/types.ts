@@ -59,6 +59,7 @@ export type PersonalDetails = {
 
 export type Settings = {
     unitSystem: "us" | "metric";
+    subscriptionStatus: 'free' | 'premium';
     aiFeatures: boolean;
     e2eEncryption: boolean;
     expiryNotifications: boolean;

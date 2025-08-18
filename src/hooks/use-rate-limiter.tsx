@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useToast } from './use-toast';
 import { Button } from '@/components/ui/button';
+import { getSettings } from '@/app/actions';
 
 const RATE_LIMIT = 3; // requests
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
@@ -15,7 +16,22 @@ export function useRateLimiter() {
   const { toast } = useToast();
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [timeToWait, setTimeToWait] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    async function checkSubscription() {
+        try {
+            const settings = await getSettings();
+            setIsPremium(settings.subscriptionStatus === 'premium');
+        } catch (e) {
+            // Fails silently if user is not logged in yet, defaults to not premium
+            setIsPremium(false);
+        }
+    }
+    checkSubscription();
+  }, []);
+
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -29,6 +45,10 @@ export function useRateLimiter() {
   }, []);
 
   const checkRateLimit = useCallback(() => {
+    if (isPremium) {
+        return true; // Premium users are not rate limited
+    }
+
     const now = Date.now();
     
     while (requestTimestamps.length > 0 && requestTimestamps[0] < now - RATE_LIMIT_WINDOW) {
@@ -73,12 +93,13 @@ export function useRateLimiter() {
     setIsRateLimited(false);
     setTimeToWait(0);
     return true;
-  }, [toast]);
+  }, [toast, isPremium]);
 
   const recordRequest = useCallback(() => {
+    if (isPremium) return; // Don't record requests for premium users
     const now = Date.now();
     requestTimestamps.push(now);
-  }, []);
+  }, [isPremium]);
 
   return { isRateLimited, timeToWait, checkRateLimit, recordRequest };
 }

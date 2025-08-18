@@ -10,12 +10,14 @@ const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
 ];
 
 export const seedInitialData = async (userId: string) => {
+    console.log(`ACTIONS: Starting seedUserData for user: ${userId}`);
     const batch = adminDb.batch();
     const userRef = adminDb.collection('users').doc(userId);
 
     // Check if user document already exists to prevent re-seeding
     const userDoc = await userRef.get();
     if (userDoc.exists) {
+        console.log(`DATA: User ${userId} already exists. Skipping seed.`);
         return;
     }
     
@@ -33,6 +35,7 @@ export const seedInitialData = async (userId: string) => {
     const settingsRef = userRef.collection("app-data").doc("settings");
     batch.set(settingsRef, {
         unitSystem: 'us',
+        subscriptionStatus: 'free',
         aiFeatures: true,
         e2eEncryption: true,
         expiryNotifications: true,
@@ -51,6 +54,7 @@ export const seedInitialData = async (userId: string) => {
 
     try {
         await batch.commit();
+        console.log(`DATA: Successfully seeded data for new user ${userId}`);
     } catch (error) {
         console.error(`DATA: Error seeding initial data for user ${userId}:`, error);
         throw error; // Re-throw the error after logging
@@ -157,6 +161,7 @@ export async function getSettings(userId: string): Promise<Settings> {
     if (!docSnap.exists) {
         const defaultSettings: Settings = {
             unitSystem: 'us',
+            subscriptionStatus: 'free',
             aiFeatures: true,
             e2eEncryption: true,
             expiryNotifications: true,

@@ -1,11 +1,6 @@
 
 "use server";
 
-import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
-import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
-import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
-import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
-import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, updateStorageLocation, removeStorageLocation, getSettings as dataGetSettings, saveSettings as dataSaveSettings, savePersonalDetails as dataSavePersonalDetails } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
@@ -120,146 +115,25 @@ function parseIngredients(ingredients: string[]): RecipeIngredient[] {
 
 
 export async function handleGenerateSuggestions(formData: FormData) {
-  const userId = await getCurrentUserId();
-  const validatedFields = suggestionSchema.safeParse({
-    inventory: formData.get("inventory"),
-    cravingsOrMood: formData.get("cravingsOrMood"),
-    recipeToAdjust: formData.get("recipeToAdjust"),
-    newServingSize: formData.get("newServingSize"),
-  });
-  
-  if (!validatedFields.success) {
-    const errorDetails = JSON.stringify(validatedFields.error.flatten(), null, 2);
-    return {
-      error: validatedFields.error.flatten().fieldErrors,
-      suggestions: null,
-      debugInfo: {
-        promptInput: "Validation Failed",
-        rawResponse: "Validation Errors:\n" + errorDetails
-      }
-    };
-  }
-
-  const { inventory, cravingsOrMood, recipeToAdjust, newServingSize } = validatedFields.data;
-  
-  if (recipeToAdjust && newServingSize) {
-    try {
-        const unitSystem = await getUnitSystem(userId);
-        const result = await generateMealSuggestions({
-            recipeToAdjust: recipeToAdjust,
-            newServingSize: newServingSize,
-            unitSystem: unitSystem,
-            // Pass dummy data for other fields as they aren't used for adjustments
-            currentInventory: "",
-            expiringIngredients: "",
-            personalDetails: "",
-            todaysMacros: { protein: 0, carbs: 0, fat: 0 },
-        });
-        // The AI returns the single adjusted recipe inside the suggestions array
-        const adjustedRecipe = result.suggestions[0];
-        // We need to return it in a way that the frontend can replace the original
-        return {
-            suggestions: null, // No new suggestions
-            adjustedRecipe: { ...adjustedRecipe, parsedIngredients: parseIngredients(adjustedRecipe.ingredients) },
-            originalRecipeTitle: recipeToAdjust.title,
-            error: null,
-             debugInfo: {
-                promptInput: result.promptInput ? JSON.stringify(result.promptInput, null, 2) : "Prompt for recipe adjustment.",
-                rawResponse: result.rawOutput
-            }
-        };
-    } catch(e) {
-        console.error("Error adjusting recipe", e);
-        return { error: { form: ["Failed to adjust recipe. Please try again."] }, suggestions: null };
+  // This function is now a placeholder as the Genkit AI flows have been removed 
+  // to fix a build error. In a real application, this would make a `fetch`
+  // call to a deployed Genkit API endpoint.
+  return {
+    error: { form: ["AI features are currently disabled."] },
+    suggestions: null,
+    debugInfo: {
+      promptInput: "AI features are currently disabled.",
+      rawResponse: "AI features are currently disabled."
     }
-  }
-
-
-  const now = new Date();
-  const expiringSoonThreshold = new Date();
-  expiringSoonThreshold.setDate(now.getDate() + 3);
-
-  const expiringIngredients = inventory.filter(
-    (item) => {
-        if (!item.expiryDate) return false;
-        const itemExpiryDate = new Date(item.expiryDate);
-        return itemExpiryDate > now && itemExpiryDate <= expiringSoonThreshold
-    }
-  );
-
-  const currentInventoryString = formatInventoryToString(inventory);
-  const expiringIngredientsString = formatInventoryToString(expiringIngredients);
-  const unitSystem = await getUnitSystem(userId);
-  const personalDetails = await getPersonalDetails(userId);
-  const personalDetailsString = JSON.stringify(personalDetails, null, 2);
-
-  // In a real app, this data would come from the user's daily log
-  const mockTodaysMacros = { protein: 95, carbs: 155, fat: 65 };
-
-  const promptInput = {
-      cravingsOrMood,
-      currentInventory: currentInventoryString,
-      expiringIngredients: expiringIngredientsString,
-      unitSystem,
-      personalDetails: personalDetailsString,
-      todaysMacros: mockTodaysMacros,
-      specializedEquipment: personalDetails.specializedEquipment,
-    };
-
-  try {
-    const result = await generateMealSuggestions(promptInput);
-    const suggestionsWithParsed = result.suggestions.map(recipe => ({
-        ...recipe,
-        parsedIngredients: parseIngredients(recipe.ingredients),
-    }))
-
-    return { 
-        suggestions: suggestionsWithParsed,
-        error: null, 
-        debugInfo: {
-            promptInput: JSON.stringify(promptInput, null, 2),
-            rawResponse: result.rawOutput
-        }
-    };
-  } catch (error) {
-    console.error(error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { 
-        error: { form: ["Failed to generate suggestions. Please try again."] }, 
-        suggestions: null,
-        debugInfo: {
-            promptInput: JSON.stringify(promptInput, null, 2),
-            rawResponse: "Error occurred:\n" + errorMessage
-        }
-    };
-  }
+  };
 }
 
 export async function handleGenerateShoppingList(
   inventory: InventoryItem[],
   personalDetails: any // In a real app, this would be fetched securely
 ) {
-  const userId = await getCurrentUserId();
-  const currentInventoryString = formatInventoryToString(inventory);
-  
-  // In a real app, this would be real data.
-  const consumptionHistory = "User has eaten a lot of chicken, broccoli, and rice this month.";
-
-  const personalDetailsString = JSON.stringify(personalDetails, null, 2);
-  const unitSystem = await getUnitSystem(userId);
-
-  try {
-    const result = await generateShoppingList({
-      currentInventory: currentInventoryString,
-      personalDetails: personalDetailsString,
-      consumptionHistory,
-      unitSystem,
-    });
-    return { shoppingList: result.shoppingList, error: null };
-  } catch (error) {
-    console.error(error);
-    return { error: "Failed to generate shopping list. Please try again.", shoppingList: null };
-  }
+    // This function is now a placeholder as the Genkit AI flows have been removed
+    return { error: "AI features are currently disabled.", shoppingList: null };
 }
 
 export async function handleGenerateSubstitutions(
@@ -268,26 +142,8 @@ export async function handleGenerateSubstitutions(
   inventory: InventoryItem[],
   allowExternalSuggestions: boolean,
 ): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
-    const userId = await getCurrentUserId();
-    const currentInventoryString = formatInventoryToString(inventory);
-    const unitSystem = await getUnitSystem(userId);
-    const personalDetails = await getPersonalDetails(userId);
-    const personalDetailsString = JSON.stringify(personalDetails, null, 2);
-    
-    try {
-        const result = await generateSubstitutions({
-            recipe,
-            ingredientsToReplace,
-            currentInventory: currentInventoryString,
-            personalDetails: personalDetailsString,
-            unitSystem,
-            allowExternalSuggestions,
-        });
-        return { substitutions: result.substitutions, error: null };
-    } catch (error) {
-        console.error(error);
-        return { substitutions: null, error: "Failed to generate substitutions. Please try again." };
-    }
+    // This function is now a placeholder as the Genkit AI flows have been removed
+    return { substitutions: null, error: "AI features are currently disabled." };
 }
 
 
@@ -299,73 +155,24 @@ export async function handleLogCookedMeal(
     freezerLeftovers: LeftoverDestination[],
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    // This function is now a placeholder as the Genkit AI flows have been removed
+    // For now, we will just log the macros and not update inventory.
     const userId = await getCurrentUserId();
-    const inventory = await getInventory(userId);
-    const unitSystem = await getUnitSystem(userId);
-
-    const inventoryForAI = inventory.map(item => ({
-        ...item,
-        expiryDate: item.expiryDate ? item.expiryDate.toISOString() : null,
-    }));
-
     try {
-        const result = await logCookedMeal({
-            recipe: {
-                title: recipe.title,
-                parsedIngredients: recipe.parsedIngredients,
-                servings: recipe.servings,
-                macros: recipe.macros
-            },
-            currentInventory: inventoryForAI,
-            servingsEaten,
-            servingsEatenByOthers,
-            fridgeLeftovers,
-            freezerLeftovers,
-            unitSystem
-        });
+        const macrosConsumed = {
+            protein: recipe.macros.protein * servingsEaten,
+            carbs: recipe.macros.carbs * servingsEaten,
+            fat: recipe.macros.fat * servingsEaten,
+        };
+        await logMacros(userId, mealType, recipe.title, macrosConsumed);
         
-        // Apply inventory updates from AI
-        for (const update of result.inventoryUpdates) {
-            const itemToUpdate = inventory.find(i => i.id === update.itemId);
-            if (itemToUpdate) {
-                await updateInventoryItem(userId, {
-                    ...itemToUpdate,
-                    totalQuantity: update.newQuantity,
-                });
-            }
-        }
-        
-        // Add new leftover items to inventory
-        if (result.leftoverItems && result.leftoverItems.length > 0) {
-            for (const leftover of result.leftoverItems) {
-                if (leftover.quantity > 0) {
-                    const expiryDate = new Date();
-                    const isFreezer = leftover.locationId.includes('freezer');
-                    expiryDate.setDate(expiryDate.getDate() + (isFreezer ? 60 : 3)); // 3 days for fridge, 60 for freezer
-                    
-                    await addInventoryItem(userId, {
-                        name: leftover.name,
-                        totalQuantity: leftover.quantity,
-                        originalQuantity: leftover.quantity,
-                        unit: 'pcs', // Leftovers are in "pieces" or servings
-                        expiryDate,
-                        locationId: leftover.locationId,
-                    });
-                }
-            }
-        }
-        
-        // Log the consumed macros
-        if (result.macrosConsumed) {
-            await logMacros(userId, mealType, recipe.title, result.macrosConsumed);
-        }
-
-        const newInventory = await getInventory(userId);
-        return { success: true, error: null, newInventory };
+        // Since we can't calculate inventory changes, return the current inventory.
+        const inventory = await getInventory(userId);
+        return { success: true, error: "Could not deduct ingredients. AI service is disabled.", newInventory: inventory };
 
     } catch (error) {
-        console.error("Error logging cooked meal:", error);
-        return { success: false, error: "Failed to log meal. AI service might be down." };
+        console.error("Error logging cooked meal (macros only):", error);
+        return { success: false, error: "Failed to log meal macros." };
     }
 }
 
@@ -485,20 +292,15 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
 export async function handleGenerateRecipeDetails(
     recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">
 ): Promise<{ recipe: Recipe | null, error: string | null}> {
-    const userId = await getCurrentUserId();
-    try {
-        const result = await generateRecipeDetails(recipeData);
-        // The AI returns the full recipe, we just need to add the parsed ingredients client-side
-        const finalRecipe: Recipe = {
-            ...result.recipe,
-            parsedIngredients: parseIngredients(result.recipe.ingredients)
-        }
-        return { recipe: finalRecipe, error: null };
-    } catch (error) {
-        console.error("Error finalizing recipe details:", error);
-        const errorMessage = error instanceof Error ? error.message : "AI service failed to process the recipe.";
-        return { recipe: null, error: errorMessage };
+    // This function is now a placeholder as the Genkit AI flows have been removed
+    // We will return a mock recipe with estimated values.
+    const mockRecipe: Recipe = {
+      ...recipeData,
+      servings: 2,
+      macros: { protein: 25, carbs: 40, fat: 15 },
+      parsedIngredients: parseIngredients(recipeData.ingredients)
     }
+    return { recipe: mockRecipe, error: null };
 }
 
 
