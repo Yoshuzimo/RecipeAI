@@ -55,6 +55,7 @@ export function AddIngredientToRecipeDialog({
   onAddIngredient: (ingredient: string) => void;
 }) {
     const [step, setStep] = useState(1);
+    const [searchTerm, setSearchTerm] = useState("");
     const [ingredientName, setIngredientName] = useState("");
     const [quantity, setQuantity] = useState("1");
     const [unit, setUnit] = useState<Unit>("pcs");
@@ -64,6 +65,7 @@ export function AddIngredientToRecipeDialog({
         if (isOpen) {
             // Reset state when dialog opens
             setStep(1);
+            setSearchTerm("");
             setIngredientName("");
             setQuantity("1");
             getUnitSystem().then(system => {
@@ -79,6 +81,14 @@ export function AddIngredientToRecipeDialog({
         setStep(2);
     };
 
+    const handleNext = () => {
+        // Use the search term as the ingredient name if nothing was selected
+        if (searchTerm.trim() !== "") {
+            setIngredientName(searchTerm);
+            setStep(2);
+        }
+    }
+
     const handleAdd = () => {
         if (ingredientName.trim() === "") return;
         
@@ -86,6 +96,8 @@ export function AddIngredientToRecipeDialog({
         onAddIngredient(fullIngredient);
         setIsOpen(false);
     };
+
+    const filteredInventory = inventory.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -104,15 +116,13 @@ export function AddIngredientToRecipeDialog({
           <Command shouldFilter={false} className="mt-4">
             <CommandInput 
                 placeholder="Search inventory or add new..." 
-                value={ingredientName}
-                onValueChange={setIngredientName}
+                value={searchTerm}
+                onValueChange={setSearchTerm}
             />
             <CommandList>
-                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandEmpty>No results found. Type a custom ingredient and click 'Next'.</CommandEmpty>
                 <CommandGroup>
-                {inventory
-                    .filter(item => item.name.toLowerCase().includes(ingredientName.toLowerCase()))
-                    .map((item) => (
+                {filteredInventory.map((item) => (
                     <CommandItem
                         key={item.id}
                         value={item.name}
@@ -125,7 +135,7 @@ export function AddIngredientToRecipeDialog({
             </CommandList>
             <DialogFooter className="pt-4">
                 <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button onClick={() => setStep(2)} disabled={!ingredientName.trim()}>
+                <Button onClick={handleNext} disabled={!searchTerm.trim()}>
                     Next
                 </Button>
             </DialogFooter>
