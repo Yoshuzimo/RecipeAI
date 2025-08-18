@@ -7,13 +7,30 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation } from "@/lib/types";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, getSettings, saveSettings } from "@/lib/data";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
+import { getAuth as getClientAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { app } from "@/lib/firebase";
-import { getCurrentUserId } from "@/lib/auth";
+import { cookies } from "next/headers";
+
+
+export async function getCurrentUserId(): Promise<string> {
+    const sessionCookie = cookies().get('__session')?.value;
+    if (!sessionCookie) {
+        throw new Error("Authentication required. Please log in.");
+    }
+    try {
+        const decodedToken = await getAdminAuth().verifySessionCookie(sessionCookie, true);
+        return decodedToken.uid;
+    } catch (error) {
+        console.error("Error verifying session cookie:", error);
+        throw new Error("Your session has expired. Please log in again.");
+    }
+}
+
 
 const inventoryItemSchema = z.object({
   id: z.string(),
@@ -62,7 +79,7 @@ export async function handleSignUp(email: string, password: string, signUpCode: 
     }
 
     try {
-        const auth = getAuth(app);
+        const auth = getClientAuth(app);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const userId = userCredential.user.uid;
 
@@ -92,7 +109,7 @@ export async function handleSignUp(email: string, password: string, signUpCode: 
 
 export async function handleSignIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const auth = getAuth(app);
+        const auth = getClientAuth(app);
         await signInWithEmailAndPassword(auth, email, password);
         return { success: true };
     } catch (error: any) {
@@ -704,5 +721,17 @@ export async function addClientStorageLocation(location: Omit<StorageLocation, '
     const userId = await getCurrentUserId();
     return addStorageLocation(userId, location);
 }
+
+export async function getSettings() {
+    const userId = await getCurrentUserId();
+    return getSettings(userId);
+}
+
+export async function saveSettings(settings: Settings) {
+    const userId = await getCurrentUserId();
+    return saveSettings(userId, settings);
+}
+
+    
 
     

@@ -1,5 +1,5 @@
 
-
+'use server';
 
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
 import { db } from './firebase';
@@ -299,5 +299,3 @@ export async function saveRecipe(userId: string, recipe: Recipe): Promise<Recipe
     await setDoc(docRef, recipeForDb, { merge: true });
     return recipe;
 }
-
-    
