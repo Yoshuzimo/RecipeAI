@@ -21,23 +21,9 @@ export const SubstitutionSuggestionSchema = z.object({
 export const GenerateSubstitutionsInputSchema = z.object({
   recipe: z.custom<Recipe>().describe("The full recipe object."),
   ingredientsToReplace: z.array(z.string()).describe("A list of the specific ingredient strings the user wants to replace."),
-  inventory: z.string().transform((val, ctx) => {
-    try {
-      return JSON.parse(val) as InventoryItem[];
-    } catch (e) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid inventory format" });
-      return z.NEVER;
-    }
-  }).describe("The user's current inventory as a JSON string."),
+  inventory: z.string().describe("The user's current inventory as a JSON string."),
   allowExternalSuggestions: z.boolean().describe("Whether to allow suggestions for items not currently in the user's inventory."),
-  personalDetails: z.string().transform((val, ctx) => {
-    try {
-        return JSON.parse(val) as PersonalDetails;
-    } catch (e) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid personalDetails format" });
-        return z.NEVER;
-    }
-  }).describe("The user's personal details as a JSON string."),
+  personalDetails: z.string().describe("The user's personal details as a JSON string."),
 });
 
 export const GenerateSubstitutionsOutputSchema = z.object({
@@ -90,7 +76,12 @@ export const generateSubstitutionsFlow = ai.defineFlow(
     outputSchema: GenerateSubstitutionsOutputSchema,
   },
   async (input) => {
-    const { output } = await generateSubstitutionsPrompt(input);
+    const parsedInput = {
+      ...input,
+      inventory: JSON.parse(input.inventory) as InventoryItem[],
+      personalDetails: JSON.parse(input.personalDetails) as PersonalDetails,
+    };
+    const { output } = await generateSubstitutionsPrompt(parsedInput);
     return output!;
   }
 );

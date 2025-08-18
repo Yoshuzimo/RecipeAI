@@ -15,22 +15,8 @@ const AIListItemSchema = z.object({
 });
 
 export const GenerateShoppingListInputSchema = z.object({
-  inventory: z.string().transform((val, ctx) => {
-    try {
-      return JSON.parse(val) as InventoryItem[];
-    } catch (e) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid inventory format" });
-      return z.NEVER;
-    }
-  }).describe("The user's current inventory as a JSON string."),
-  personalDetails: z.string().transform((val, ctx) => {
-    try {
-        return JSON.parse(val) as PersonalDetails;
-    } catch (e) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid personalDetails format" });
-        return z.NEVER;
-    }
-  }).describe("The user's personal details as a JSON string."),
+  inventory: z.string().describe("The user's current inventory as a JSON string."),
+  personalDetails: z.string().describe("The user's personal details as a JSON string."),
 });
 
 export const GenerateShoppingListOutputSchema = z.object({
@@ -67,7 +53,12 @@ export const generateShoppingListFlow = ai.defineFlow(
     outputSchema: GenerateShoppingListOutputSchema,
   },
   async (input) => {
-    const { output } = await generateShoppingListPrompt(input);
+    const parsedInput = {
+      ...input,
+      inventory: JSON.parse(input.inventory) as InventoryItem[],
+      personalDetails: JSON.parse(input.personalDetails) as PersonalDetails,
+    };
+    const { output } = await generateShoppingListPrompt(parsedInput);
     return output!;
   }
 );

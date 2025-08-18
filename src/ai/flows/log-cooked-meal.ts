@@ -25,14 +25,7 @@ const NewLeftoverSchema = z.object({
 
 export const LogCookedMealInputSchema = z.object({
   recipe: z.custom<Recipe>().describe("The full recipe object that was cooked."),
-  inventory: z.string().transform((val, ctx) => {
-    try {
-      return JSON.parse(val) as InventoryItem[];
-    } catch (e) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid inventory format" });
-      return z.NEVER;
-    }
-  }).describe("The user's current inventory as a JSON string."),
+  inventory: z.string().describe("The user's current inventory as a JSON string."),
   servingsEaten: z.number().int().min(0).describe("Number of servings eaten by the current user."),
   servingsEatenByOthers: z.number().int().min(0).describe("Number of servings eaten by other household members."),
   fridgeLeftovers: z.array(z.custom<LeftoverDestination>()).describe("Servings to be stored as leftovers in the fridge."),
@@ -93,7 +86,11 @@ export const logCookedMealFlow = ai.defineFlow(
     outputSchema: LogCookedMealOutputSchema,
   },
   async (input) => {
-    const { output } = await logCookedMealPrompt(input);
+    const parsedInput = {
+      ...input,
+      inventory: JSON.parse(input.inventory) as InventoryItem[],
+    };
+    const { output } = await logCookedMealPrompt(parsedInput);
     return output!;
   }
 );

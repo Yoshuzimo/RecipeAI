@@ -34,14 +34,7 @@ export const GenerateMealSuggestionsInputSchema = z.object({
   cravingsOrMood: z.string().optional().describe('User\'s current cravings or mood, e.g., "spicy", "healthy", "comfort food"'),
   currentInventory: z.string().describe('A comma-separated list of items the user has in their inventory.'),
   expiringIngredients: z.string().describe('A comma-separated list of ingredients that are expiring soon.'),
-  personalDetails: z.string().transform((val, ctx) => {
-    try {
-        return JSON.parse(val) as PersonalDetails;
-    } catch (e) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid personalDetails format" });
-        return z.NEVER;
-    }
-  }).describe('A JSON string of the user\'s personal details, including dietary restrictions, allergies, and health goals.'),
+  personalDetails: z.string().describe('A JSON string of the user\'s personal details, including dietary restrictions, allergies, and health goals.'),
   todaysMacros: z.custom<Macros>().describe('The total macros (protein, carbs, fat) the user has consumed today.'),
   recipeToAdjust: z.custom<Recipe>().optional().describe('An existing recipe that the user wants to adjust the serving size for.'),
   newServingSize: z.number().optional().describe('The desired new serving size if adjusting a recipe.'),
@@ -110,7 +103,12 @@ export const generateMealSuggestionsFlow = ai.defineFlow(
     outputSchema: GenerateMealSuggestionsOutputSchema,
   },
   async (input) => {
-    const { output } = await generateMealSuggestionsPrompt(input);
+    // Manually parse JSON strings here to avoid Zod transform issues with Next.js compiler
+    const parsedInput = {
+      ...input,
+      personalDetails: JSON.parse(input.personalDetails) as PersonalDetails,
+    };
+    const { output } = await generateMealSuggestionsPrompt(parsedInput);
     return output!;
   }
 );
