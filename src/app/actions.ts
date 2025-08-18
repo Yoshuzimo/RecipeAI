@@ -7,12 +7,13 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest } from "@/lib/types";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations } from "@/lib/data";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
 import { app } from "@/lib/firebase";
+import { getCurrentUserId } from "@/lib/auth";
 
 const inventoryItemSchema = z.object({
   id: z.string(),
@@ -63,10 +64,10 @@ export async function handleSignUp(email: string, password: string, signUpCode: 
     try {
         const auth = getAuth(app);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // After successful user creation, seed the database with initial data.
-        // This will only run if the database is empty.
-        await seedInitialData();
+        const userId = userCredential.user.uid;
+
+        // After successful user creation, seed the database with initial data for that user.
+        await seedInitialData(userId);
 
         return { success: true };
     } catch (error: any) {
@@ -155,6 +156,7 @@ function parseIngredients(ingredients: string[]): RecipeIngredient[] {
 
 
 export async function handleGenerateSuggestions(formData: FormData) {
+  const userId = await getCurrentUserId();
   let log = "Button clicked.\n";
   const validatedFields = suggestionSchema.safeParse({
     inventory: formData.get("inventory"),
@@ -182,10 +184,11 @@ export async function handleGenerateSuggestions(formData: FormData) {
   
   if (recipeToAdjust && newServingSize) {
     try {
+        const unitSystem = await getUnitSystem(userId);
         const result = await generateMealSuggestions({
             recipeToAdjust: recipeToAdjust,
             newServingSize: newServingSize,
-            unitSystem: await getUnitSystem(),
+            unitSystem: unitSystem,
             // Pass dummy data for other fields as they aren't used for adjustments
             currentInventory: "",
             expiringIngredients: "",
@@ -226,8 +229,8 @@ export async function handleGenerateSuggestions(formData: FormData) {
 
   const currentInventoryString = formatInventoryToString(inventory);
   const expiringIngredientsString = formatInventoryToString(expiringIngredients);
-  const unitSystem = await getUnitSystem();
-  const personalDetails = await getPersonalDetails();
+  const unitSystem = await getUnitSystem(userId);
+  const personalDetails = await getPersonalDetails(userId);
   const personalDetailsString = JSON.stringify(personalDetails, null, 2);
 
   // In a real app, this data would come from the user's daily log
@@ -278,13 +281,14 @@ export async function handleGenerateShoppingList(
   inventory: InventoryItem[],
   personalDetails: any // In a real app, this would be fetched securely
 ) {
+  const userId = await getCurrentUserId();
   const currentInventoryString = formatInventoryToString(inventory);
   
   // In a real app, this would be real data.
   const consumptionHistory = "User has eaten a lot of chicken, broccoli, and rice this month.";
 
   const personalDetailsString = JSON.stringify(personalDetails, null, 2);
-  const unitSystem = await getUnitSystem();
+  const unitSystem = await getUnitSystem(userId);
 
   try {
     const result = await generateShoppingList({
@@ -306,9 +310,10 @@ export async function handleGenerateSubstitutions(
   inventory: InventoryItem[],
   allowExternalSuggestions: boolean,
 ): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
+    const userId = await getCurrentUserId();
     const currentInventoryString = formatInventoryToString(inventory);
-    const unitSystem = await getUnitSystem();
-    const personalDetails = await getPersonalDetails();
+    const unitSystem = await getUnitSystem(userId);
+    const personalDetails = await getPersonalDetails(userId);
     const personalDetailsString = JSON.stringify(personalDetails, null, 2);
     
     try {
@@ -336,8 +341,9 @@ export async function handleLogCookedMeal(
     freezerLeftovers: LeftoverDestination[],
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
-    const inventory = await getInventory();
-    const unitSystem = await getUnitSystem();
+    const userId = await getCurrentUserId();
+    const inventory = await getInventory(userId);
+    const unitSystem = await getUnitSystem(userId);
 
     const inventoryForAI = inventory.map(item => ({
         ...item,
@@ -364,7 +370,7 @@ export async function handleLogCookedMeal(
         for (const update of result.inventoryUpdates) {
             const itemToUpdate = inventory.find(i => i.id === update.itemId);
             if (itemToUpdate) {
-                await updateInventoryItem({
+                await updateInventoryItem(userId, {
                     ...itemToUpdate,
                     totalQuantity: update.newQuantity,
                 });
@@ -379,7 +385,7 @@ export async function handleLogCookedMeal(
                     const isFreezer = leftover.locationId.includes('freezer');
                     expiryDate.setDate(expiryDate.getDate() + (isFreezer ? 60 : 3)); // 3 days for fridge, 60 for freezer
                     
-                    await addInventoryItem({
+                    await addInventoryItem(userId, {
                         name: leftover.name,
                         totalQuantity: leftover.quantity,
                         originalQuantity: leftover.quantity,
@@ -393,10 +399,10 @@ export async function handleLogCookedMeal(
         
         // Log the consumed macros
         if (result.macrosConsumed) {
-            await logMacros(mealType, recipe.title, result.macrosConsumed);
+            await logMacros(userId, mealType, recipe.title, result.macrosConsumed);
         }
 
-        const newInventory = await getInventory();
+        const newInventory = await getInventory(userId);
         return { success: true, error: null, newInventory };
 
     } catch (error) {
@@ -411,6 +417,7 @@ export async function handleUpdateInventoryGroup(
     itemName: string,
     unit: Unit
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const userId = await getCurrentUserId();
     try {
         const originalPackagesByUID = new Map(originalItems.map(item => [`${item.originalQuantity}-${item.id}`, item]));
 
@@ -431,7 +438,7 @@ export async function handleUpdateInventoryGroup(
                 // Add new full packages
                 const toAdd = newFullCount - currentFullCount;
                 for (let i = 0; i < toAdd; i++) {
-                    updates.push(addInventoryItem({
+                    updates.push(addInventoryItem(userId, {
                         name: itemName,
                         originalQuantity: size,
                         totalQuantity: size,
@@ -444,7 +451,7 @@ export async function handleUpdateInventoryGroup(
                 // Remove full packages
                 const toRemove = currentFullCount - newFullCount;
                 for (let i = 0; i < toRemove; i++) {
-                    updates.push(removeInventoryItem(existingFullPackages[i].id));
+                    updates.push(removeInventoryItem(userId, existingFullPackages[i].id));
                 }
             }
 
@@ -453,14 +460,14 @@ export async function handleUpdateInventoryGroup(
                 // Update existing partial
                 if (newPartialQty > 0) {
                     if (existingPartialPackage.totalQuantity !== newPartialQty) {
-                        updates.push(updateInventoryItem({ ...existingPartialPackage, totalQuantity: newPartialQty }));
+                        updates.push(updateInventoryItem(userId, { ...existingPartialPackage, totalQuantity: newPartialQty }));
                     }
                 } else {
-                    updates.push(removeInventoryItem(existingPartialPackage.id));
+                    updates.push(removeInventoryItem(userId, existingPartialPackage.id));
                 }
             } else if (newPartialQty > 0) {
                 // Add new partial package
-                 updates.push(addInventoryItem({
+                 updates.push(addInventoryItem(userId, {
                     name: itemName,
                     originalQuantity: size,
                     totalQuantity: newPartialQty,
@@ -473,7 +480,7 @@ export async function handleUpdateInventoryGroup(
 
         await Promise.all(updates);
 
-        const newInventory = await getInventory();
+        const newInventory = await getInventory(userId);
         return { success: true, error: null, newInventory };
 
     } catch (e) {
@@ -485,6 +492,7 @@ export async function handleUpdateInventoryGroup(
 
 
 export async function handleTransferItemToFridge(item: InventoryItem): Promise<InventoryItem> {
+    const userId = await getCurrentUserId();
     const today = new Date();
     const threeDaysFromNow = new Date(today.setDate(today.getDate() + 3));
     
@@ -497,12 +505,13 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
         expiryDate: newExpiryDate
     };
 
-    return await updateInventoryItem(updatedItem);
+    return await updateInventoryItem(userId, updatedItem);
 }
 
 export async function handleUpdateMealTime(mealId: string, newTime: string): Promise<{success: boolean, error?: string | null}> {
+    const userId = await getCurrentUserId();
     try {
-        const updatedMeal = await updateMealTime(mealId, newTime);
+        const updatedMeal = await updateMealTime(userId, mealId, newTime);
         if (updatedMeal) {
             return { success: true };
         } else {
@@ -535,8 +544,9 @@ export async function handleGenerateRecipeDetails(
 
 
 export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boolean; error?: string }> {
+    const userId = await getCurrentUserId();
     try {
-        await saveRecipe(recipe);
+        await saveRecipe(userId, recipe);
         return { success: true };
     } catch (e) {
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
@@ -548,11 +558,12 @@ export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boole
 export async function handleRemoveInventoryPackageGroup(
   itemsToRemove: InventoryItem[]
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const userId = await getCurrentUserId();
     try {
         const itemIdsToRemove = itemsToRemove.map(item => item.id);
-        await removeInventoryItems(itemIdsToRemove);
+        await removeInventoryItems(userId, itemIdsToRemove);
 
-        const newInventory = await getInventory();
+        const newInventory = await getInventory(userId);
         return { success: true, error: null, newInventory };
     } catch (e) {
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
@@ -565,6 +576,7 @@ export async function handleMoveInventoryItems(
     request: MoveRequest,
     destinationId: string
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const userId = await getCurrentUserId();
     try {
         const updates: Promise<any>[] = [];
 
@@ -577,7 +589,7 @@ export async function handleMoveInventoryItems(
             if (fullPackagesToMove > 0) {
                 const packagesToMove = source.fullPackages.slice(0, fullPackagesToMove);
                 for(const packageToMove of packagesToMove) {
-                    updates.push(updateInventoryItem({ ...packageToMove, locationId: destinationId }));
+                    updates.push(updateInventoryItem(userId, { ...packageToMove, locationId: destinationId }));
                 }
             }
 
@@ -587,10 +599,10 @@ export async function handleMoveInventoryItems(
                 
                 // 1. Decrease the source package
                 const newSourceQuantity = sourcePartial.totalQuantity - partialAmountToMove;
-                updates.push(updateInventoryItem({ ...sourcePartial, totalQuantity: newSourceQuantity }));
+                updates.push(updateInventoryItem(userId, { ...sourcePartial, totalQuantity: newSourceQuantity }));
 
                 // 2. Create a new package at the destination
-                updates.push(addInventoryItem({
+                updates.push(addInventoryItem(userId, {
                     name: sourcePartial.name,
                     originalQuantity: sourcePartial.originalQuantity,
                     totalQuantity: partialAmountToMove,
@@ -603,7 +615,7 @@ export async function handleMoveInventoryItems(
 
         await Promise.all(updates);
 
-        const newInventory = await getInventory();
+        const newInventory = await getInventory(userId);
         return { success: true, error: null, newInventory };
 
     } catch (e) {
@@ -617,6 +629,7 @@ export async function handleMoveInventoryItems(
 export async function handleReportSpoilage(
     request: SpoilageRequest
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const userId = await getCurrentUserId();
     try {
         const updates: Promise<any>[] = [];
 
@@ -629,7 +642,7 @@ export async function handleReportSpoilage(
             if (fullPackagesToSpoil > 0) {
                 const packagesToSpoil = source.fullPackages.slice(0, fullPackagesToSpoil);
                 for (const packageToSpoil of packagesToSpoil) {
-                    updates.push(removeInventoryItem(packageToSpoil.id));
+                    updates.push(removeInventoryItem(userId, packageToSpoil.id));
                 }
             }
 
@@ -637,13 +650,13 @@ export async function handleReportSpoilage(
             if (partialAmountToSpoil > 0 && source.partialPackage) {
                 const sourcePartial = source.partialPackage;
                 const newSourceQuantity = sourcePartial.totalQuantity - partialAmountToSpoil;
-                updates.push(updateInventoryItem({ ...sourcePartial, totalQuantity: newSourceQuantity }));
+                updates.push(updateInventoryItem(userId, { ...sourcePartial, totalQuantity: newSourceQuantity }));
             }
         }
 
         await Promise.all(updates);
 
-        const newInventory = await getInventory();
+        const newInventory = await getInventory(userId);
         return { success: true, error: null, newInventory };
 
     } catch (e) {
@@ -652,3 +665,44 @@ export async function handleReportSpoilage(
         return { success: false, error: "Failed to report spoilage." };
     }
 }
+
+// These functions need to be callable from the client, so they need to be exported from here
+// But they also need the userId, which we can only get on the server.
+// So we create wrapper functions here.
+
+export async function getClientInventory() {
+    const userId = await getCurrentUserId();
+    return getInventory(userId);
+}
+
+export async function getClientStorageLocations() {
+    const userId = await getCurrentUserId();
+    return getStorageLocations(userId);
+}
+
+export async function getClientSavedRecipes() {
+    const userId = await getCurrentUserId();
+    return getSavedRecipes(userId);
+}
+
+export async function getClientPersonalDetails() {
+    const userId = await getCurrentUserId();
+    return getPersonalDetails(userId);
+}
+
+export async function getClientTodaysMacros() {
+    const userId = await getCurrentUserId();
+    return getTodaysMacros(userId);
+}
+
+export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
+    const userId = await getCurrentUserId();
+    return addInventoryItem(userId, item);
+}
+
+export async function addClientStorageLocation(location: Omit<StorageLocation, 'id'>) {
+    const userId = await getCurrentUserId();
+    return addStorageLocation(userId, location);
+}
+
+    
