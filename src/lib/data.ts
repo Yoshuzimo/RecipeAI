@@ -1,6 +1,6 @@
 
 
-import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, RecipeIngredient } from "./types";
+import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
 import { v4 as uuidv4 } from 'uuid';
 
 const today = new Date();
@@ -75,6 +75,8 @@ let MOCK_TODAYS_MACROS: DailyMacros[] = [
         loggedAt: snackTime,
     },
 ];
+
+let MOCK_SAVED_RECIPES: Recipe[] = [];
 
 
 // Simulate client-side local storage
@@ -250,4 +252,27 @@ export async function saveSettings(settings: Settings): Promise<Settings> {
     MOCK_SETTINGS = settings;
     mockLocalStorage.set('settings', JSON.stringify(settings));
     return MOCK_SETTINGS;
+}
+
+export async function getSavedRecipes(): Promise<Recipe[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const recipes = mockLocalStorage.get('savedRecipes');
+    return recipes ? JSON.parse(recipes) : MOCK_SAVED_RECIPES;
+}
+
+export async function saveRecipe(recipe: Recipe): Promise<Recipe> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const savedRecipes = await getSavedRecipes();
+    const existingIndex = savedRecipes.findIndex(r => r.title.toLowerCase() === recipe.title.toLowerCase());
+    
+    if (existingIndex > -1) {
+        // Update existing recipe
+        savedRecipes[existingIndex] = recipe;
+    } else {
+        // Add new recipe
+        savedRecipes.push(recipe);
+    }
+    MOCK_SAVED_RECIPES = savedRecipes;
+    mockLocalStorage.set('savedRecipes', JSON.stringify(savedRecipes));
+    return recipe;
 }

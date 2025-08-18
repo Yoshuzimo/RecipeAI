@@ -7,7 +7,7 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
@@ -467,5 +467,17 @@ export async function handleGenerateRecipeDetails(
         console.error("Error finalizing recipe details:", error);
         const errorMessage = error instanceof Error ? error.message : "AI service failed to process the recipe.";
         return { recipe: null, error: errorMessage };
+    }
+}
+
+
+export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boolean; error?: string }> {
+    try {
+        await saveRecipe(recipe);
+        return { success: true };
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        console.error("Error saving recipe:", error);
+        return { success: false, error: "Failed to save the recipe." };
     }
 }

@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useTransition, useRef } from "react";
-import { handleGenerateSuggestions } from "@/app/actions";
+import { handleGenerateSuggestions, handleSaveRecipe } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -98,13 +99,20 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     });
   };
 
-  const handleSaveRecipe = (recipe: Recipe) => {
-    // In a real app, this would save to a database.
-    console.log("Saving recipe:", recipe);
-    toast({
-      title: "Recipe Saved!",
-      description: `"${recipe.title}" has been added to your saved recipes.`,
-    });
+  const saveRecipeAction = async (recipe: Recipe) => {
+    const result = await handleSaveRecipe(recipe);
+    if (result.success) {
+      toast({
+        title: "Recipe Saved!",
+        description: `"${recipe.title}" has been added to your saved recipes.`,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: result.error,
+      });
+    }
   };
 
   const getIngredientStatus = (ingredient: string) => {
@@ -308,19 +316,17 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             {suggestions.map((recipe, index) => (
                <Card key={recipe.title}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
-                       <CardHeader className="p-6">
-                            <div className="flex justify-between items-start group">
-                                <AccordionTrigger className="flex-1 text-left">
-                                  <div>
-                                      <h3 className="text-lg font-semibold">{recipe.title}</h3>
-                                      <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
-                                  </div>
-                                </AccordionTrigger>
-                                <Button variant="ghost" size="icon" className="group-hover:bg-accent/50 ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
-                                    <Bookmark className="h-5 w-5" />
-                                    <span className="sr-only">Save Recipe</span>
-                                </Button>
-                            </div>
+                        <CardHeader className="flex flex-row items-start justify-between p-6">
+                            <AccordionTrigger className="flex-1 text-left p-0">
+                              <div>
+                                  <h3 className="text-lg font-semibold">{recipe.title}</h3>
+                                  <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
+                              </div>
+                            </AccordionTrigger>
+                            <Button variant="ghost" size="icon" className="ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); saveRecipeAction(recipe); }}>
+                                <Bookmark className="h-5 w-5" />
+                                <span className="sr-only">Save Recipe</span>
+                            </Button>
                         </CardHeader>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
