@@ -16,12 +16,12 @@ const db = getFirestore(app);
 
 // In a real app, you'd want to gate this with a check like
 // if (process.env.NODE_ENV === 'development')
-if (typeof window !== 'undefined' && window.location.hostname === "localhost") {
+if (process.env.NODE_ENV === 'development') {
   try {
-    console.log("Connecting to Firestore emulator");
     connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log("Connecting to Firestore emulator");
   } catch (e) {
-    console.error("Error connecting to Firestore emulator", e);
+    // Emulator may already be connected
   }
 }
 
