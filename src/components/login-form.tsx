@@ -56,7 +56,8 @@ export function LoginForm() {
         title: "Logged In",
         description: "Welcome back!",
       });
-      router.push("/");
+       // Force a hard reload to ensure the session cookie is picked up by the middleware.
+      window.location.href = "/";
     } else {
       toast({
         variant: "destructive",
