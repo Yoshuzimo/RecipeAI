@@ -22,6 +22,7 @@ import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
 import { CreateRecipeDialog } from "./create-recipe-dialog";
+import { AddIngredientDialog } from "./add-ingredient-dialog";
 
 
 const initialState = {
@@ -309,11 +310,11 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                        <CardHeader className="p-6">
                             <div className="flex justify-between items-start group">
-                                <AccordionTrigger asChild className="p-0 flex-1 text-left hover:no-underline">
-                                    <div>
-                                        <h3 className="text-lg font-semibold">{recipe.title}</h3>
-                                        <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
-                                    </div>
+                                <AccordionTrigger className="flex-1 text-left">
+                                  <div>
+                                      <h3 className="text-lg font-semibold">{recipe.title}</h3>
+                                      <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
+                                  </div>
                                 </AccordionTrigger>
                                 <Button variant="ghost" size="icon" className="group-hover:bg-accent/50 ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
                                     <Bookmark className="h-5 w-5" />
