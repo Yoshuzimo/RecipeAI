@@ -114,3 +114,11 @@ export type MoveRequest = {
         source: InventoryPackageGroup & { items: InventoryItem[] };
     }
 }
+
+export type SpoilageRequest = {
+    [size: number]: {
+        fullPackagesToSpoil: number;
+        partialAmountToSpoil: number;
+        source: InventoryPackageGroup;
+    }
+}

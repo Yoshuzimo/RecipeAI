@@ -8,7 +8,7 @@ import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 
@@ -512,8 +512,8 @@ export async function handleMoveInventoryItems(
 
             // Move full packages
             if (fullPackagesToMove > 0) {
-                for(let i = 0; i < fullPackagesToMove; i++) {
-                    const packageToMove = source.fullPackages[i];
+                const packagesToMove = source.fullPackages.slice(0, fullPackagesToMove);
+                for(const packageToMove of packagesToMove) {
                     updates.push(updateInventoryItem({ ...packageToMove, locationId: destinationId }));
                 }
             }
@@ -547,5 +547,45 @@ export async function handleMoveInventoryItems(
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         console.error("Error moving inventory items:", error);
         return { success: false, error: "Failed to move items." };
+    }
+}
+
+
+export async function handleReportSpoilage(
+    request: SpoilageRequest
+): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    try {
+        const updates: Promise<any>[] = [];
+
+        for (const sizeStr in request) {
+            const size = Number(sizeStr);
+            const spoilage = request[size];
+            const { fullPackagesToSpoil, partialAmountToSpoil, source } = spoilage;
+
+            // Spoil full packages (by removing them)
+            if (fullPackagesToSpoil > 0) {
+                const packagesToSpoil = source.fullPackages.slice(0, fullPackagesToSpoil);
+                for (const packageToSpoil of packagesToSpoil) {
+                    updates.push(removeInventoryItem(packageToSpoil.id));
+                }
+            }
+
+            // Spoil partial package (by reducing its quantity)
+            if (partialAmountToSpoil > 0 && source.partialPackage) {
+                const sourcePartial = source.partialPackage;
+                const newSourceQuantity = sourcePartial.totalQuantity - partialAmountToSpoil;
+                updates.push(updateInventoryItem({ ...sourcePartial, totalQuantity: newSourceQuantity }));
+            }
+        }
+
+        await Promise.all(updates);
+
+        const newInventory = await getInventory();
+        return { success: true, error: null, newInventory };
+
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        console.error("Error reporting spoilage:", error);
+        return { success: false, error: "Failed to report spoilage." };
     }
 }

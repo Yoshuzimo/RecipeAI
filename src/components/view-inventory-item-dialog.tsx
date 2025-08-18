@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,7 @@ import {
 import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, StorageLocation } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2, Move } from "lucide-react";
+import { Loader2, Trash2, Move, Biohazard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { MoveItemDialog } from "./move-item-dialog";
+import { ReportSpoilageDialog } from "./report-spoilage-dialog";
 import { getStorageLocations } from "@/lib/data";
 
 const formSchema = z.record(z.string(), z.object({
@@ -61,6 +62,7 @@ export function ViewInventoryItemDialog({
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
   const [allLocations, setAllLocations] = useState<StorageLocation[]>([]);
 
 
@@ -103,13 +105,13 @@ export function ViewInventoryItemDialog({
 
   const watchedValues = watch();
   
-  useState(() => {
+  useEffect(() => {
       async function fetchLocations() {
           const locations = await getStorageLocations();
           setAllLocations(locations);
       }
       fetchLocations();
-  });
+  }, []);
 
 
   const onSubmit = async (data: FormData) => {
@@ -255,10 +257,15 @@ export function ViewInventoryItemDialog({
                 )}
                 </div>
             </ScrollArea>
-             <DialogFooter className="mt-4 sm:justify-between">
-                <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
-                    <Move className="mr-2 h-4 w-4" /> Move Item
-                </Button>
+             <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
+                      <Move className="mr-2 h-4 w-4" /> Move
+                  </Button>
+                   <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
+                      <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending || !isDirty}>
@@ -276,10 +283,22 @@ export function ViewInventoryItemDialog({
             setIsOpen={setIsMoveDialogOpen}
             group={group}
             packageGroups={packageGroups}
-            allLocations={allLocations}
             onUpdateComplete={(newInventory) => {
                 onUpdateComplete(newInventory);
                 // Also close the main dialog
+                setIsOpen(false);
+            }}
+        />
+    )}
+
+    {isSpoilageDialogOpen && (
+        <ReportSpoilageDialog
+            isOpen={isSpoilageDialogOpen}
+            setIsOpen={setIsSpoilageDialogOpen}
+            group={group}
+            packageGroups={packageGroups}
+            onUpdateComplete={(newInventory) => {
+                onUpdateComplete(newInventory);
                 setIsOpen(false);
             }}
         />
