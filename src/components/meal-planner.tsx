@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useRef } from "react";
+import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
 import { CreateRecipeDialog } from "./create-recipe-dialog";
-import { AddIngredientDialog } from "./add-ingredient-dialog";
+import { cn } from "@/lib/utils";
 
 
 const initialState = {
@@ -39,10 +39,11 @@ const initialState = {
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
 
-export function MealPlanner({ initialInventory }: { initialInventory: InventoryItem[] }) {
+export function MealPlanner({ initialInventory, initialSavedRecipes }: { initialInventory: InventoryItem[], initialSavedRecipes: Recipe[] }) {
   const { toast } = useToast();
   const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>(initialSavedRecipes);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [error, setError] = useState<any | null>(null);
@@ -64,6 +65,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   const [recipeToLog, setRecipeToLog] = useState<Recipe | null>(null);
 
   const [isCreateRecipeDialogOpen, setIsCreateRecipeDialogOpen] = useState(false);
+
+  const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
 
   const handleSubmit = (formData: FormData) => {
@@ -106,6 +109,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         title: "Recipe Saved!",
         description: `"${recipe.title}" has been added to your saved recipes.`,
       });
+      // Add to local state to update UI instantly
+      setSavedRecipes(prev => [...prev, recipe]);
     } else {
       toast({
         variant: "destructive",
@@ -313,7 +318,9 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
           </div>
         ) : suggestions ? (
           <Accordion type="single" collapsible className="w-full space-y-4">
-            {suggestions.map((recipe, index) => (
+            {suggestions.map((recipe, index) => {
+              const isSaved = savedRecipeTitles.has(recipe.title);
+              return (
                <Card key={recipe.title}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                         <CardHeader className="flex flex-row items-start justify-between p-6">
@@ -323,8 +330,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                   <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
                               </div>
                             </AccordionTrigger>
-                            <Button variant="ghost" size="icon" className="ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); saveRecipeAction(recipe); }}>
-                                <Bookmark className="h-5 w-5" />
+                            <Button variant="ghost" size="icon" className="ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); saveRecipeAction(recipe); }} disabled={isSaved}>
+                                <Bookmark className={cn("h-5 w-5", isSaved && "fill-current text-primary")} />
                                 <span className="sr-only">Save Recipe</span>
                             </Button>
                         </CardHeader>
@@ -411,7 +418,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                         </AccordionContent>
                     </AccordionItem>
                </Card>
-            ))}
+            )})}
           </Accordion>
         ) : (
           <div className="text-center py-10 border-2 border-dashed rounded-lg">
