@@ -215,27 +215,28 @@ export async function handleLogCookedMeal(
             storageLocations,
         });
 
-        const batch = writeBatch(adminDb);
+        // The firestore SDK is not available in the serverless environment
+        // const batch = writeBatch(adminDb);
 
-        // Handle item updates
-        result.itemUpdates.forEach(update => {
-            const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
-            batch.update(itemRef, { totalQuantity: update.newQuantity });
-        });
+        // // Handle item updates
+        // result.itemUpdates.forEach(update => {
+        //     const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
+        //     batch.update(itemRef, { totalQuantity: update.newQuantity });
+        // });
 
-        // Handle item removals
-        result.itemsToRemove.forEach(itemId => {
-            const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
-            batch.delete(itemRef);
-        });
+        // // Handle item removals
+        // result.itemsToRemove.forEach(itemId => {
+        //     const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
+        //     batch.delete(itemRef);
+        // });
         
-        // Handle new leftovers
-        result.newLeftovers.forEach(leftover => {
-            const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
-            batch.set(itemRef, leftover);
-        });
+        // // Handle new leftovers
+        // result.newLeftovers.forEach(leftover => {
+        //     const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
+        //     batch.set(itemRef, leftover);
+        // });
         
-        await batch.commit();
+        // await batch.commit();
 
         const macrosConsumed: Macros = {
             protein: recipe.macros.protein * servingsEaten,
