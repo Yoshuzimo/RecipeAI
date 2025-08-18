@@ -67,7 +67,7 @@ export function AddIngredientToRecipeDialog({
 
 
   const filteredInventory = useMemo(() => {
-    const uniqueNames = new Set(inventory.map(item => item.name.toLowerCase()));
+    const uniqueNames = new Set(inventory.map(item => item.name));
     if (!ingredientName) return Array.from(uniqueNames).map(name => ({ id: name, name }));
     
     return Array.from(uniqueNames).filter(name =>
@@ -129,7 +129,7 @@ export function AddIngredientToRecipeDialog({
                                 <CommandItem
                                     key={item.id}
                                     value={item.name}
-                                    onSelect={() => handleSelect(item.name)}
+                                    onSelect={handleSelect}
                                 >
                                     {item.name}
                                 </CommandItem>
