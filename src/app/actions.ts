@@ -8,7 +8,7 @@ import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 
@@ -495,5 +495,57 @@ export async function handleRemoveInventoryPackageGroup(
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         console.error("Error removing inventory package group:", error);
         return { success: false, error };
+    }
+}
+
+export async function handleMoveInventoryItems(
+    request: MoveRequest,
+    destinationId: string
+): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    try {
+        const updates: Promise<any>[] = [];
+
+        for (const sizeStr in request) {
+            const size = Number(sizeStr);
+            const move = request[size];
+            const { fullPackagesToMove, partialAmountToMove, source } = move;
+
+            // Move full packages
+            if (fullPackagesToMove > 0) {
+                for(let i = 0; i < fullPackagesToMove; i++) {
+                    const packageToMove = source.fullPackages[i];
+                    updates.push(updateInventoryItem({ ...packageToMove, locationId: destinationId }));
+                }
+            }
+
+            // Move partial (split) package
+            if (partialAmountToMove > 0 && source.partialPackage) {
+                const sourcePartial = source.partialPackage;
+                
+                // 1. Decrease the source package
+                const newSourceQuantity = sourcePartial.totalQuantity - partialAmountToMove;
+                updates.push(updateInventoryItem({ ...sourcePartial, totalQuantity: newSourceQuantity }));
+
+                // 2. Create a new package at the destination
+                updates.push(addInventoryItem({
+                    name: sourcePartial.name,
+                    originalQuantity: sourcePartial.originalQuantity,
+                    totalQuantity: partialAmountToMove,
+                    unit: sourcePartial.unit,
+                    expiryDate: sourcePartial.expiryDate,
+                    locationId: destinationId,
+                }));
+            }
+        }
+
+        await Promise.all(updates);
+
+        const newInventory = await getInventory();
+        return { success: true, error: null, newInventory };
+
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        console.error("Error moving inventory items:", error);
+        return { success: false, error: "Failed to move items." };
     }
 }

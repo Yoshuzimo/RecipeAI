@@ -106,3 +106,11 @@ export type LeftoverDestination = {
     locationId: string;
     servings: number;
 };
+
+export type MoveRequest = {
+    [size: number]: {
+        fullPackagesToMove: number;
+        partialAmountToMove: number;
+        source: InventoryPackageGroup & { items: InventoryItem[] };
+    }
+}

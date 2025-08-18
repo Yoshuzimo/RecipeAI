@@ -13,10 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup } from "@/lib/types";
+import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, StorageLocation } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Move } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -32,6 +32,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { MoveItemDialog } from "./move-item-dialog";
+import { getStorageLocations } from "@/lib/data";
 
 const formSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
@@ -58,6 +60,8 @@ export function ViewInventoryItemDialog({
   const [isPending, setIsPending] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [allLocations, setAllLocations] = useState<StorageLocation[]>([]);
 
 
   const packageGroups = useMemo(() => {
@@ -98,6 +102,15 @@ export function ViewInventoryItemDialog({
   });
 
   const watchedValues = watch();
+  
+  useState(() => {
+      async function fetchLocations() {
+          const locations = await getStorageLocations();
+          setAllLocations(locations);
+      }
+      fetchLocations();
+  });
+
 
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
@@ -242,16 +255,35 @@ export function ViewInventoryItemDialog({
                 )}
                 </div>
             </ScrollArea>
-             <DialogFooter className="mt-4">
-                <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isPending || !isDirty}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+             <DialogFooter className="mt-4 sm:justify-between">
+                <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
+                    <Move className="mr-2 h-4 w-4" /> Move Item
                 </Button>
+                <div className="flex gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isPending || !isDirty}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Changes
+                    </Button>
+                </div>
             </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+    {isMoveDialogOpen && (
+        <MoveItemDialog
+            isOpen={isMoveDialogOpen}
+            setIsOpen={setIsMoveDialogOpen}
+            group={group}
+            packageGroups={packageGroups}
+            allLocations={allLocations}
+            onUpdateComplete={(newInventory) => {
+                onUpdateComplete(newInventory);
+                // Also close the main dialog
+                setIsOpen(false);
+            }}
+        />
+    )}
 
     <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <AlertDialogContent>
