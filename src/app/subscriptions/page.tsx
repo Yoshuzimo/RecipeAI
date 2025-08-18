@@ -58,7 +58,7 @@ export default function SubscriptionsPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                          <CardTitle>Premium Plan</CardTitle>
-                         <span className="text-xs font-semibold bg-primary text-primary-foreground px-2 py-1 rounded-full">BETA</span>
+                         <span className="text-xs font-semibold bg-primary text-primary-foreground px-2 py-1 rounded-full">Coming Soon!</span>
                     </div>
                     <CardDescription>Unlock the full power of CookSmart AI.</CardDescription>
                 </CardHeader>
@@ -74,7 +74,7 @@ export default function SubscriptionsPage() {
                     </ul>
                 </CardContent>
                 <CardFooter>
-                    <Button className="w-full">
+                    <Button className="w-full" disabled>
                         Upgrade to Premium
                     </Button>
                 </CardFooter>
