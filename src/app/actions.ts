@@ -19,18 +19,14 @@ initFirebaseAdmin();
 
 
 export async function getCurrentUserId(): Promise<string> {
-    console.log("ACTIONS: Attempting to get current user ID.");
     const sessionCookie = cookies().get('__session')?.value;
     if (!sessionCookie) {
-        console.error("ACTIONS: Session cookie not found.");
         throw new Error("Authentication required. Please log in.");
     }
     try {
         const decodedToken = await getAdminAuth().verifySessionCookie(sessionCookie, true);
-        console.log(`ACTIONS: Successfully verified session cookie for UID: ${decodedToken.uid}`);
         return decodedToken.uid;
     } catch (error) {
-        console.error("ACTIONS: Error verifying session cookie:", error);
         throw new Error("Your session has expired. Please log in again.");
     }
 }
@@ -693,6 +689,8 @@ export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
     return dataSaveSettings(userId, settings);
 }
+
+    
 
     
 
