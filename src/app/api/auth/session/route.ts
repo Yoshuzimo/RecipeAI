@@ -1,3 +1,4 @@
+
 import { getAuth } from "firebase-admin/auth";
 import { initFirebaseAdmin } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";

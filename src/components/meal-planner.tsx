@@ -23,6 +23,7 @@ import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
 import { CreateRecipeDialog } from "./create-recipe-dialog";
 import { cn } from "@/lib/utils";
+import { parseIngredient, scaleIngredients } from "@/lib/utils";
 
 
 const initialState = {
@@ -258,6 +259,29 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     setSuggestions(prev => [newRecipe, ...(prev || [])]);
   }
 
+  const handleServingChange = (recipeTitle: string, newServingSize: number) => {
+    setSuggestions(prevSuggestions => {
+      if (!prevSuggestions) return null;
+
+      return prevSuggestions.map(recipe => {
+        if (recipe.title === recipeTitle) {
+          if (newServingSize <= 0) return recipe; // Don't allow less than 1 serving
+
+          const newIngredients = scaleIngredients(recipe.ingredients, recipe.servings, newServingSize);
+          
+          return {
+            ...recipe,
+            servings: newServingSize,
+            ingredients: newIngredients,
+            // Re-parse ingredients for AI context if needed later, though not required for this action
+            parsedIngredients: newIngredients.map(ing => parseIngredient(ing))
+          };
+        }
+        return recipe;
+      });
+    });
+  };
+
 
   return (
     <>
@@ -358,20 +382,12 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                         </CardHeader>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
-                                 <form onSubmit={(e) => {
-                                      e.preventDefault();
-                                      const formData = new FormData(e.currentTarget);
-                                      const newServingSize = (e.nativeEvent.submitter as HTMLButtonElement).value;
-                                      formData.set('newServingSize', newServingSize);
-                                      handleSubmit(formData);
-                                    }} className="flex items-center gap-4">
+                                 <div className="flex items-center gap-4">
                                      <h4 className="font-semibold">Servings</h4>
                                      <div className="flex items-center gap-2">
                                         <Button
-                                            type="submit"
-                                            name="newServingSize"
-                                            value={recipe.servings - 1}
-                                            disabled={recipe.servings <= 1 || isPending || isRateLimited}
+                                            onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}
+                                            disabled={recipe.servings <= 1}
                                             size="icon"
                                             variant="outline"
                                         >
@@ -379,19 +395,14 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                                         </Button>
                                         <span className="font-bold text-lg w-8 text-center">{recipe.servings}</span>
                                         <Button
-                                            type="submit"
-                                            name="newServingSize"
-                                            value={recipe.servings + 1}
-                                            disabled={isPending || isRateLimited}
+                                            onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}
                                             size="icon"
                                             variant="outline"
                                         >
                                             <Plus className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
-                                    <input type="hidden" name="recipeToAdjust" value={JSON.stringify(recipe)} />
-                                </form>
+                                </div>
 
                                 <div>
                                     <h4 className="font-semibold mb-2">Ingredients</h4>
@@ -428,7 +439,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                                 <div className="flex gap-2">
                                     <Button onClick={() => handleOpenSubstitutions(recipe)} variant="outline">
                                         <Edit className="mr-2 h-4 w-4" />
-                                        Find Substitutions
+                                        Make substitutions
                                     </Button>
                                     <Button onClick={() => handleCookItClick(recipe)}>
                                         <ChefHat className="mr-2 h-4 w-4" />
@@ -516,4 +527,3 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     </>
   );
 }
-
