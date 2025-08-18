@@ -1,6 +1,4 @@
 
-'use server';
-
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
 import { db } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup } from 'firebase/firestore';
@@ -121,7 +119,8 @@ export async function addStorageLocation(userId: string, location: Omit<StorageL
 }
 
 export async function updateStorageLocation(userId: string, location: StorageLocation): Promise<StorageLocation> {
-    await updateDoc(doc(db, `users/${userId}/storage-locations`, location.id), { name: location.name });
+    const { id, ...data } = location;
+    await updateDoc(doc(db, `users/${userId}/storage-locations`, id), data);
     return location;
 }
 

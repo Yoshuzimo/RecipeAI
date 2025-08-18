@@ -23,9 +23,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { updateStorageLocation, removeStorageLocation } from "@/lib/data";
+import { addClientStorageLocation, updateClientStorageLocation, removeClientStorageLocation } from "@/app/actions";
 import type { StorageLocation } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,15 +63,18 @@ export function EditStorageLocationDialog({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    values: {
-      name: location.name,
-    },
   });
+
+  useEffect(() => {
+    if (location) {
+      form.reset({ name: location.name });
+    }
+  }, [location, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsPending(true);
     try {
-      const updatedLocation = await updateStorageLocation({
+      const updatedLocation = await updateClientStorageLocation({
         ...location,
         name: values.name,
       });
@@ -82,10 +85,11 @@ export function EditStorageLocationDialog({
       });
       setIsOpen(false);
     } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update location. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setIsPending(false);
@@ -95,7 +99,7 @@ export function EditStorageLocationDialog({
   async function onDelete() {
       setIsPending(true);
       try {
-          await removeStorageLocation(location.id);
+          await removeClientStorageLocation(location.id);
           onLocationRemoved(location.id);
           toast({
               title: "Location Removed",
