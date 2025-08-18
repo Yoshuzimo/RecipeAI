@@ -1,7 +1,8 @@
 
+
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
 import { adminDb } from './firebase-admin';
-import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup, runTransaction, arrayUnion, arrayRemove } from 'firebase/admin/firestore';
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -70,23 +71,25 @@ export const seedInitialData = async (userId: string) => {
 // --- Household Functions ---
 
 export async function createHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
-    return runTransaction(adminDb, async (transaction) => {
-        const householdRef = adminDb.collection('households').doc();
-        const userRef = adminDb.collection('users').doc(userId);
+    const batch = adminDb.batch();
+    
+    const householdRef = adminDb.collection('households').doc();
+    const userRef = adminDb.collection('users').doc(userId);
 
-        const newHousehold: Household = {
-            id: householdRef.id,
-            inviteCode,
-            ownerId: userId,
-            activeMembers: [{ userId, userName }],
-            pendingMembers: [],
-        };
+    const newHousehold: Household = {
+        id: householdRef.id,
+        inviteCode,
+        ownerId: userId,
+        activeMembers: [{ userId, userName }],
+        pendingMembers: [],
+    };
 
-        transaction.set(householdRef, newHousehold);
-        transaction.update(userRef, { householdId: householdRef.id });
+    batch.set(householdRef, newHousehold);
+    batch.update(userRef, { householdId: householdRef.id });
 
-        return newHousehold;
-    });
+    await batch.commit();
+
+    return newHousehold;
 }
 
 export async function joinHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
