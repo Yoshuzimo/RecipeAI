@@ -1,0 +1,13 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This rule secures all user data. It ensures that a user can only access
+    // documents and subcollections under their own user ID.
+    // The recursive wildcard {path=**} matches the user document itself and any document at any depth beneath it.
+    match /users/{userId}/{path=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
