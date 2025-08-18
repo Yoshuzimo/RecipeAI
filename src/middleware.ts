@@ -1,30 +1,45 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getAuth } from 'firebase-admin/auth';
+import { initFirebaseAdmin } from './lib/firebase-admin';
+
+// This is a Next.js specific instruction to run this middleware in the Node.js environment,
+// which is required for the Firebase Admin SDK to work.
+export const runtime = 'nodejs'
+
+// Initialize Firebase Admin SDK
+initFirebaseAdmin();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const sessionCookie = request.cookies.get('__session')
+  const sessionCookie = request.cookies.get('__session')?.value
   
-  // Define public paths that don't require authentication
   const publicPaths = ['/login', '/signup']
 
-  // If the user is trying to access a public path, let them through
   if (publicPaths.includes(pathname)) {
     return NextResponse.next()
   }
 
-  // If there's no session cookie, redirect to the login page
   if (!sessionCookie) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname) // Optionally pass the original path for redirection after login
+    loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Here you would typically verify the session cookie with your backend
-  // For this example, we'll assume the presence of the cookie means the user is authenticated.
-  // In a real app, you'd call a function like `verifySessionCookie(sessionCookie.value)`
-  return NextResponse.next()
+  try {
+    // Verify the session cookie. This is the crucial step.
+    await getAuth().verifySessionCookie(sessionCookie, true);
+    return NextResponse.next();
+  } catch (error) {
+    // Session cookie is invalid or expired.
+    // Redirect to login page and clear the invalid cookie.
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', pathname);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete('__session');
+    return response;
+  }
 }
 
 // See "Matching Paths" below to learn more
