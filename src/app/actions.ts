@@ -1,5 +1,4 @@
 
-
 "use server";
 
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
@@ -25,7 +24,7 @@ export async function getCurrentUserId(): Promise<string> {
         throw new Error("Authentication required. Please log in.");
     }
     try {
-        const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
+        const decodedToken = await getAdminAuth().verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
         console.error("Error verifying session cookie:", error);
@@ -486,6 +485,7 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
 export async function handleGenerateRecipeDetails(
     recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">
 ): Promise<{ recipe: Recipe | null, error: string | null}> {
+    const userId = await getCurrentUserId();
     try {
         const result = await generateRecipeDetails(recipeData);
         // The AI returns the full recipe, we just need to add the parsed ingredients client-side
@@ -679,3 +679,5 @@ export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
     return dataSaveSettings(userId, settings);
 }
+
+    
