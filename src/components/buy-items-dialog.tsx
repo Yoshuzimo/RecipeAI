@@ -308,7 +308,7 @@ export function BuyItemsDialog({
                           )}
                         />
                     </div>
-                )}})}
+                )})}
                 </div>
             </ScrollArea>
             <DialogFooter>
