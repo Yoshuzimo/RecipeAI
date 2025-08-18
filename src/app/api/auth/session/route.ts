@@ -21,21 +21,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
-    const options = {
+    
+    const response = new NextResponse(JSON.stringify({ success: true }), {
+      status: 200,
+    });
+
+    response.cookies.set({
       name: "__session",
       value: sessionCookie,
-      maxAge: expiresIn,
+      maxAge: expiresIn / 1000, // maxAge is in seconds
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: '/',
-    };
-    
-    // Set cookie
-    cookies().set(options);
-
-    return new NextResponse(JSON.stringify({ success: true }), {
-      status: 200,
+      sameSite: 'lax',
     });
+
+    return response;
   } catch (error) {
     console.error("Session API: Error creating session cookie:", error);
     return new NextResponse(JSON.stringify({ error: "Failed to create session" }), {
@@ -47,10 +48,17 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    cookies().delete('__session');
-     return new NextResponse(JSON.stringify({ success: true }), {
+    const response = new NextResponse(JSON.stringify({ success: true }), {
       status: 200,
     });
+    // Clear the cookie by setting its maxAge to 0
+    response.cookies.set({
+      name: "__session",
+      value: "",
+      maxAge: 0,
+      path: "/",
+    });
+     return response;
   } catch (error) {
     console.error("Session API: Error deleting session cookie:", error);
     return new NextResponse(JSON.stringify({ error: "Failed to delete session" }), {
