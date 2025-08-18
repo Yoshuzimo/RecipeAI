@@ -11,22 +11,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "demo",
 };
 
+// Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
+// Connect to Emulator if in development
 if (process.env.NODE_ENV === 'development') {
-    try {
-        connectFirestoreEmulator(db, 'localhost', 8080);
-        console.log("Connecting to Firestore emulator");
-    } catch (e) {
-        // This can happen if the emulator is already connected, which is fine.
-        if (e instanceof Error && e.message.includes('already connected')) {
-            // console.log("Firestore emulator already connected.");
-        } else {
-            console.error("Failed to connect to Firestore emulator:", e);
+    // Check if the emulator is already connected to avoid errors
+    // @ts-ignore The _settings property is not in the public API but is a reliable way to check for emulator connection.
+    if (!db._settings.host) {
+        try {
+            connectFirestoreEmulator(db, 'localhost', 8080);
+            console.log("Connecting to Firestore emulator");
+        } catch (e) {
+            console.error("Error connecting to Firestore emulator:", e);
         }
     }
 }
-
 
 export { db };
