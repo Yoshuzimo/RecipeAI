@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { AddIngredientDialog } from "./add-ingredient-dialog";
 
 
 const formSchema = z.object({
@@ -48,6 +49,7 @@ export function CreateRecipeDialog({
 }) {
     const { toast } = useToast();
     const [isPending, setIsPending] = useState(false);
+    const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -64,8 +66,8 @@ export function CreateRecipeDialog({
         name: "ingredients",
     });
     
-    const handleAddIngredient = () => {
-        append({ value: "" });
+    const handleAddIngredient = (ingredient: string) => {
+        append({ value: ingredient });
     };
 
 
@@ -100,6 +102,7 @@ export function CreateRecipeDialog({
     }
     
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -153,7 +156,7 @@ export function CreateRecipeDialog({
                                      {form.formState.errors.ingredients?.root && (
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p>
                                      )}
-                                     <Button type="button" variant="outline" className="w-full" onClick={handleAddIngredient}>
+                                     <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
                                     </Button>
                                 </div>
@@ -163,9 +166,7 @@ export function CreateRecipeDialog({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Instructions</FormLabel>
-                                            <FormControl><Textarea placeholder="1. Chop vegetables.
-2. Sauté chicken...
-3. Serve hot." {...field} rows={6} /></FormControl>
+                                            <FormControl><Textarea placeholder="1. Chop vegetables.\n2. Sauté chicken...\n3. Serve hot." {...field} rows={6} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -183,5 +184,12 @@ export function CreateRecipeDialog({
                 </Form>
             </DialogContent>
         </Dialog>
+        <AddIngredientDialog
+            isOpen={isAddIngredientOpen}
+            setIsOpen={setIsAddIngredientOpen}
+            inventory={inventory}
+            onAddIngredient={handleAddIngredient}
+        />
+        </>
     );
 }
