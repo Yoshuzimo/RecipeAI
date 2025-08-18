@@ -2,12 +2,17 @@
 "use server";
 
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, updateStorageLocation, removeStorageLocation, getSettings as dataGetSettings, saveSettings as dataSaveSettings, savePersonalDetails as dataSavePersonalDetails } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails, Macros } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from "next/headers";
 import { initFirebaseAdmin } from "@/lib/firebase-admin";
+import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
+import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
+import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
+import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
+import { logCookedMeal as logCookedMealFlow } from "@/ai/flows/log-cooked-meal";
 
 initFirebaseAdmin();
 
@@ -102,38 +107,64 @@ function formatInventoryToString(inventory: InventoryItem[]): string {
         .join(', ');
 }
 
-// Simple parser for ingredients. A more sophisticated NLP-based parser would be better.
-function parseIngredients(ingredients: string[]): RecipeIngredient[] {
-    return ingredients.map(ing => {
-        // This is a very basic parser, assuming the name is the main part.
-        // It doesn't handle quantities well, but gives the AI the parts.
-        const name = ing.split(',')[0].trim();
-        const notes = ing.includes(',') ? ing.substring(ing.indexOf(',') + 1).trim() : undefined;
-        return { name, notes };
-    });
-}
-
 
 export async function handleGenerateSuggestions(formData: FormData) {
-  // This function is now a placeholder as the Genkit AI flows have been removed 
-  // to fix a build error. In a real application, this would make a `fetch`
-  // call to a deployed Genkit API endpoint.
-  return {
-    error: { form: ["AI features are currently disabled."] },
-    suggestions: null,
-    debugInfo: {
-      promptInput: "AI features are currently disabled.",
-      rawResponse: "AI features are currently disabled."
-    }
-  };
+  try {
+    const userId = await getCurrentUserId();
+    const personalDetails = await getPersonalDetails(userId);
+    const todaysMacros = await getTodaysMacros(userId);
+    const aggregatedMacros = todaysMacros.reduce((acc, meal) => {
+        acc.protein += meal.totals.protein;
+        acc.carbs += meal.totals.carbs;
+        acc.fat += meal.totals.fat;
+        return acc;
+    }, { protein: 0, carbs: 0, fat: 0 });
+
+    const rawInventory = formData.get('inventory');
+    const inventory: InventoryItem[] = JSON.parse(rawInventory as string);
+    const now = new Date();
+
+    const promptInput = {
+        cravingsOrMood: formData.get('cravingsOrMood') as string || undefined,
+        currentInventory: formatInventoryToString(inventory),
+        expiringIngredients: "", // Removed expiring ingredients calculation
+        personalDetails: JSON.stringify(personalDetails),
+        todaysMacros: aggregatedMacros,
+    };
+
+    const result = await generateMealSuggestions(promptInput);
+
+    return {
+      error: null,
+      suggestions: result.suggestions,
+      debugInfo: { promptInput: JSON.stringify(promptInput, null, 2), rawResponse: JSON.stringify(result, null, 2) }
+    };
+  } catch (error) {
+    console.error("Error generating suggestions:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return {
+      error: { form: [errorMessage] },
+      suggestions: null,
+      debugInfo: { promptInput: "", rawResponse: errorMessage }
+    };
+  }
 }
 
 export async function handleGenerateShoppingList(
   inventory: InventoryItem[],
-  personalDetails: any // In a real app, this would be fetched securely
+  personalDetails: PersonalDetails
 ) {
-    // This function is now a placeholder as the Genkit AI flows have been removed
-    return { error: "AI features are currently disabled.", shoppingList: null };
+    try {
+        const result = await generateShoppingList({
+            inventory: JSON.stringify(inventory),
+            personalDetails: JSON.stringify(personalDetails),
+        });
+        return { error: null, shoppingList: result.shoppingList };
+    } catch (error) {
+        console.error("Error generating shopping list:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { error: errorMessage, shoppingList: null };
+    }
 }
 
 export async function handleGenerateSubstitutions(
@@ -142,8 +173,22 @@ export async function handleGenerateSubstitutions(
   inventory: InventoryItem[],
   allowExternalSuggestions: boolean,
 ): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
-    // This function is now a placeholder as the Genkit AI flows have been removed
-    return { substitutions: null, error: "AI features are currently disabled." };
+    try {
+        const userId = await getCurrentUserId();
+        const personalDetails = await getPersonalDetails(userId);
+        const result = await generateSubstitutions({
+            recipe,
+            ingredientsToReplace,
+            inventory: JSON.stringify(inventory),
+            allowExternalSuggestions,
+            personalDetails: JSON.stringify(personalDetails),
+        });
+        return { substitutions: result.substitutions, error: null };
+    } catch (error) {
+        console.error("Error generating substitutions:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { substitutions: null, error: errorMessage };
+    }
 }
 
 
@@ -155,24 +200,57 @@ export async function handleLogCookedMeal(
     freezerLeftovers: LeftoverDestination[],
     mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
-    // This function is now a placeholder as the Genkit AI flows have been removed
-    // For now, we will just log the macros and not update inventory.
     const userId = await getCurrentUserId();
     try {
-        const macrosConsumed = {
+        const inventory = await getInventory(userId);
+        const storageLocations = await getStorageLocations(userId);
+
+        const result = await logCookedMealFlow({
+            recipe,
+            inventory: JSON.stringify(inventory),
+            servingsEaten,
+            servingsEatenByOthers,
+            fridgeLeftovers,
+            freezerLeftovers,
+            storageLocations,
+        });
+
+        const batch = writeBatch(adminDb);
+
+        // Handle item updates
+        result.itemUpdates.forEach(update => {
+            const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
+            batch.update(itemRef, { totalQuantity: update.newQuantity });
+        });
+
+        // Handle item removals
+        result.itemsToRemove.forEach(itemId => {
+            const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
+            batch.delete(itemRef);
+        });
+        
+        // Handle new leftovers
+        result.newLeftovers.forEach(leftover => {
+            const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
+            batch.set(itemRef, leftover);
+        });
+        
+        await batch.commit();
+
+        const macrosConsumed: Macros = {
             protein: recipe.macros.protein * servingsEaten,
             carbs: recipe.macros.carbs * servingsEaten,
             fat: recipe.macros.fat * servingsEaten,
         };
         await logMacros(userId, mealType, recipe.title, macrosConsumed);
         
-        // Since we can't calculate inventory changes, return the current inventory.
-        const inventory = await getInventory(userId);
-        return { success: true, error: "Could not deduct ingredients. AI service is disabled.", newInventory: inventory };
+        const newInventory = await getInventory(userId);
+        return { success: true, error: null, newInventory };
 
     } catch (error) {
-        console.error("Error logging cooked meal (macros only):", error);
-        return { success: false, error: "Failed to log meal macros." };
+        console.error("Error logging cooked meal:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to log meal and update inventory.";
+        return { success: false, error: errorMessage };
     }
 }
 
@@ -292,15 +370,14 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
 export async function handleGenerateRecipeDetails(
     recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">
 ): Promise<{ recipe: Recipe | null, error: string | null}> {
-    // This function is now a placeholder as the Genkit AI flows have been removed
-    // We will return a mock recipe with estimated values.
-    const mockRecipe: Recipe = {
-      ...recipeData,
-      servings: 2,
-      macros: { protein: 25, carbs: 40, fat: 15 },
-      parsedIngredients: parseIngredients(recipeData.ingredients)
+    try {
+        const result = await generateRecipeDetails(recipeData);
+        return { recipe: { ...recipeData, ...result }, error: null };
+    } catch (error) {
+        console.error("Error generating recipe details:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { recipe: null, error: errorMessage };
     }
-    return { recipe: mockRecipe, error: null };
 }
 
 
@@ -491,5 +568,7 @@ export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
     return dataSaveSettings(userId, settings);
 }
+
+    
 
     
