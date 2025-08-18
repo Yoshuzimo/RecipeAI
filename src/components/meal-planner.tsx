@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle } from "lucide-react";
+import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle, Edit } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
@@ -51,7 +51,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
-  const [initialIngredientsToSub, setInitialIngredientsToSub] = useState<string[]>([]);
   
   const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
   const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
@@ -130,13 +129,12 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
           setIngredientToCheck({recipe, ingredient});
           setIsExpiredCheckDialogOpen(true);
       } else {
-          handleOpenSubstitutions(recipe, [ingredient]);
+          handleOpenSubstitutions(recipe);
       }
   }
 
-  const handleOpenSubstitutions = (recipe: Recipe, ingredients: string[] = []) => {
+  const handleOpenSubstitutions = (recipe: Recipe) => {
       setRecipeForSubstitutions(recipe);
-      setInitialIngredientsToSub(ingredients);
       setIsSubstitutionsDialogOpen(true);
   }
   
@@ -145,7 +143,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
       if (ingredientToCheck) {
           if(isGood) {
             // User says it's good, so take them to substitutions but don't pre-select anything
-            handleOpenSubstitutions(ingredientToCheck.recipe, []);
+            handleOpenSubstitutions(ingredientToCheck.recipe);
           } else {
             // User says it's spoiled, open the inventory view to manage packages
             const inventoryItem = inventory.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
@@ -196,7 +194,7 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                 description: `${ingredientName} was removed from inventory. Opening substitutions.`,
             });
             // Item was fully removed, so force substitution
-            handleOpenSubstitutions(recipe, [ingredient]);
+            handleOpenSubstitutions(recipe);
         } else {
             toast({
                 title: "Inventory Updated",
@@ -309,18 +307,20 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             {suggestions.map((recipe, index) => (
                <Card key={recipe.title}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
-                        <div className="flex justify-between items-start p-6 group">
-                            <AccordionTrigger className="flex-1 text-left p-0">
-                                <div>
-                                    <h3 className="text-lg font-semibold">{recipe.title}</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
-                                </div>
-                            </AccordionTrigger>
-                            <Button variant="ghost" size="icon" className="group-hover:bg-accent/50 ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
-                                <Bookmark className="h-5 w-5" />
-                                <span className="sr-only">Save Recipe</span>
-                            </Button>
-                        </div>
+                       <CardHeader className="p-6">
+                            <div className="flex justify-between items-start group">
+                                <AccordionTrigger asChild className="p-0 flex-1 text-left hover:no-underline">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">{recipe.title}</h3>
+                                        <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
+                                    </div>
+                                </AccordionTrigger>
+                                <Button variant="ghost" size="icon" className="group-hover:bg-accent/50 ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
+                                    <Bookmark className="h-5 w-5" />
+                                    <span className="sr-only">Save Recipe</span>
+                                </Button>
+                            </div>
+                        </CardHeader>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
                                  <form onSubmit={(e) => {
@@ -391,8 +391,9 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
                                 </div>
                                 <Separator />
                                 <div className="flex gap-2">
-                                    <Button onClick={() => handleOpenSubstitutions(recipe)} disabled={isRateLimited} variant="outline">
-                                        Make Substitutions
+                                    <Button onClick={() => handleOpenSubstitutions(recipe)} variant="outline">
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Recipe
                                     </Button>
                                     <Button onClick={() => handleCookItClick(recipe)}>
                                         <ChefHat className="mr-2 h-4 w-4" />
@@ -439,7 +440,6 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             recipe={recipeForSubstitutions}
             inventory={inventory}
             onSubstitutionsApplied={handleSubstitutionsApplied}
-            initialIngredients={initialIngredientsToSub}
         />
      )}
      {isExpiredCheckDialogOpen && ingredientToCheck && (
@@ -481,5 +481,3 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     </>
   );
 }
-
-    
