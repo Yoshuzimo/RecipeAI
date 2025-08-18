@@ -11,7 +11,6 @@ export function initFirebaseAdmin() {
       admin.initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'demo-project' });
       return;
     }
-    // In prod: throw so you see it in Vercel logs
     throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY missing. Admin init failed.');
   }
 
