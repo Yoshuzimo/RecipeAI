@@ -18,6 +18,8 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
+  ownerId?: string; // ID of the user who owns this, null/undefined if shared
+  ownerName?: string; // Name of the user who owns this
 };
 
 // This group is for displaying items in the main inventory table.
@@ -127,4 +129,22 @@ export type SpoilageRequest = {
         partialAmountToSpoil: number;
         source: InventoryPackageGroup;
     }
+}
+
+// Represents a household member for UI purposes
+export type HouseholdMember = {
+  id: string;
+  name: string;
+  isCurrentUser: boolean;
+};
+
+// Request to mark certain packages as private to a user
+export type MarkPrivateRequest = {
+  ownerId: string;
+  ownerName: string;
+  packages: {
+    itemId: string; // ID of the package to update
+    isPartial: boolean;
+    amount?: number; // Only for partial packages, the amount to make private
+  }[];
 }

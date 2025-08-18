@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -13,10 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, StorageLocation } from "@/lib/types";
+import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, StorageLocation, HouseholdMember } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2, Move, Biohazard } from "lucide-react";
+import { Loader2, Trash2, Move, Biohazard, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -35,6 +36,7 @@ import {
 import { MoveItemDialog } from "./move-item-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
 import { getClientStorageLocations } from "@/app/actions";
+import { MarkPrivateDialog } from "./mark-private-dialog";
 
 const formSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
@@ -45,6 +47,13 @@ type FormData = z.infer<typeof formSchema>;
 
 // List of keywords for items that are typically not divisible when measured in 'pcs'
 const nonDivisibleKeywords = ['egg', 'eggs'];
+
+// Mock data, in a real app this would come from a data source
+const MOCK_HOUSEHOLD: HouseholdMember[] = [
+    { id: "user1", name: "Alex", isCurrentUser: true },
+    { id: "user2", name: "Jordan", isCurrentUser: false },
+    { id: "user3", name: "Taylor", isCurrentUser: false },
+];
 
 export function ViewInventoryItemDialog({
   isOpen,
@@ -63,6 +72,7 @@ export function ViewInventoryItemDialog({
   const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
+  const [isMarkPrivateDialogOpen, setIsMarkPrivateDialogOpen] = useState(false);
   const [allLocations, setAllLocations] = useState<StorageLocation[]>([]);
 
 
@@ -265,6 +275,9 @@ export function ViewInventoryItemDialog({
                    <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
                       <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
                   </Button>
+                   <Button type="button" variant="outline" onClick={() => setIsMarkPrivateDialogOpen(true)}>
+                      <Lock className="mr-2 h-4 w-4" /> Mark Private
+                  </Button>
                 </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
@@ -303,6 +316,20 @@ export function ViewInventoryItemDialog({
             }}
         />
     )}
+
+     {isMarkPrivateDialogOpen && (
+        <MarkPrivateDialog
+            isOpen={isMarkPrivateDialogOpen}
+            setIsOpen={setIsMarkPrivateDialogOpen}
+            group={group}
+            packageGroups={packageGroups}
+            householdMembers={MOCK_HOUSEHOLD}
+            onUpdateComplete={(newInventory) => {
+                onUpdateComplete(newInventory);
+                setIsOpen(false);
+            }}
+        />
+     )}
 
     <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <AlertDialogContent>

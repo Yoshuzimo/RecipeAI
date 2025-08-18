@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination } from "@/lib/types";
+import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination, HouseholdMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,8 +25,16 @@ import { handleLogCookedMeal, getClientStorageLocations } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Separator } from "./ui/separator";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
+
+// Mock data, in a real app this would come from a data source
+const MOCK_HOUSEHOLD: HouseholdMember[] = [
+    { id: "user1", name: "Alex", isCurrentUser: true },
+    { id: "user2", name: "Jordan", isCurrentUser: false },
+    { id: "user3", name: "Taylor", isCurrentUser: false },
+];
 
 const getDefaultMealType = (): MealType => {
     const hour = new Date().getHours();
@@ -49,7 +57,6 @@ export function LogMealDialog({
 }) {
   const { toast } = useToast();
   const [servingsEaten, setServingsEaten] = useState(1);
-  const [servingsEatenByOthers, setServingsEatenByOthers] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
 
@@ -58,6 +65,11 @@ export function LogMealDialog({
 
   const [fridgeLocations, setFridgeLocations] = useState<StorageLocation[]>([]);
   const [freezerLocations, setFreezerLocations] = useState<StorageLocation[]>([]);
+
+  const [otherDiners, setOtherDiners] = useState<Record<string, number>>({});
+
+  const currentUser = MOCK_HOUSEHOLD.find(m => m.isCurrentUser);
+  const otherMembers = MOCK_HOUSEHOLD.filter(m => !m.isCurrentUser);
 
   useEffect(() => {
     async function fetchLocations() {
@@ -81,12 +93,12 @@ export function LogMealDialog({
   useEffect(() => {
     if (isOpen) {
       const initialServingsEaten = 1;
-      const initialServingsEatenByOthers = 0;
-      const remaining = recipe.servings - initialServingsEaten - initialServingsEatenByOthers;
+      const initialServingsByOthers = 0;
+      const remaining = recipe.servings - initialServingsEaten - initialServingsByOthers;
       
       setServingsEaten(initialServingsEaten);
-      setServingsEatenByOthers(initialServingsEatenByOthers);
       setMealType(getDefaultMealType());
+      setOtherDiners({});
 
       // Reset destinations
       const newFridgeDestinations: LeftoverDestination[] = [];
@@ -99,6 +111,7 @@ export function LogMealDialog({
     }
   }, [isOpen, recipe.servings, fridgeLocations, freezerLocations]);
   
+  const servingsEatenByOthers = Object.values(otherDiners).reduce((sum, val) => sum + val, 0);
   const totalFridgeServings = fridgeDestinations.reduce((sum, dest) => sum + dest.servings, 0);
   const totalFreezerServings = freezerDestinations.reduce((sum, dest) => sum + dest.servings, 0);
   const totalServingsDistributed = servingsEaten + servingsEatenByOthers + totalFridgeServings + totalFreezerServings;
@@ -118,6 +131,14 @@ export function LogMealDialog({
           newDests[index] = {...newDests[index], [field]: isNaN(val as number) ? 0 : val };
           return newDests;
       });
+  }
+
+  const handleOtherDinerChange = (memberId: string, value: string) => {
+    const num = parseInt(value, 10);
+    setOtherDiners(prev => ({
+        ...prev,
+        [memberId]: isNaN(num) || num < 0 ? 0 : num
+    }));
   }
 
   const handleSubmit = async () => {
@@ -184,7 +205,7 @@ export function LogMealDialog({
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-                <Label htmlFor="servings-eaten">Servings You Ate</Label>
+                <Label htmlFor="servings-eaten">Servings You Ate ({currentUser?.name})</Label>
                 <Input
                 id="servings-eaten"
                 type="number"
@@ -193,17 +214,28 @@ export function LogMealDialog({
                 min={0}
                 />
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="servings-eaten-by-others">Servings Others Ate</Label>
-                <Input
-                id="servings-eaten-by-others"
-                type="number"
-                value={servingsEatenByOthers}
-                onChange={(e) => handleNumericChange(e.target.value, setServingsEatenByOthers)}
-                min={0}
-                />
-            </div>
           </div>
+
+          {otherMembers.length > 0 && (
+            <div className="space-y-4 rounded-md border p-4">
+                <h4 className="font-medium">Servings Eaten by Others</h4>
+                 <div className="space-y-2">
+                    {otherMembers.map(member => (
+                        <div key={member.id} className="grid grid-cols-2 items-center gap-4">
+                            <Label htmlFor={`servings-${member.id}`}>{member.name}</Label>
+                            <Input
+                                id={`servings-${member.id}`}
+                                type="number"
+                                value={otherDiners[member.id] || ''}
+                                onChange={(e) => handleOtherDinerChange(member.id, e.target.value)}
+                                placeholder="0"
+                                min={0}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
           
            <div className="space-y-4 rounded-md border p-4">
             <h4 className="font-medium">Store Leftovers</h4>

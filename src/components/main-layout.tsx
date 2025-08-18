@@ -3,7 +3,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark, Gem } from "lucide-react";
+import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark, Gem, Users } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -22,6 +22,7 @@ const menuItems = [
   { href: "/meal-planner", label: "Meal Planner", icon: Home },
   { href: "/inventory", label: "Inventory", icon: Warehouse },
   { href: "/shopping-list", label: "Shopping List", icon: ShoppingCart },
+  { href: "/household", label: "Household", icon: Users },
   { href: "/nutrition", label: "Nutrition", icon: BarChart },
   { href: "/saved-recipes", label: "Saved Recipes", icon: Bookmark },
   { href: "/personal-details", label: "Personal Details", icon: FileText },

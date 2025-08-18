@@ -49,7 +49,12 @@ export default function InventoryClient({
         // Now, map over the grouped items to create the final structure.
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
           const { items, unit } = groupData;
-          const name = items[0].name;
+          // If any item in the group has an owner, we use that name for display
+          const representativeItem = items.find(item => item.ownerId) || items[0];
+          const name = representativeItem.ownerName
+            ? `${representativeItem.name} - ${representativeItem.ownerName}'s`
+            : representativeItem.name;
+
 
           let packageInfo = '';
 
