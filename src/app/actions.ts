@@ -3,16 +3,12 @@
 
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, updateStorageLocation, removeStorageLocation, getSettings as dataGetSettings, saveSettings as dataSaveSettings, savePersonalDetails as dataSavePersonalDetails } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails, Macros, MarkPrivateRequest } from "@/lib/types";
-import { addDays, parseISO } from "date-fns";
+import { addDays, parseISO, differenceInDays } from "date-fns";
 import { z } from "zod";
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from "next/headers";
 import { initFirebaseAdmin } from "@/lib/firebase-admin";
-import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
-import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
-import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
-import { logCookedMeal as logCookedMealFlow } from "@/ai/flows/log-cooked-meal";
+
 
 initFirebaseAdmin();
 
@@ -30,46 +26,6 @@ export async function getCurrentUserId(): Promise<string> {
         throw new Error("Your session has expired. Please log in again.");
     }
 }
-
-
-const inventoryItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  totalQuantity: z.number(),
-  originalQuantity: z.number(),
-  unit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]),
-  expiryDate: z.string().transform(str => new Date(str)), // Dates are strings in JSON
-  locationId: z.string(),
-});
-
-const suggestionSchema = z.object({
-  inventory: z.string().transform((val, ctx) => {
-    try {
-      const parsed = JSON.parse(val);
-      // This is a simplified validation. A more robust solution might use a more detailed schema.
-      return parsed as InventoryItem[];
-    } catch (e) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Invalid inventory format",
-      });
-      return z.NEVER;
-    }
-  }),
-  cravingsOrMood: z.string().optional(),
-  recipeToAdjust: z.string().nullable().optional().transform((val, ctx) => {
-    if (!val || val === 'null' || val === 'undefined') return undefined;
-    try {
-        const parsedRecipe = JSON.parse(val);
-        // We can add a more specific zod schema for Recipe if needed
-        return parsedRecipe as Recipe;
-    } catch(e) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid recipe format" });
-        return z.NEVER;
-    }
-  }),
-  newServingSize: z.string().nullable().optional().transform(val => val ? parseInt(val, 10) : undefined),
-});
 
 
 export async function seedUserData(userId: string): Promise<void> {
@@ -123,25 +79,11 @@ export async function handleGenerateSuggestions(formData: FormData) {
     const rawInventory = formData.get('inventory');
     const inventory: InventoryItem[] = JSON.parse(rawInventory as string);
     const now = new Date();
-
-    const promptInput = {
-        cravingsOrMood: formData.get('cravingsOrMood') as string || undefined,
-        currentInventory: formatInventoryToString(inventory),
-        expiringIngredients: "", // Removed expiring ingredients calculation
-        personalDetails: JSON.stringify(personalDetails),
-        todaysMacros: JSON.stringify(aggregatedMacros),
-        recipeToAdjust: formData.get('recipeToAdjust') as string || undefined,
-        newServingSize: formData.get('newServingSize') ? parseInt(formData.get('newServingSize') as string, 10) : undefined,
-    };
     
-    const result = await generateMealSuggestions(promptInput);
-
     return {
-      error: null,
-      suggestions: result.suggestions,
-      adjustedRecipe: result.adjustedRecipe,
-      originalRecipeTitle: result.originalRecipeTitle,
-      debugInfo: { promptInput: JSON.stringify(promptInput, null, 2), rawResponse: JSON.stringify(result, null, 2) }
+      error: { form: ["AI features are currently under maintenance. Please try again later."] },
+      suggestions: null,
+      debugInfo: { promptInput: "", rawResponse: "" }
     };
   } catch (error) {
     console.error("Error generating suggestions:", error);
@@ -159,11 +101,7 @@ export async function handleGenerateShoppingList(
   personalDetails: PersonalDetails
 ) {
     try {
-        const result = await generateShoppingList({
-            inventory: JSON.stringify(inventory),
-            personalDetails: JSON.stringify(personalDetails),
-        });
-        return { error: null, shoppingList: result.shoppingList };
+        return { error: "AI features are currently under maintenance. Please try again later.", shoppingList: null };
     } catch (error) {
         console.error("Error generating shopping list:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -178,16 +116,7 @@ export async function handleGenerateSubstitutions(
   allowExternalSuggestions: boolean,
 ): Promise<{ substitutions: Substitution[] | null, error: string | null}> {
     try {
-        const userId = await getCurrentUserId();
-        const personalDetails = await getPersonalDetails(userId);
-        const result = await generateSubstitutions({
-            recipe: JSON.stringify(recipe),
-            ingredientsToReplace,
-            inventory: JSON.stringify(inventory),
-            allowExternalSuggestions,
-            personalDetails: JSON.stringify(personalDetails),
-        });
-        return { substitutions: result.substitutions, error: null };
+        return { substitutions: null, error: "AI features are currently under maintenance. Please try again later." };
     } catch (error) {
         console.error("Error generating substitutions:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -206,50 +135,8 @@ export async function handleLogCookedMeal(
 ): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const userId = await getCurrentUserId();
     try {
-        const inventory = await getInventory(userId);
-        const storageLocations = await getStorageLocations(userId);
-
-        const result = await logCookedMealFlow({
-            recipe: JSON.stringify(recipe),
-            inventory: JSON.stringify(inventory),
-            servingsEaten,
-            servingsEatenByOthers,
-            fridgeLeftovers: JSON.stringify(fridgeLeftovers),
-            freezerLeftovers: JSON.stringify(freezerLeftovers),
-            storageLocations: JSON.stringify(storageLocations),
-        });
-
-        const batch = writeBatch(adminDb);
-
-        // Handle item updates
-        result.itemUpdates.forEach(update => {
-            const itemRef = doc(adminDb, `users/${userId}/inventory/${update.itemId}`);
-            batch.update(itemRef, { totalQuantity: update.newQuantity });
-        });
-
-        // Handle item removals
-        result.itemsToRemove.forEach(itemId => {
-            const itemRef = doc(adminDb, `users/${userId}/inventory/${itemId}`);
-            batch.delete(itemRef);
-        });
-        
-        // Handle new leftovers
-        result.newLeftovers.forEach(leftover => {
-            const itemRef = doc(collection(adminDb, `users/${userId}/inventory`));
-            batch.set(itemRef, leftover);
-        });
-        
-        await batch.commit();
-
-        const macrosConsumed: Macros = {
-            protein: recipe.macros.protein * servingsEaten,
-            carbs: recipe.macros.carbs * servingsEaten,
-            fat: recipe.macros.fat * servingsEaten,
-        };
-        await logMacros(userId, mealType, recipe.title, macrosConsumed);
-        
-        const newInventory = await getInventory(userId);
-        return { success: true, error: null, newInventory };
+        const errorMsg = "AI features are currently under maintenance. Please try again later.";
+        return { success: false, error: errorMsg };
 
     } catch (error) {
         console.error("Error logging cooked meal:", error);
@@ -375,8 +262,7 @@ export async function handleGenerateRecipeDetails(
     recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">
 ): Promise<{ recipe: Recipe | null, error: string | null}> {
     try {
-        const result = await generateRecipeDetails(recipeData);
-        return { recipe: { ...recipeData, ...result }, error: null };
+        return { recipe: null, error: "AI features are currently under maintenance. Please try again later." };
     } catch (error) {
         console.error("Error generating recipe details:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -575,3 +461,7 @@ export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
     return dataSaveSettings(userId, settings);
 }
+
+    
+
+    

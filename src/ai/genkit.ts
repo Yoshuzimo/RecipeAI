@@ -1,10 +1,20 @@
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
+'use server';
 
-// This is the single source of truth for the Genkit configuration.
-// It is imported by both the Next.js app (via flows) and the Genkit CLI (via dev.ts).
-export const ai = genkit({
-  plugins: [googleAI({ apiKey: process.env.GEMINI_API_KEY })],
-  model: 'googleai/gemini-2.0-flash',
+import {genkit, Ai} from 'genkit';
+import {googleAI} from '@genkit-ai/googleai';
+
+export const ai = new Ai({
+  plugins: [
+    googleAI({
+      // Your API key is stored in the .env file.
+      // See https://ai.google.dev/gemini-api/docs/api-key
+    }),
+  ],
+  // Log developer-level information to the console.
+  logLevel: 'debug',
+  // Prevent telemetry data from being sent to Google.
+  enableTelemetry: false,
 });
+
+    
