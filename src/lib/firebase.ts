@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, Firestore, enableNetwork } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo",
@@ -26,6 +26,8 @@ if (process.env.NODE_ENV === 'development' && !isEmulatorConnected(db)) {
     try {
         connectFirestoreEmulator(db, 'localhost', 8080);
         console.log("Connecting to Firestore emulator");
+        // Explicitly enable the network to signal the SDK to connect.
+        enableNetwork(db);
     } catch (e) {
         // This catch block will prevent crashes if the connection is attempted multiple times during hot-reloads.
         console.warn("Could not connect to Firestore emulator. It might already be connected or is not running.");
