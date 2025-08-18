@@ -286,10 +286,17 @@ export async function updateMealTime(mealId: string, newTime: string): Promise<D
     const docRef = doc(db, "daily-macros", mealId);
     const mealLogDoc = await getDoc(docRef);
     if (mealLogDoc.exists()) {
-        const mealLog = mealLogDoc.data() as DailyMacros;
+        const mealLogData = mealLogDoc.data();
+        // Ensure loggedAt is a valid Date object before proceeding.
+        const mealLog = {
+            ...mealLogData,
+            loggedAt: mealLogData.loggedAt?.toDate() || new Date(),
+        } as DailyMacros;
+
         const [hours, minutes] = newTime.split(':').map(Number);
-        const newDate = mealLog.loggedAt instanceof Date ? new Date(mealLog.loggedAt) : new Date();
+        const newDate = new Date(mealLog.loggedAt); // Create a new date object from the valid loggedAt
         newDate.setHours(hours, minutes);
+        
         await updateDoc(docRef, { loggedAt: newDate });
         return { ...mealLog, loggedAt: newDate };
     }
