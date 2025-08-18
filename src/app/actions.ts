@@ -11,7 +11,7 @@ import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryIte
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
 const inventoryItemSchema = z.object({
@@ -54,7 +54,7 @@ const suggestionSchema = z.object({
 });
 
 
-export async function handleSignUp(email: string, password: string, signUpCode: string): Promise<{ success: boolean; error?: any }> {
+export async function handleSignUp(email: string, password: string, signUpCode: string): Promise<{ success: boolean; error?: string }> {
     const SIGNUP_CODE = "testing123";
     if (signUpCode !== SIGNUP_CODE) {
         return { success: false, error: "Invalid sign-up code." };
@@ -65,17 +65,45 @@ export async function handleSignUp(email: string, password: string, signUpCode: 
         await createUserWithEmailAndPassword(auth, email, password);
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        let errorMessage = "An unexpected error occurred. Please try again.";
+        switch (error.code) {
+            case AuthErrorCodes.EMAIL_EXISTS:
+                errorMessage = "This email is already in use. Please try another.";
+                break;
+            case AuthErrorCodes.INVALID_EMAIL:
+                errorMessage = "The email address is not valid. Please check and try again.";
+                break;
+            case AuthErrorCodes.WEAK_PASSWORD:
+                errorMessage = "The password is too weak. It must be at least 6 characters long.";
+                break;
+            default:
+                // For other errors, you might want to log them for debugging
+                console.error("Firebase SignUp Error:", error.code);
+        }
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function handleSignIn(email: string, password: string): Promise<{ success: boolean; error?: any }> {
+export async function handleSignIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     try {
         const auth = getAuth(app);
         await signInWithEmailAndPassword(auth, email, password);
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        let errorMessage = "An unexpected error occurred. Please try again.";
+         switch (error.code) {
+            case AuthErrorCodes.INVALID_LOGIN_CREDENTIALS:
+            case AuthErrorCodes.USER_DELETED:
+                errorMessage = "Invalid email or password. Please check your credentials and try again.";
+                break;
+            case AuthErrorCodes.INVALID_EMAIL:
+                 errorMessage = "The email address is not valid. Please check and try again.";
+                 break;
+            default:
+                // For other errors, you might want to log them for debugging
+                console.error("Firebase SignIn Error:", error.code);
+        }
+        return { success: false, error: errorMessage };
     }
 }
 

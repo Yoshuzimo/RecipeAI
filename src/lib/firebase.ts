@@ -1,6 +1,8 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator, Firestore, enableNetwork } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo",
@@ -11,25 +13,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "demo",
 };
 
-// A function to check if the emulator is already connected.
-// The _settings property is not in the public API but is a reliable way to check.
-const isEmulatorConnected = (dbInstance: Firestore) => {
-    return (dbInstance as any)._settings?.host?.includes('localhost');
-};
-
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-// Connect to Emulator if in development and not already connected.
-if (process.env.NODE_ENV === 'development' && !isEmulatorConnected(db)) {
+
+// Connect to Emulator if in development.
+if (process.env.NODE_ENV === 'development') {
     try {
         connectFirestoreEmulator(db, 'localhost', 8080);
-        console.log("Connecting to Firestore emulator");
+        connectAuthEmulator(auth, 'http://localhost:9099');
+        console.log("Connecting to Firebase emulators");
     } catch (e) {
-        // This catch block will prevent crashes if the connection is attempted multiple times during hot-reloads.
-        console.warn("Could not connect to Firestore emulator. It might already be connected or is not running.");
+        console.warn("Could not connect to Firebase emulators. They might already be connected or are not running.");
     }
 }
 
-export { db };
+export { app, db, auth };
