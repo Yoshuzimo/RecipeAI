@@ -114,10 +114,8 @@ export async function joinHousehold(userId: string, userName: string, inviteCode
     });
 }
 
-export async function leaveHousehold(userId: string): Promise<void> {
-    // This is a complex operation. For now, we'll just remove the user from the household.
-    // A full implementation would need to handle re-assigning ownership of private items.
-    return runTransaction(adminDb, async (transaction) => {
+export async function leaveHousehold(userId: string, newOwnerId?: string): Promise<void> {
+    await runTransaction(adminDb, async (transaction) => {
         const userRef = adminDb.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
@@ -128,9 +126,8 @@ export async function leaveHousehold(userId: string): Promise<void> {
 
         const householdRef = adminDb.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
-        
+
         if (!householdDoc.exists) {
-            // Household doesn't exist, just clear the user's householdId
             transaction.update(userRef, { householdId: null });
             return;
         }
@@ -141,10 +138,27 @@ export async function leaveHousehold(userId: string): Promise<void> {
         if (memberToRemove) {
             transaction.update(householdRef, { activeMembers: arrayRemove(memberToRemove) });
         }
-        
+
+        if (householdData.ownerId === userId) {
+            // Owner is leaving
+            const remainingMembers = householdData.activeMembers.filter(m => m.userId !== userId);
+            if (remainingMembers.length > 0) {
+                if (newOwnerId) {
+                    // Transfer ownership
+                    transaction.update(householdRef, { ownerId: newOwnerId });
+                } else {
+                    throw new Error("A new owner must be selected before the current owner can leave.");
+                }
+            } else {
+                // Last member is leaving, delete the household
+                transaction.delete(householdRef);
+            }
+        }
+
         transaction.update(userRef, { householdId: null });
     });
 }
+
 
 export async function approvePendingMember(currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
     return runTransaction(adminDb, async (transaction) => {

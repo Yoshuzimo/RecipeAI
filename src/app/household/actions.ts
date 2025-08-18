@@ -41,10 +41,10 @@ export async function handleJoinHousehold(inviteCode: string) {
     }
 }
 
-export async function handleLeaveHousehold() {
+export async function handleLeaveHousehold(newOwnerId?: string) {
     const userId = await getCurrentUserId();
     try {
-        await leaveHousehold(userId);
+        await leaveHousehold(userId, newOwnerId);
         return { success: true };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";

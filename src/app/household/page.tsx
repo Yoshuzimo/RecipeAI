@@ -6,16 +6,23 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserPlus, LogOut, Users, Copy, Check, X } from "lucide-react";
+import { UserPlus, LogOut, Users, Copy, Check, X, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "./actions";
 import { Separator } from "@/components/ui/separator";
 import type { Household, HouseholdMember } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 // This is a placeholder, in a real app this would come from a server call
 // along with the user's own data to determine if they are in a household.
@@ -30,9 +37,12 @@ export default function HouseholdPage() {
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(MOCK_CURRENT_HOUSEHOLD);
+    const [newOwnerId, setNewOwnerId] = React.useState<string>("");
     const { toast } = useToast();
     
     const isOwner = user?.uid === currentHousehold?.ownerId;
+    const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];
+
 
     const onCreateHousehold = async () => {
         setIsCreating(true);
@@ -76,7 +86,12 @@ export default function HouseholdPage() {
     };
     
     const onLeaveHousehold = async () => {
-        const result = await handleLeaveHousehold();
+        if (isOwner && otherMembers.length > 0 && !newOwnerId) {
+            toast({ variant: "destructive", title: "New Owner Required", description: "You must select a new owner before leaving."});
+            return;
+        }
+
+        const result = await handleLeaveHousehold(newOwnerId || undefined);
         if (result.success) {
             toast({
                 title: "You have left the household."
@@ -90,6 +105,7 @@ export default function HouseholdPage() {
             });
         }
         setIsLeaveAlertOpen(false);
+        setNewOwnerId("");
     }
     
     const copyInviteCode = () => {
@@ -237,6 +253,79 @@ export default function HouseholdPage() {
         </Card>
     );
 
+    const LeaveHouseholdDialogContent = () => {
+        if (isOwner) {
+            if (otherMembers.length > 0) {
+                // Owner leaving with other members present
+                return (
+                    <>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Transfer Ownership Before Leaving</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are the owner of this household. To leave, you must transfer ownership to another member.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="new-owner">Select a new owner:</Label>
+                        <Select value={newOwnerId} onValueChange={setNewOwnerId}>
+                            <SelectTrigger id="new-owner">
+                                <SelectValue placeholder="Choose a member..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {otherMembers.map(member => (
+                                    <SelectItem key={member.userId} value={member.userId}>{member.userName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={onLeaveHousehold} disabled={!newOwnerId} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                            Leave and Transfer Ownership
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </>
+                );
+            } else {
+                // Owner leaving as the last member
+                 return (
+                    <>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           You are the last member. Leaving will dissolve the household. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={onLeaveHousehold} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                            Yes, Leave and Dissolve
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </>
+                );
+            }
+        } else {
+            // Non-owner leaving
+             return (
+                <>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Leaving the household means you will lose access to all shared items and recipes. Any items you own will be un-shared. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onLeaveHousehold} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        Yes, Leave Household
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+                </>
+            );
+        }
+    }
+
 
   return (
     <MainLayout>
@@ -255,18 +344,7 @@ export default function HouseholdPage() {
       </div>
       <AlertDialog open={isLeaveAlertOpen} onOpenChange={setIsLeaveAlertOpen}>
           <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                      Leaving the household means you will lose access to all shared items and recipes. Any items you own will be un-shared. This action cannot be undone.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onLeaveHousehold} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                      Yes, Leave Household
-                  </AlertDialogAction>
-              </AlertDialogFooter>
+              <LeaveHouseholdDialogContent />
           </AlertDialogContent>
       </AlertDialog>
     </MainLayout>

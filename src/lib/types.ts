@@ -148,6 +148,10 @@ export type Household = {
     ownerId: string;
     activeMembers: HouseholdMember[]; 
     pendingMembers: HouseholdMember[];
+    transferOwnership?: {
+        from: string;
+        to: string;
+    }
 };
 
 
