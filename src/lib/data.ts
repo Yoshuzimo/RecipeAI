@@ -1,4 +1,5 @@
 
+
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
 import { db } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
@@ -61,7 +62,8 @@ const MOCK_TODAYS_MACROS: DailyMacros[] = [
     },
 ];
 
-const seedMockData = async () => {
+// This function can be called manually if needed, but should not run on import.
+export const seedMockData = async () => {
     console.log("Checking if seeding is needed...");
     const settingsDoc = await getDoc(doc(db, "user-data", "settings"));
     if (settingsDoc.exists()) {
@@ -106,14 +108,13 @@ const seedMockData = async () => {
         medications: ""
     });
 
-    await batch.commit();
-    console.log("Mock data seeded successfully.");
+    try {
+        await batch.commit();
+        console.log("Mock data seeded successfully.");
+    } catch (error) {
+        console.error("Error seeding mock data:", error);
+    }
 };
-
-// Immediately try to seed data.
-if (typeof window !== 'undefined' && window.location.hostname === "localhost") {
-    seedMockData().catch(console.error);
-}
 
 
 // --- Firestore Functions ---

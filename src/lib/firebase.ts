@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo",
@@ -11,18 +11,30 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "demo",
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+let db: Firestore;
 
-// In a real app, you'd want to gate this with a check like
-// if (process.env.NODE_ENV === 'development')
-if (process.env.NODE_ENV === 'development') {
-  try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log("Connecting to Firestore emulator");
-  } catch (e) {
-    // Emulator may already be connected
-  }
+try {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    db = getFirestore(app);
+
+    // This check ensures we only try to connect to the emulator in a browser-like environment.
+    // Server components will not have `window` defined.
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+        // A simple flag to prevent multiple connection attempts in fast-refresh environments
+        if (!(window as any)._firebaseEmulatorConnected) {
+            connectFirestoreEmulator(db, 'localhost', 8080);
+            console.log("Connecting to Firestore emulator");
+            (window as any)._firebaseEmulatorConnected = true;
+        }
+    }
+} catch (e) {
+    console.error("Firebase initialization failed:", e);
+    // Fallback to a non-connected instance if initialization fails,
+    // though operations will likely fail. This prevents the app from crashing.
+    if (!db) {
+      db = getFirestore(initializeApp(firebaseConfig, "fallback"));
+    }
 }
 
-export { app, db };
+
+export { db };
