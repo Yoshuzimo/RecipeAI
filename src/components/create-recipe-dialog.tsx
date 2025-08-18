@@ -22,7 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import { handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
-import { AddIngredientToRecipeDialog } from "./add-ingredient-to-recipe-dialog";
 
 
 const formSchema = z.object({
@@ -49,7 +48,6 @@ export function CreateRecipeDialog({
 }) {
     const { toast } = useToast();
     const [isPending, setIsPending] = useState(false);
-    const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -66,10 +64,8 @@ export function CreateRecipeDialog({
         name: "ingredients",
     });
     
-    const handleAddIngredient = (ingredient: string) => {
-        if (ingredient.trim() !== "") {
-            append({ value: ingredient.trim() });
-        }
+    const handleAddIngredient = () => {
+        append({ value: "" });
     };
 
 
@@ -104,7 +100,6 @@ export function CreateRecipeDialog({
     }
     
     return (
-        <>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -147,6 +142,7 @@ export function CreateRecipeDialog({
                                                 <Input
                                                     {...form.register(`ingredients.${index}.value`)}
                                                     className="flex-1"
+                                                    placeholder="e.g., 1 cup flour"
                                                 />
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                                                     <Trash2 className="h-4 w-4" />
@@ -157,7 +153,7 @@ export function CreateRecipeDialog({
                                      {form.formState.errors.ingredients?.root && (
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p>
                                      )}
-                                     <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
+                                     <Button type="button" variant="outline" className="w-full" onClick={handleAddIngredient}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
                                     </Button>
                                 </div>
@@ -167,7 +163,9 @@ export function CreateRecipeDialog({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Instructions</FormLabel>
-                                            <FormControl><Textarea placeholder="1. Chop vegetables.&#x000A;2. Sauté chicken...&#x000A;3. Serve hot." {...field} rows={6} /></FormControl>
+                                            <FormControl><Textarea placeholder="1. Chop vegetables.
+2. Sauté chicken...
+3. Serve hot." {...field} rows={6} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -185,14 +183,5 @@ export function CreateRecipeDialog({
                 </Form>
             </DialogContent>
         </Dialog>
-
-        <AddIngredientToRecipeDialog
-            isOpen={isAddIngredientOpen}
-            setIsOpen={setIsAddIngredientOpen}
-            inventory={inventory}
-            onAddIngredient={handleAddIngredient}
-        />
-        </>
     );
 }
-
