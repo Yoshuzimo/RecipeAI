@@ -190,6 +190,17 @@ export async function removeInventoryItem(itemId: string): Promise<{ id: string 
     return { id: itemId };
 }
 
+export async function removeInventoryItems(itemIds: string[]): Promise<void> {
+    if (itemIds.length === 0) return;
+
+    const batch = writeBatch(db);
+    itemIds.forEach(id => {
+        const docRef = doc(db, "inventory", id);
+        batch.delete(docRef);
+    });
+    await batch.commit();
+}
+
 
 // Personal Details
 export async function getPersonalDetails(): Promise<PersonalDetails> {

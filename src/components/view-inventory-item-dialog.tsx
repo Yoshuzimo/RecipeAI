@@ -16,12 +16,22 @@ import {
 import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { handleUpdateInventoryGroup } from "@/app/actions";
+import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup } from "@/app/actions";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Slider } from "./ui/slider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 const formSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
@@ -46,6 +56,9 @@ export function ViewInventoryItemDialog({
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
+
 
   const packageGroups = useMemo(() => {
     return group.items.reduce((acc, item) => {
@@ -55,8 +68,10 @@ export function ViewInventoryItemDialog({
                 size: size,
                 fullPackages: [],
                 partialPackage: null,
+                items: [],
             };
         }
+        acc[size].items.push(item);
         if (item.totalQuantity === item.originalQuantity) {
             acc[size].fullPackages.push(item);
         } else {
@@ -64,7 +79,7 @@ export function ViewInventoryItemDialog({
             acc[size].partialPackage = item;
         }
         return acc;
-    }, {} as Record<number, InventoryPackageGroup>);
+    }, {} as Record<number, InventoryPackageGroup & { items: InventoryItem[] }>);
   }, [group.items]);
 
   const defaultValues = useMemo(() => {
@@ -97,6 +112,30 @@ export function ViewInventoryItemDialog({
         toast({ variant: "destructive", title: "Update Failed", description: result.error });
     }
   };
+  
+  const handleDeleteClick = (size: number) => {
+    setGroupToDelete(size);
+    setIsConfirmDeleteOpen(true);
+  }
+
+  const handleConfirmDelete = async () => {
+    if (groupToDelete === null) return;
+    
+    setIsPending(true);
+    const itemsToRemove = packageGroups[groupToDelete].items;
+    const result = await handleRemoveInventoryPackageGroup(itemsToRemove);
+    setIsPending(false);
+    setIsConfirmDeleteOpen(false);
+
+    if (result.success && result.newInventory) {
+      toast({ title: "Package Size Removed", description: `All ${groupToDelete}${group.unit} containers of ${group.name} have been removed.` });
+      onUpdateComplete(result.newInventory);
+    } else {
+      toast({ variant: "destructive", title: "Removal Failed", description: result.error });
+    }
+    setGroupToDelete(null);
+  };
+
 
   const getSliderLabel = (size: number) => {
       const partialValue = watchedValues[size]?.partial ?? 0;
@@ -115,6 +154,7 @@ export function ViewInventoryItemDialog({
   };
   
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -129,7 +169,13 @@ export function ViewInventoryItemDialog({
                 {Object.keys(packageGroups).length > 0 ? (
                     Object.values(packageGroups).map(({ size }) => (
                         <div key={size} className="space-y-4 p-4 border rounded-lg">
-                            <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
+                            <div className="flex justify-between items-center">
+                                <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteClick(size)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                    <span className="sr-only">Delete package size</span>
+                                </Button>
+                            </div>
                              <Controller
                                 name={`${size}.full`}
                                 control={control}
@@ -206,5 +252,23 @@ export function ViewInventoryItemDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently remove all {groupToDelete}{group.unit} containers of {group.name}. This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmDelete} disabled={isPending}>
+                    {isPending ? "Removing..." : "Remove"}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

@@ -7,7 +7,7 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
@@ -479,5 +479,21 @@ export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boole
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         console.error("Error saving recipe:", error);
         return { success: false, error: "Failed to save the recipe." };
+    }
+}
+
+export async function handleRemoveInventoryPackageGroup(
+  itemsToRemove: InventoryItem[]
+): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    try {
+        const itemIdsToRemove = itemsToRemove.map(item => item.id);
+        await removeInventoryItems(itemIdsToRemove);
+
+        const newInventory = await getInventory();
+        return { success: true, error: null, newInventory };
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        console.error("Error removing inventory package group:", error);
+        return { success: false, error };
     }
 }
