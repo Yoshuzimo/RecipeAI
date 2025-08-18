@@ -25,7 +25,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('AuthProvider: Auth state changed. User:', user?.uid || 'null');
       setUser(user);
       setLoading(false);
       
@@ -33,27 +32,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (user) {
         try {
           const token = await user.getIdToken();
-          console.log('AuthProvider: Got ID token. Sending to /api/auth/session...');
           // Send token to your backend to create a session cookie
-          const response = await fetch('/api/auth/session', {
+          await fetch('/api/auth/session', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json'
               },
               body: JSON.stringify({ idToken: token })
           });
-          console.log('AuthProvider: /api/auth/session response status:', response.status);
-          if (!response.ok) {
-            console.error('AuthProvider: Failed to create session cookie.');
-          } else {
-            console.log('AuthProvider: Session cookie request sent successfully.');
-          }
         } catch (error) {
             console.error('AuthProvider: Error getting ID token or creating session', error);
         }
       } else {
         // Clear the session cookie on logout
-         console.log('AuthProvider: User is null, sending DELETE to /api/auth/session.');
          await fetch('/api/auth/session', { method: 'DELETE' });
       }
     });
