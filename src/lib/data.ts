@@ -1,6 +1,7 @@
 
-
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
+import { db } from './firebase';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 const today = new Date();
@@ -15,13 +16,14 @@ twoDaysFromNow.setDate(today.getDate() + 2);
 const threeDaysFromNow = new Date(today);
 threeDaysFromNow.setDate(today.getDate() + 3);
 
-let MOCK_STORAGE_LOCATIONS: StorageLocation[] = [
+
+const MOCK_STORAGE_LOCATIONS: StorageLocation[] = [
     { id: 'fridge-1', name: 'Main Fridge', type: 'Fridge' },
     { id: 'freezer-1', name: 'Main Freezer', type: 'Freezer' },
     { id: 'pantry-1', name: 'Pantry', type: 'Pantry' },
 ];
 
-let MOCK_INVENTORY: InventoryItem[] = [
+const MOCK_INVENTORY: InventoryItem[] = [
   { id: '1', name: 'Chicken Breast', originalQuantity: 1, totalQuantity: 1, unit: 'lbs', expiryDate: twoDaysFromNow, locationId: 'fridge-1' },
   { id: '1a', name: 'Chicken Breast', originalQuantity: 1.5, totalQuantity: 1.5, unit: 'lbs', expiryDate: nextWeek, locationId: 'freezer-1' },
   { id: '2', name: 'Broccoli', originalQuantity: 12, totalQuantity: 12, unit: 'oz', expiryDate: nextWeek, locationId: 'fridge-1' },
@@ -35,23 +37,6 @@ let MOCK_INVENTORY: InventoryItem[] = [
   { id: '9', name: 'Salt', originalQuantity: 1, totalQuantity: 1, unit: 'kg', expiryDate: null, locationId: 'pantry-1' },
 ];
 
-let MOCK_PERSONAL_DETAILS: PersonalDetails = {
-    healthGoals: "",
-    dietaryRestrictions: "",
-    allergies: "",
-    favoriteFoods: "",
-    dislikedFoods: "",
-    healthConditions: "",
-    medications: ""
-};
-
-let MOCK_SETTINGS: Settings = {
-    unitSystem: 'us',
-    aiFeatures: true,
-    e2eEncryption: true,
-    expiryNotifications: true,
-};
-
 const breakfastTime = new Date();
 breakfastTime.setHours(8, 30, 0, 0);
 
@@ -59,7 +44,7 @@ const snackTime = new Date();
 snackTime.setHours(10, 45, 0, 0);
 
 
-let MOCK_TODAYS_MACROS: DailyMacros[] = [
+const MOCK_TODAYS_MACROS: DailyMacros[] = [
     { 
         id: 'meal-1',
         meal: "Breakfast", 
@@ -76,51 +61,102 @@ let MOCK_TODAYS_MACROS: DailyMacros[] = [
     },
 ];
 
-let MOCK_SAVED_RECIPES: Recipe[] = [];
+const seedMockData = async () => {
+    console.log("Checking if seeding is needed...");
+    const settingsDoc = await getDoc(doc(db, "user-data", "settings"));
+    if (settingsDoc.exists()) {
+        console.log("Data already seeded.");
+        return;
+    }
+
+    console.log("Seeding mock data into Firestore Emulator...");
+    const batch = writeBatch(db);
+
+    MOCK_STORAGE_LOCATIONS.forEach(loc => {
+        const docRef = doc(db, "storage-locations", loc.id);
+        batch.set(docRef, loc);
+    });
+
+    MOCK_INVENTORY.forEach(item => {
+        const docRef = doc(db, "inventory", item.id);
+        batch.set(docRef, item);
+    });
+
+    MOCK_TODAYS_MACROS.forEach(meal => {
+        const docRef = doc(db, "daily-macros", meal.id);
+        batch.set(docRef, meal);
+    });
+
+    const settingsRef = doc(db, "user-data", "settings");
+    batch.set(settingsRef, {
+        unitSystem: 'us',
+        aiFeatures: true,
+        e2eEncryption: true,
+        expiryNotifications: true,
+    });
+
+    const personalDetailsRef = doc(db, "user-data", "personal-details");
+    batch.set(personalDetailsRef, {
+        healthGoals: "",
+        dietaryRestrictions: "",
+        allergies: "",
+        favoriteFoods: "",
+        dislikedFoods: "",
+        healthConditions: "",
+        medications: ""
+    });
+
+    await batch.commit();
+    console.log("Mock data seeded successfully.");
+};
+
+// Immediately try to seed data.
+if (typeof window !== 'undefined' && window.location.hostname === "localhost") {
+    seedMockData().catch(console.error);
+}
 
 
-// Simulate client-side local storage
-const mockLocalStorage = new Map<string, string>();
+// --- Firestore Functions ---
 
+// Storage Locations
 export async function getStorageLocations(): Promise<StorageLocation[]> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return MOCK_STORAGE_LOCATIONS;
+    const q = query(collection(db, "storage-locations"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
 }
 
 export async function addStorageLocation(location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newLocation = { ...location, id: Math.random().toString(36).substring(2, 9) };
-    MOCK_STORAGE_LOCATIONS.push(newLocation);
-    return newLocation;
+    const docRef = await addDoc(collection(db, "storage-locations"), location);
+    return { ...location, id: docRef.id };
 }
 
 export async function updateStorageLocation(location: StorageLocation): Promise<StorageLocation> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const index = MOCK_STORAGE_LOCATIONS.findIndex(l => l.id === location.id);
-    if (index === -1) throw new Error("Location not found");
-    MOCK_STORAGE_LOCATIONS[index] = location;
+    await updateDoc(doc(db, "storage-locations", location.id), { name: location.name });
     return location;
 }
 
 export async function removeStorageLocation(locationId: string): Promise<{id: string}> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // In a real app, we'd want to handle what happens to items in this location.
-    // For this demo, we'll prevent deletion if items exist.
-    const itemsInLocation = MOCK_INVENTORY.filter(item => item.locationId === locationId);
-    if (itemsInLocation.length > 0) {
+    const itemsInLocationQuery = query(collection(db, "inventory"), where("locationId", "==", locationId));
+    const itemsSnapshot = await getDocs(itemsInLocationQuery);
+    if (!itemsSnapshot.empty) {
         throw new Error("Cannot remove a location that contains inventory items.");
     }
-    const index = MOCK_STORAGE_LOCATIONS.findIndex(l => l.id === locationId);
-    if (index === -1) throw new Error("Location not found");
-    MOCK_STORAGE_LOCATIONS.splice(index, 1);
+    await deleteDoc(doc(db, "storage-locations", locationId));
     return { id: locationId };
 }
 
 
+// Inventory
 export async function getInventory(): Promise<InventoryItem[]> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return MOCK_INVENTORY.map(item => ({...item, expiryDate: item.expiryDate ? new Date(item.expiryDate) : null}));
+  const snapshot = await getDocs(collection(db, "inventory"));
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+          id: doc.id,
+          ...data,
+          expiryDate: data.expiryDate?.toDate() ?? null,
+      } as InventoryItem;
+  });
 }
 
 type AddItemData = {
@@ -133,59 +169,59 @@ type AddItemData = {
 }
 
 export async function addInventoryItem(item: AddItemData): Promise<InventoryItem> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const newItem: InventoryItem = { 
-      ...item, 
-      id: uuidv4(),
-    };
-  MOCK_INVENTORY.push(newItem);
-  return newItem;
+    const docRef = await addDoc(collection(db, "inventory"), item);
+    return { ...item, id: docRef.id };
 }
 
 export async function updateInventoryItem(updatedItem: InventoryItem): Promise<InventoryItem> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const index = MOCK_INVENTORY.findIndex(item => item.id === updatedItem.id);
-    if (index === -1) {
-        throw new Error("Item not found");
-    }
-    // If total quantity is 0 or less, remove it
-    if (updatedItem.totalQuantity <= 0) {
-        MOCK_INVENTORY.splice(index, 1);
-        // Return a sentinel or different value to indicate removal
-        return {...updatedItem, totalQuantity: 0};
+    const { id, ...data } = updatedItem;
+    if (data.totalQuantity <= 0) {
+        await deleteDoc(doc(db, "inventory", id));
+        return { ...updatedItem, totalQuantity: 0 };
     } else {
-        MOCK_INVENTORY[index] = updatedItem;
+        await updateDoc(doc(db, "inventory", id), data);
         return updatedItem;
     }
 }
 
 export async function removeInventoryItem(itemId: string): Promise<{ id: string }> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const index = MOCK_INVENTORY.findIndex(item => item.id === itemId);
-    if (index === -1) {
-        throw new Error("Item not found");
-    }
-    MOCK_INVENTORY.splice(index, 1);
+    await deleteDoc(doc(db, "inventory", itemId));
     return { id: itemId };
 }
 
+
+// Personal Details
 export async function getPersonalDetails(): Promise<PersonalDetails> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const details = mockLocalStorage.get('personalDetails');
-    return details ? JSON.parse(details) : MOCK_PERSONAL_DETAILS;
+    const docRef = doc(db, "user-data", "personal-details");
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data() as PersonalDetails : {};
 }
 
 export async function savePersonalDetails(details: PersonalDetails): Promise<PersonalDetails> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    MOCK_PERSONAL_DETAILS = details;
-    mockLocalStorage.set('personalDetails', JSON.stringify(details));
-    return MOCK_PERSONAL_DETAILS;
+    await setDoc(doc(db, "user-data", "personal-details"), details);
+    return details;
 }
 
+// Settings
 export async function getSettings(): Promise<Settings> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const settings = mockLocalStorage.get('settings');
-    return settings ? JSON.parse(settings) : MOCK_SETTINGS;
+    const docRef = doc(db, "user-data", "settings");
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+        const defaultSettings: Settings = {
+            unitSystem: 'us',
+            aiFeatures: true,
+            e2eEncryption: true,
+            expiryNotifications: true,
+        };
+        await setDoc(docRef, defaultSettings);
+        return defaultSettings;
+    }
+    return docSnap.data() as Settings;
+}
+
+export async function saveSettings(settings: Settings): Promise<Settings> {
+    await setDoc(doc(db, "user-data", "settings"), settings);
+    return settings;
 }
 
 export async function getUnitSystem(): Promise<'us' | 'metric'> {
@@ -193,86 +229,71 @@ export async function getUnitSystem(): Promise<'us' | 'metric'> {
     return settings.unitSystem;
 }
 
+// Macros
 export async function getTodaysMacros(): Promise<DailyMacros[]> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    // Make sure all macros have a `loggedAt` date for consistency
-    const consistentMacros = MOCK_TODAYS_MACROS.map(m => ({
-        ...m,
-        loggedAt: m.loggedAt instanceof Date ? m.loggedAt : new Date(m.loggedAt)
-    }));
-    return consistentMacros;
+    const snapshot = await getDocs(collection(db, "daily-macros"));
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            loggedAt: data.loggedAt?.toDate()
+        } as DailyMacros;
+    });
 }
 
 export async function logMacros(mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // For this demo, logging a new meal of the same type will overwrite the previous one
-    // A real app might merge them or handle it differently.
-    const mealLogIndex = MOCK_TODAYS_MACROS.findIndex(m => m.meal === mealType);
-    
+    const q = query(collection(db, "daily-macros"), where("meal", "==", mealType));
+    const snapshot = await getDocs(q);
     const newDish = { name: dishName, ...macros };
 
-    if (mealLogIndex > -1) {
-        const existingLog = MOCK_TODAYS_MACROS[mealLogIndex];
-        existingLog.dishes.push(newDish);
-        existingLog.totals.protein += macros.protein;
-        existingLog.totals.carbs += macros.carbs;
-        existingLog.totals.fat += macros.fat;
-        existingLog.loggedAt = new Date(); // Update time to now
-        return existingLog;
+    if (!snapshot.empty) {
+        const docRef = snapshot.docs[0].ref;
+        const existingLog = snapshot.docs[0].data() as DailyMacros;
+        const updatedDishes = [...existingLog.dishes, newDish];
+        const updatedTotals = {
+            protein: existingLog.totals.protein + macros.protein,
+            carbs: existingLog.totals.carbs + macros.carbs,
+            fat: existingLog.totals.fat + macros.fat,
+        };
+        await updateDoc(docRef, { dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() });
+        return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() };
     } else {
-        // New meal type for the day, create it
-        const newMealLog: DailyMacros = {
-            id: `meal-${uuidv4()}`,
+        const newMealLog: Omit<DailyMacros, 'id'> = {
             meal: mealType,
             dishes: [newDish],
             totals: { ...macros },
             loggedAt: new Date(),
         };
-        MOCK_TODAYS_MACROS.push(newMealLog);
-        return newMealLog;
+        const docRef = await addDoc(collection(db, "daily-macros"), newMealLog);
+        return { ...newMealLog, id: docRef.id };
     }
 }
 
 export async function updateMealTime(mealId: string, newTime: string): Promise<DailyMacros | null> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const mealLog = MOCK_TODAYS_MACROS.find(m => m.id === mealId);
-    if (mealLog) {
+    const docRef = doc(db, "daily-macros", mealId);
+    const mealLogDoc = await getDoc(docRef);
+    if (mealLogDoc.exists()) {
+        const mealLog = mealLogDoc.data() as DailyMacros;
         const [hours, minutes] = newTime.split(':').map(Number);
-        const newDate = new Date(mealLog.loggedAt);
+        const newDate = mealLog.loggedAt instanceof Date ? new Date(mealLog.loggedAt) : new Date();
         newDate.setHours(hours, minutes);
-        mealLog.loggedAt = newDate;
-        return mealLog;
+        await updateDoc(docRef, { loggedAt: newDate });
+        return { ...mealLog, loggedAt: newDate };
     }
     return null;
 }
 
-export async function saveSettings(settings: Settings): Promise<Settings> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    MOCK_SETTINGS = settings;
-    mockLocalStorage.set('settings', JSON.stringify(settings));
-    return MOCK_SETTINGS;
-}
-
+// Recipes
 export async function getSavedRecipes(): Promise<Recipe[]> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const recipes = mockLocalStorage.get('savedRecipes');
-    return recipes ? JSON.parse(recipes) : MOCK_SAVED_RECIPES;
+    const snapshot = await getDocs(collection(db, "saved-recipes"));
+    return snapshot.docs.map(doc => doc.data() as Recipe);
 }
 
 export async function saveRecipe(recipe: Recipe): Promise<Recipe> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const savedRecipes = await getSavedRecipes();
-    const existingIndex = savedRecipes.findIndex(r => r.title.toLowerCase() === recipe.title.toLowerCase());
-    
-    if (existingIndex > -1) {
-        // Update existing recipe
-        savedRecipes[existingIndex] = recipe;
-    } else {
-        // Add new recipe
-        savedRecipes.push(recipe);
-    }
-    MOCK_SAVED_RECIPES = savedRecipes;
-    mockLocalStorage.set('savedRecipes', JSON.stringify(savedRecipes));
+    // Firestore can't store custom objects like RecipeIngredient without conversion
+    const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
+    const docRef = doc(db, "saved-recipes", recipe.title.toLowerCase().replace(/\s+/g, '-'));
+    await setDoc(docRef, recipeForDb, { merge: true });
     return recipe;
 }
