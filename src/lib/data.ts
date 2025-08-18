@@ -2,7 +2,7 @@
 
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
 import { db } from './firebase';
-import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 const today = new Date();
@@ -38,57 +38,32 @@ const MOCK_INVENTORY: InventoryItem[] = [
   { id: '9', name: 'Salt', originalQuantity: 1, totalQuantity: 1, unit: 'kg', expiryDate: null, locationId: 'pantry-1' },
 ];
 
-const breakfastTime = new Date();
-breakfastTime.setHours(8, 30, 0, 0);
-
-const snackTime = new Date();
-snackTime.setHours(10, 45, 0, 0);
-
-
-const MOCK_TODAYS_MACROS: DailyMacros[] = [
-    { 
-        id: 'meal-1',
-        meal: "Breakfast", 
-        dishes: [{name: "Omelette", protein: 30, carbs: 5, fat: 20}],
-        totals: { protein: 30, carbs: 5, fat: 20 },
-        loggedAt: breakfastTime,
-    },
-    { 
-        id: 'meal-2',
-        meal: "Snack", 
-        dishes: [{name: "Protein Shake", protein: 15, carbs: 25, fat: 10}],
-        totals: { protein: 15, carbs: 25, fat: 10 },
-        loggedAt: snackTime,
-    },
-];
-
-// This function can be called manually if needed, but should not run on import.
-export const seedMockData = async () => {
+export const seedInitialData = async () => {
     console.log("Checking if seeding is needed...");
-    const settingsDoc = await getDoc(doc(db, "user-data", "settings"));
-    if (settingsDoc.exists()) {
-        console.log("Data already seeded.");
+    // Check if any locations exist. If they do, we assume data is seeded.
+    const locationsQuery = query(collection(db, "storage-locations"), limit(1));
+    const locationsSnapshot = await getDocs(locationsQuery);
+    if (!locationsSnapshot.empty) {
+        console.log("Data already exists. Skipping seed.");
         return;
     }
 
-    console.log("Seeding mock data into Firestore Emulator...");
+    console.log("Seeding initial data for new user...");
     const batch = writeBatch(db);
 
+    // Seed Storage Locations
     MOCK_STORAGE_LOCATIONS.forEach(loc => {
         const docRef = doc(db, "storage-locations", loc.id);
         batch.set(docRef, loc);
     });
 
+    // Seed Inventory
     MOCK_INVENTORY.forEach(item => {
         const docRef = doc(db, "inventory", item.id);
         batch.set(docRef, item);
     });
-
-    MOCK_TODAYS_MACROS.forEach(meal => {
-        const docRef = doc(db, "daily-macros", meal.id);
-        batch.set(docRef, meal);
-    });
-
+    
+    // Seed default settings and personal details
     const settingsRef = doc(db, "user-data", "settings");
     batch.set(settingsRef, {
         unitSystem: 'us',
@@ -110,9 +85,9 @@ export const seedMockData = async () => {
 
     try {
         await batch.commit();
-        console.log("Mock data seeded successfully.");
+        console.log("Initial data seeded successfully.");
     } catch (error) {
-        console.error("Error seeding mock data:", error);
+        console.error("Error seeding initial data:", error);
     }
 };
 

@@ -7,7 +7,7 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems } from "@/lib/data";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
@@ -62,7 +62,12 @@ export async function handleSignUp(email: string, password: string, signUpCode: 
 
     try {
         const auth = getAuth(app);
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // After successful user creation, seed the database with initial data.
+        // This will only run if the database is empty.
+        await seedInitialData();
+
         return { success: true };
     } catch (error: any) {
         let errorMessage = "An unexpected error occurred. Please try again.";
