@@ -1,7 +1,5 @@
-
-
-
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
+import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -9,11 +7,10 @@ const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Pantry', type: 'Pantry' },
 ];
 
-export const seedInitialData = async (userId: string) => {
-    const { adminDb } = await import('./firebase-admin');
+export const seedInitialData = async (db: Firestore, userId: string) => {
     console.log(`ACTIONS: Starting seedUserData for user: ${userId}`);
-    const batch = adminDb.batch();
-    const userRef = adminDb.collection('users').doc(userId);
+    const batch = db.batch();
+    const userRef = db.collection('users').doc(userId);
 
     // Check if user document already exists to prevent re-seeding
     const userDoc = await userRef.get();
@@ -70,12 +67,11 @@ export const seedInitialData = async (userId: string) => {
 
 // --- Household Functions ---
 
-export async function createHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
-    const { adminDb } = await import('./firebase-admin');
-    const batch = adminDb.batch();
+export async function createHousehold(db: Firestore, userId: string, userName: string, inviteCode: string): Promise<Household> {
+    const batch = db.batch();
     
-    const householdRef = adminDb.collection('households').doc();
-    const userRef = adminDb.collection('users').doc(userId);
+    const householdRef = db.collection('households').doc();
+    const userRef = db.collection('users').doc(userId);
 
     const newHousehold: Household = {
         id: householdRef.id,
@@ -93,11 +89,9 @@ export async function createHousehold(userId: string, userName: string, inviteCo
     return newHousehold;
 }
 
-export async function joinHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
-    const { adminDb } = await import('./firebase-admin');
-    const { runTransaction, arrayUnion } = await import('firebase-admin/firestore');
-    return runTransaction(adminDb, async (transaction) => {
-        const q = adminDb.collection('households').where('inviteCode', '==', inviteCode).limit(1);
+export async function joinHousehold(db: Firestore, arrayUnion: (elements: any[]) => FieldValue, userId: string, userName: string, inviteCode: string): Promise<Household> {
+    return db.runTransaction(async (transaction) => {
+        const q = db.collection('households').where('inviteCode', '==', inviteCode).limit(1);
         const snapshot = await transaction.get(q);
 
         if (snapshot.empty) {
@@ -120,11 +114,9 @@ export async function joinHousehold(userId: string, userName: string, inviteCode
     });
 }
 
-export async function leaveHousehold(userId: string, newOwnerId?: string): Promise<void> {
-    const { adminDb } = await import('./firebase-admin');
-    const { runTransaction, arrayRemove } = await import('firebase-admin/firestore');
-    await runTransaction(adminDb, async (transaction) => {
-        const userRef = adminDb.collection('users').doc(userId);
+export async function leaveHousehold(db: Firestore, arrayRemove: (elements: any[]) => FieldValue, userId: string, newOwnerId?: string): Promise<void> {
+    await db.runTransaction(async (transaction) => {
+        const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
 
@@ -132,7 +124,7 @@ export async function leaveHousehold(userId: string, newOwnerId?: string): Promi
             throw new Error("You are not currently in a household.");
         }
 
-        const householdRef = adminDb.collection('households').doc(householdId);
+        const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
 
         if (!householdDoc.exists) {
@@ -168,12 +160,10 @@ export async function leaveHousehold(userId: string, newOwnerId?: string): Promi
 }
 
 
-export async function approvePendingMember(currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
-    const { adminDb } = await import('./firebase-admin');
-    const { runTransaction, arrayUnion, arrayRemove } = await import('firebase-admin/firestore');
-    return runTransaction(adminDb, async (transaction) => {
-        const householdRef = adminDb.collection('households').doc(householdId);
-        const memberUserRef = adminDb.collection('users').doc(memberIdToApprove);
+export async function approvePendingMember(db: Firestore, arrayUnion: (elements: any[]) => FieldValue, arrayRemove: (elements: any[]) => FieldValue, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+    return db.runTransaction(async (transaction) => {
+        const householdRef = db.collection('households').doc(householdId);
+        const memberUserRef = db.collection('users').doc(memberIdToApprove);
         const householdDoc = await transaction.get(householdRef);
 
         if (!householdDoc.exists) throw new Error("Household not found.");
@@ -200,11 +190,9 @@ export async function approvePendingMember(currentUserId: string, householdId: s
     });
 }
 
-export async function rejectPendingMember(currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
-    const { adminDb } = await import('./firebase-admin');
-    const { runTransaction, arrayRemove } = await import('firebase-admin/firestore');
-     return runTransaction(adminDb, async (transaction) => {
-        const householdRef = adminDb.collection('households').doc(householdId);
+export async function rejectPendingMember(db: Firestore, arrayRemove: (elements: any[]) => FieldValue, currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
+     return db.runTransaction(async (transaction) => {
+        const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
 
         if (!householdDoc.exists) throw new Error("Household not found.");
@@ -233,42 +221,37 @@ export async function rejectPendingMember(currentUserId: string, householdId: st
 // --- Firestore Functions ---
 
 // Storage Locations
-export async function getStorageLocations(userId: string): Promise<StorageLocation[]> {
-    const { adminDb } = await import('./firebase-admin');
-    const q = adminDb.collection(`users/${userId}/storage-locations`);
+export async function getStorageLocations(db: Firestore, userId: string): Promise<StorageLocation[]> {
+    const q = db.collection(`users/${userId}/storage-locations`);
     const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
 }
 
-export async function addStorageLocation(userId: string, location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
-    const { adminDb } = await import('./firebase-admin');
-    const docRef = await adminDb.collection(`users/${userId}/storage-locations`).add(location);
+export async function addStorageLocation(db: Firestore, userId: string, location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
+    const docRef = await db.collection(`users/${userId}/storage-locations`).add(location);
     return { ...location, id: docRef.id };
 }
 
-export async function updateStorageLocation(userId: string, location: StorageLocation): Promise<StorageLocation> {
-    const { adminDb } = await import('./firebase-admin');
+export async function updateStorageLocation(db: Firestore, userId: string, location: StorageLocation): Promise<StorageLocation> {
     const { id, ...data } = location;
-    await adminDb.collection(`users/${userId}/storage-locations`).doc(id).update(data);
+    await db.collection(`users/${userId}/storage-locations`).doc(id).update(data);
     return location;
 }
 
-export async function removeStorageLocation(userId: string, locationId: string): Promise<{id: string}> {
-    const { adminDb } = await import('./firebase-admin');
-    const itemsInLocationQuery = adminDb.collection(`users/${userId}/inventory`).where("locationId", "==", locationId);
+export async function removeStorageLocation(db: Firestore, userId: string, locationId: string): Promise<{id: string}> {
+    const itemsInLocationQuery = db.collection(`users/${userId}/inventory`).where("locationId", "==", locationId);
     const itemsSnapshot = await itemsInLocationQuery.get();
     if (!itemsSnapshot.empty) {
         throw new Error("Cannot remove a location that contains inventory items.");
     }
-    await adminDb.collection(`users/${userId}/storage-locations`).doc(locationId).delete();
+    await db.collection(`users/${userId}/storage-locations`).doc(locationId).delete();
     return { id: locationId };
 }
 
 
 // Inventory
-export async function getInventory(userId: string): Promise<InventoryItem[]> {
-  const { adminDb } = await import('./firebase-admin');
-  const snapshot = await adminDb.collection(`users/${userId}/inventory`).get();
+export async function getInventory(db: Firestore, userId: string): Promise<InventoryItem[]> {
+  const snapshot = await db.collection(`users/${userId}/inventory`).get();
   return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -281,16 +264,14 @@ export async function getInventory(userId: string): Promise<InventoryItem[]> {
 
 type AddItemData = Omit<InventoryItem, 'id'>;
 
-export async function addInventoryItem(userId: string, item: AddItemData): Promise<InventoryItem> {
-    const { adminDb } = await import('./firebase-admin');
-    const docRef = await adminDb.collection(`users/${userId}/inventory`).add(item);
+export async function addInventoryItem(db: Firestore, userId: string, item: AddItemData): Promise<InventoryItem> {
+    const docRef = await db.collection(`users/${userId}/inventory`).add(item);
     return { ...item, id: docRef.id };
 }
 
-export async function updateInventoryItem(userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
-    const { adminDb } = await import('./firebase-admin');
+export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
     const { id, ...data } = updatedItem;
-    const docRef = adminDb.collection(`users/${userId}/inventory`).doc(id);
+    const docRef = db.collection(`users/${userId}/inventory`).doc(id);
     if (data.totalQuantity <= 0) {
         await docRef.delete();
         return { ...updatedItem, totalQuantity: 0 };
@@ -300,19 +281,17 @@ export async function updateInventoryItem(userId: string, updatedItem: Inventory
     }
 }
 
-export async function removeInventoryItem(userId: string, itemId: string): Promise<{ id: string }> {
-    const { adminDb } = await import('./firebase-admin');
-    await adminDb.collection(`users/${userId}/inventory`).doc(itemId).delete();
+export async function removeInventoryItem(db: Firestore, userId: string, itemId: string): Promise<{ id: string }> {
+    await db.collection(`users/${userId}/inventory`).doc(itemId).delete();
     return { id: itemId };
 }
 
-export async function removeInventoryItems(userId: string, itemIds: string[]): Promise<void> {
-    const { adminDb } = await import('./firebase-admin');
+export async function removeInventoryItems(db: Firestore, userId: string, itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
 
-    const batch = adminDb.batch();
+    const batch = db.batch();
     itemIds.forEach(id => {
-        const docRef = adminDb.collection(`users/${userId}/inventory`).doc(id);
+        const docRef = db.collection(`users/${userId}/inventory`).doc(id);
         batch.delete(docRef);
     });
     await batch.commit();
@@ -320,23 +299,20 @@ export async function removeInventoryItems(userId: string, itemIds: string[]): P
 
 
 // Personal Details
-export async function getPersonalDetails(userId: string): Promise<PersonalDetails> {
-    const { adminDb } = await import('./firebase-admin');
-    const docRef = adminDb.collection(`users/${userId}/app-data`).doc("personal-details");
+export async function getPersonalDetails(db: Firestore, userId: string): Promise<PersonalDetails> {
+    const docRef = db.collection(`users/${userId}/app-data`).doc("personal-details");
     const docSnap = await docRef.get();
     return docSnap.exists ? docSnap.data() as PersonalDetails : {};
 }
 
-export async function savePersonalDetails(userId: string, details: PersonalDetails): Promise<PersonalDetails> {
-    const { adminDb } = await import('./firebase-admin');
-    await adminDb.collection(`users/${userId}/app-data`).doc("personal-details").set(details);
+export async function savePersonalDetails(db: Firestore, userId: string, details: PersonalDetails): Promise<PersonalDetails> {
+    await db.collection(`users/${userId}/app-data`).doc("personal-details").set(details);
     return details;
 }
 
 // Settings
-export async function getSettings(userId: string): Promise<Settings> {
-    const { adminDb } = await import('./firebase-admin');
-    const docRef = adminDb.collection(`users/${userId}/app-data`).doc("settings");
+export async function getSettings(db: Firestore, userId: string): Promise<Settings> {
+    const docRef = db.collection(`users/${userId}/app-data`).doc("settings");
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
         const defaultSettings: Settings = {
@@ -357,21 +333,19 @@ export async function getSettings(userId: string): Promise<Settings> {
     return docSnap.data() as Settings;
 }
 
-export async function saveSettings(userId: string, settings: Settings): Promise<Settings> {
-    const { adminDb } = await import('./firebase-admin');
-    await adminDb.collection(`users/${userId}/app-data`).doc("settings").set(settings);
+export async function saveSettings(db: Firestore, userId: string, settings: Settings): Promise<Settings> {
+    await db.collection(`users/${userId}/app-data`).doc("settings").set(settings);
     return settings;
 }
 
-export async function getUnitSystem(userId: string): Promise<'us' | 'metric'> {
-    const settings = await getSettings(userId);
+export async function getUnitSystem(db: Firestore, userId: string): Promise<'us' | 'metric'> {
+    const settings = await getSettings(db, userId);
     return settings.unitSystem;
 }
 
 // Macros
-export async function getTodaysMacros(userId: string): Promise<DailyMacros[]> {
-    const { adminDb } = await import('./firebase-admin');
-    const snapshot = await adminDb.collection(`users/${userId}/daily-macros`).get();
+export async function getTodaysMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
+    const snapshot = await db.collection(`users/${userId}/daily-macros`).get();
     return snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -382,9 +356,8 @@ export async function getTodaysMacros(userId: string): Promise<DailyMacros[]> {
     });
 }
 
-export async function logMacros(userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
-    const { adminDb } = await import('./firebase-admin');
-    const dailyMacrosCollection = adminDb.collection(`users/${userId}/daily-macros`);
+export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
+    const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
     const q = dailyMacrosCollection.where("meal", "==", mealType);
     const snapshot = await q.get();
     const newDish = { name: dishName, ...macros };
@@ -412,9 +385,8 @@ export async function logMacros(userId: string, mealType: "Breakfast" | "Lunch" 
     }
 }
 
-export async function updateMealTime(userId: string, mealId: string, newTime: string): Promise<DailyMacros | null> {
-    const { adminDb } = await import('./firebase-admin');
-    const docRef = adminDb.collection(`users/${userId}/daily-macros`).doc(mealId);
+export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: string): Promise<DailyMacros | null> {
+    const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);
     const mealLogDoc = await docRef.get();
     if (mealLogDoc.exists) {
         const mealLogData = mealLogDoc.data()!;
@@ -435,18 +407,16 @@ export async function updateMealTime(userId: string, mealId: string, newTime: st
 }
 
 // Recipes
-export async function getSavedRecipes(userId: string): Promise<Recipe[]> {
-    const { adminDb } = await import('./firebase-admin');
-    const snapshot = await adminDb.collection(`users/${userId}/saved-recipes`).get();
+export async function getSavedRecipes(db: Firestore, userId: string): Promise<Recipe[]> {
+    const snapshot = await db.collection(`users/${userId}/saved-recipes`).get();
     return snapshot.docs.map(doc => doc.data() as Recipe);
 }
 
-export async function saveRecipe(userId: string, recipe: Recipe): Promise<Recipe> {
-    const { adminDb } = await import('./firebase-admin');
+export async function saveRecipe(db: Firestore, userId: string, recipe: Recipe): Promise<Recipe> {
     // Firestore can't store custom objects like RecipeIngredient without conversion
     const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
     const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
-    const docRef = adminDb.collection(`users/${userId}/saved-recipes`).doc(docId);
+    const docRef = db.collection(`users/${userId}/saved-recipes`).doc(docId);
     await docRef.set(recipeForDb, { merge: true });
     return recipe;
 }

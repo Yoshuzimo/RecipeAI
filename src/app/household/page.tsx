@@ -309,7 +309,7 @@ export default function HouseholdPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            You are the last member. Leaving will dissolve the household. This action cannot be undone.
+                            You are the last member. Leaving will dissolve the household and permanently delete all its shared data. This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
