@@ -1,4 +1,5 @@
 
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator, Firestore, enableNetwork } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
@@ -28,6 +29,9 @@ if (process.env.NODE_ENV === 'development') {
     } catch (e) {
         console.warn("Could not connect to Firebase emulators. They might already be connected or are not running.");
     }
+} else {
+    // Ensure we are connected to the real database in production
+    enableNetwork(db);
 }
 
 export { app, db, auth };
