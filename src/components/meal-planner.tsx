@@ -309,16 +309,18 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             {suggestions.map((recipe, index) => (
                <Card key={recipe.title}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
-                        <AccordionTrigger className="p-6 hover:no-underline group">
-                            <div className="text-left flex-1">
-                                <h3 className="text-lg font-semibold">{recipe.title}</h3>
-                                <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
-                            </div>
-                            <Button variant="ghost" size="icon" className="group-hover:bg-accent/50" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
+                       <div className="p-6 group flex justify-between items-start">
+                            <AccordionTrigger asChild>
+                                <div className="text-left flex-1 cursor-pointer">
+                                    <h3 className="text-lg font-semibold">{recipe.title}</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
+                                </div>
+                            </AccordionTrigger>
+                            <Button variant="ghost" size="icon" className="group-hover:bg-accent/50 ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); handleSaveRecipe(recipe); }}>
                                 <Bookmark className="h-5 w-5" />
                                 <span className="sr-only">Save Recipe</span>
                             </Button>
-                        </AccordionTrigger>
+                        </div>
                         <AccordionContent className="px-6 pb-6">
                             <div className="space-y-6">
                                  <form onSubmit={(e) => {
@@ -479,3 +481,5 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
     </>
   );
 }
+
+    
