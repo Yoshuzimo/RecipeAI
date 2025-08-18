@@ -26,8 +26,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "./icons";
-import { handleSignUp } from "@/app/actions";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { seedUserData } from "@/app/actions";
+import { getAuth, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
 
@@ -53,16 +53,25 @@ export function SignupForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsPending(true);
+    const SIGNUP_CODE = "testing123";
+    if (values.signUpCode !== SIGNUP_CODE) {
+        toast({
+            variant: "destructive",
+            title: "Sign-up Failed",
+            description: "Invalid sign-up code.",
+        });
+        setIsPending(false);
+        return;
+    }
+
     try {
-        const result = await handleSignUp(values.email, values.password, values.signUpCode);
-
-        if (!result.success) {
-            throw new Error(result.error || "Sign-up failed.");
-        }
-
-        // After successful sign-up, immediately sign the user in to create a session
         const auth = getAuth(app);
-        const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const userId = userCredential.user.uid;
+
+        // After successful user creation, seed the database with initial data for that user.
+        await seedUserData(userId);
+        
         const idToken = await userCredential.user.getIdToken(true);
 
         const response = await fetch('/api/auth/session', {
@@ -78,16 +87,30 @@ export function SignupForm() {
 
         toast({
             title: "Account Created!",
-            description: "Welcome to CookSmart. You can now log in.",
+            description: "Welcome to CookSmart! You've been logged in.",
         });
         
-        router.push("/login");
+        router.push("/");
 
     } catch (error: any) {
+         let errorMessage = "An unexpected error occurred. Please try again.";
+        switch (error.code) {
+            case AuthErrorCodes.EMAIL_EXISTS:
+                errorMessage = "This email is already in use. Please try another.";
+                break;
+            case AuthErrorCodes.INVALID_EMAIL:
+                errorMessage = "The email address is not valid. Please check and try again.";
+                break;
+            case AuthErrorCodes.WEAK_PASSWORD:
+                errorMessage = "The password is too weak. It must be at least 6 characters long.";
+                break;
+            default:
+                console.error("Firebase SignUp Error:", error.code, error.message);
+        }
         toast({
             variant: "destructive",
             title: "Sign-up Failed",
-            description: error.message || "An unexpected error occurred.",
+            description: errorMessage,
         });
     } finally {
         setIsPending(false);

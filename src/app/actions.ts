@@ -7,14 +7,16 @@ import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
 import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
-import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, getSettings, saveSettings } from "@/lib/data";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings } from "@/lib/types";
+import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime, saveRecipe, removeInventoryItems, seedInitialData, getStorageLocations, getSavedRecipes, getTodaysMacros, addStorageLocation, getSettings as dataGetSettings, saveSettings as dataSaveSettings, savePersonalDetails as dataSavePersonalDetails } from "@/lib/data";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { getAuth as getClientAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { app } from "@/lib/firebase";
 import { cookies } from "next/headers";
+import { initFirebaseAdmin } from "@/lib/firebase-admin";
+
+// Initialize Firebase Admin SDK for server-side actions
+initFirebaseAdmin();
 
 
 export async function getCurrentUserId(): Promise<string> {
@@ -23,7 +25,7 @@ export async function getCurrentUserId(): Promise<string> {
         throw new Error("Authentication required. Please log in.");
     }
     try {
-        const decodedToken = await getAdminAuth().verifySessionCookie(sessionCookie, true);
+        const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
         console.error("Error verifying session cookie:", error);
@@ -72,62 +74,8 @@ const suggestionSchema = z.object({
 });
 
 
-export async function handleSignUp(email: string, password: string, signUpCode: string): Promise<{ success: boolean; error?: string }> {
-    const SIGNUP_CODE = "testing123";
-    if (signUpCode !== SIGNUP_CODE) {
-        return { success: false, error: "Invalid sign-up code." };
-    }
-
-    try {
-        const auth = getClientAuth(app);
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const userId = userCredential.user.uid;
-
-        // After successful user creation, seed the database with initial data for that user.
-        await seedInitialData(userId);
-
-        return { success: true };
-    } catch (error: any) {
-        let errorMessage = "An unexpected error occurred. Please try again.";
-        switch (error.code) {
-            case AuthErrorCodes.EMAIL_EXISTS:
-                errorMessage = "This email is already in use. Please try another.";
-                break;
-            case AuthErrorCodes.INVALID_EMAIL:
-                errorMessage = "The email address is not valid. Please check and try again.";
-                break;
-            case AuthErrorCodes.WEAK_PASSWORD:
-                errorMessage = "The password is too weak. It must be at least 6 characters long.";
-                break;
-            default:
-                // For other errors, you might want to log them for debugging
-                console.error("Firebase SignUp Error:", error.code);
-        }
-        return { success: false, error: errorMessage };
-    }
-}
-
-export async function handleSignIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-    try {
-        const auth = getClientAuth(app);
-        await signInWithEmailAndPassword(auth, email, password);
-        return { success: true };
-    } catch (error: any) {
-        let errorMessage = "An unexpected error occurred. Please try again.";
-         switch (error.code) {
-            case AuthErrorCodes.INVALID_LOGIN_CREDENTIALS:
-            case AuthErrorCodes.USER_DELETED:
-                errorMessage = "Invalid email or password. Please check your credentials and try again.";
-                break;
-            case AuthErrorCodes.INVALID_EMAIL:
-                 errorMessage = "The email address is not valid. Please check and try again.";
-                 break;
-            default:
-                // For other errors, you might want to log them for debugging
-                console.error("Firebase SignIn Error:", error.code);
-        }
-        return { success: false, error: errorMessage };
-    }
+export async function seedUserData(userId: string): Promise<void> {
+    await seedInitialData(userId);
 }
 
 
@@ -174,7 +122,6 @@ function parseIngredients(ingredients: string[]): RecipeIngredient[] {
 
 export async function handleGenerateSuggestions(formData: FormData) {
   const userId = await getCurrentUserId();
-  let log = "Button clicked.\n";
   const validatedFields = suggestionSchema.safeParse({
     inventory: formData.get("inventory"),
     cravingsOrMood: formData.get("cravingsOrMood"),
@@ -182,16 +129,13 @@ export async function handleGenerateSuggestions(formData: FormData) {
     newServingSize: formData.get("newServingSize"),
   });
   
-  log += "Request received by server action.\n";
-
   if (!validatedFields.success) {
     const errorDetails = JSON.stringify(validatedFields.error.flatten(), null, 2);
-    log += "Field validation failed.\n";
     return {
       error: validatedFields.error.flatten().fieldErrors,
       suggestions: null,
       debugInfo: {
-        promptInput: log,
+        promptInput: "Validation Failed",
         rawResponse: "Validation Errors:\n" + errorDetails
       }
     };
@@ -262,8 +206,6 @@ export async function handleGenerateSuggestions(formData: FormData) {
       todaysMacros: mockTodaysMacros,
       specializedEquipment: personalDetails.specializedEquipment,
     };
-  
-  log += "Prompt compiled.\n\n" + JSON.stringify(promptInput, null, 2);
 
   try {
     const result = await generateMealSuggestions(promptInput);
@@ -276,7 +218,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
         suggestions: suggestionsWithParsed,
         error: null, 
         debugInfo: {
-            promptInput: log,
+            promptInput: JSON.stringify(promptInput, null, 2),
             rawResponse: result.rawOutput
         }
     };
@@ -287,7 +229,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
         error: { form: ["Failed to generate suggestions. Please try again."] }, 
         suggestions: null,
         debugInfo: {
-            promptInput: log,
+            promptInput: JSON.stringify(promptInput, null, 2),
             rawResponse: "Error occurred:\n" + errorMessage
         }
     };
@@ -707,6 +649,12 @@ export async function getClientPersonalDetails() {
     return getPersonalDetails(userId);
 }
 
+export async function savePersonalDetails(details: PersonalDetails) {
+    const userId = await getCurrentUserId();
+    return dataSavePersonalDetails(userId, details);
+}
+
+
 export async function getClientTodaysMacros() {
     const userId = await getCurrentUserId();
     return getTodaysMacros(userId);
@@ -724,14 +672,10 @@ export async function addClientStorageLocation(location: Omit<StorageLocation, '
 
 export async function getSettings() {
     const userId = await getCurrentUserId();
-    return getSettings(userId);
+    return dataGetSettings(userId);
 }
 
 export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
-    return saveSettings(userId, settings);
+    return dataSaveSettings(userId, settings);
 }
-
-    
-
-    

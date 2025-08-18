@@ -24,9 +24,9 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { getClientPersonalDetails, savePersonalDetails } from "@/app/actions";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const formSchema = z.object({
   healthGoals: z.string().max(500, {
@@ -57,6 +57,8 @@ const formSchema = z.object({
 
 export function PersonalDetailsForm() {
   const { toast } = useToast();
+  const [isPending, setIsPending] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -80,11 +82,22 @@ export function PersonalDetailsForm() {
   }, [form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await savePersonalDetails(values);
-    toast({
-      title: "Details Saved",
-      description: "Your personal information has been updated.",
-    });
+    setIsPending(true);
+    try {
+        await savePersonalDetails(values);
+        toast({
+            title: "Details Saved",
+            description: "Your personal information has been updated.",
+        });
+    } catch(e) {
+         toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save details. Please try again.",
+        });
+    } finally {
+        setIsPending(false);
+    }
   }
 
   return (
@@ -277,7 +290,10 @@ export function PersonalDetailsForm() {
 
 
             <div className="flex justify-end">
-                <Button type="submit">Save All Changes</Button>
+                <Button type="submit" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save All Changes
+                </Button>
             </div>
         </form>
       </Form>

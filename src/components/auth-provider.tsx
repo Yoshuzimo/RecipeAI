@@ -24,27 +24,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("AUTH PROVIDER: Auth state changed. User:", user ? user.uid : 'null');
       setUser(user);
-
-      try {
-        if (user) {
-          const token = await user.getIdToken(true); // Force refresh
-          console.log("AUTH PROVIDER: Sending ID token to /api/auth/session");
-          await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken: token }),
-          });
-        } else {
-          console.log("AUTH PROVIDER: User logged out. Deleting session cookie");
-          await fetch('/api/auth/session', { method: 'DELETE' });
-        }
-      } catch (error) {
-        console.error('AUTH PROVIDER: Error managing session', error);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     return () => unsubscribe();

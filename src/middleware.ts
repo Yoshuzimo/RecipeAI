@@ -33,7 +33,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   } catch (error) {
     // Session cookie is invalid or expired.
-    // Redirect to login page and clear the invalid cookie.
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     const response = NextResponse.redirect(loginUrl);

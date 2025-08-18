@@ -26,7 +26,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "./icons";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, AuthErrorCodes } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
 
@@ -77,10 +77,23 @@ export function LoginForm() {
       router.push(nextUrl);
       
     } catch (error: any) {
+        let errorMessage = "An unexpected error occurred. Please try again.";
+         switch (error.code) {
+            case AuthErrorCodes.INVALID_LOGIN_CREDENTIALS:
+            case AuthErrorCodes.USER_DELETED:
+                errorMessage = "Invalid email or password. Please check your credentials and try again.";
+                break;
+            case AuthErrorCodes.INVALID_EMAIL:
+                 errorMessage = "The email address is not valid. Please check and try again.";
+                 break;
+            default:
+                // For other errors, you might want to log them for debugging
+                console.error("Firebase SignIn Error:", error.code, error.message);
+        }
         toast({
             variant: "destructive",
             title: "Login Failed",
-            description: error.message || "An unexpected error occurred.",
+            description: errorMessage,
         });
     } finally {
         setIsPending(false);
