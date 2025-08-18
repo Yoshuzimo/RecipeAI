@@ -1,6 +1,6 @@
 
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
-import { db } from './firebase';
+import { adminDb } from './firebase-admin';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup } from 'firebase/firestore';
 
 const today = new Date();
@@ -38,12 +38,12 @@ const MOCK_INVENTORY: Omit<InventoryItem, 'id' | 'locationId'>[] = [
 
 export const seedInitialData = async (userId: string) => {
     console.log(`DATA: Seeding initial data for new user: ${userId}`);
-    const batch = writeBatch(db);
-    const userRef = doc(db, 'users', userId);
+    const batch = adminDb.batch();
+    const userRef = adminDb.collection('users').doc(userId);
 
     // Check if user document already exists to prevent re-seeding
-    const userDoc = await getDoc(userRef);
-    if (userDoc.exists()) {
+    const userDoc = await userRef.get();
+    if (userDoc.exists) {
         console.log("DATA: User document already exists. Skipping seed.");
         return;
     }
@@ -57,7 +57,7 @@ export const seedInitialData = async (userId: string) => {
     console.log(`DATA: Seeding storage locations.`);
     const locationRefs: { [key: string]: string } = {};
     MOCK_STORAGE_LOCATIONS.forEach(loc => {
-        const docRef = doc(collection(userRef, "storage-locations"));
+        const docRef = userRef.collection("storage-locations").doc();
         batch.set(docRef, loc);
         // Store the generated ID to link inventory items
         if (loc.name.includes('Fridge')) locationRefs.Fridge = docRef.id;
@@ -69,7 +69,7 @@ export const seedInitialData = async (userId: string) => {
     // Seed Inventory
     console.log(`DATA: Seeding inventory items.`);
     MOCK_INVENTORY.forEach(item => {
-        const docRef = doc(collection(userRef, "inventory"));
+        const docRef = userRef.collection("inventory").doc();
         let locationId = locationRefs.Pantry; // Default to pantry
         if (item.name.includes('Chicken') || item.name.includes('Beef')) {
             locationId = item.expiryDate && item.expiryDate > twoDaysFromNow ? locationRefs.Freezer : locationRefs.Fridge;
@@ -82,7 +82,7 @@ export const seedInitialData = async (userId: string) => {
     
     // Seed default settings and personal details
     console.log(`DATA: Seeding default settings and personal details.`);
-    const settingsRef = doc(userRef, "app-data", "settings");
+    const settingsRef = userRef.collection("app-data").doc("settings");
     batch.set(settingsRef, {
         unitSystem: 'us',
         aiFeatures: true,
@@ -90,7 +90,7 @@ export const seedInitialData = async (userId: string) => {
         expiryNotifications: true,
     });
 
-    const personalDetailsRef = doc(userRef, "app-data", "personal-details");
+    const personalDetailsRef = userRef.collection("app-data").doc("personal-details");
     batch.set(personalDetailsRef, {
         healthGoals: "",
         dietaryRestrictions: "",
@@ -116,36 +116,36 @@ export const seedInitialData = async (userId: string) => {
 
 // Storage Locations
 export async function getStorageLocations(userId: string): Promise<StorageLocation[]> {
-    const q = query(collection(db, `users/${userId}/storage-locations`));
-    const snapshot = await getDocs(q);
+    const q = adminDb.collection(`users/${userId}/storage-locations`);
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
 }
 
 export async function addStorageLocation(userId: string, location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
-    const docRef = await addDoc(collection(db, `users/${userId}/storage-locations`), location);
+    const docRef = await adminDb.collection(`users/${userId}/storage-locations`).add(location);
     return { ...location, id: docRef.id };
 }
 
 export async function updateStorageLocation(userId: string, location: StorageLocation): Promise<StorageLocation> {
     const { id, ...data } = location;
-    await updateDoc(doc(db, `users/${userId}/storage-locations`, id), data);
+    await adminDb.collection(`users/${userId}/storage-locations`).doc(id).update(data);
     return location;
 }
 
 export async function removeStorageLocation(userId: string, locationId: string): Promise<{id: string}> {
-    const itemsInLocationQuery = query(collection(db, `users/${userId}/inventory`), where("locationId", "==", locationId));
-    const itemsSnapshot = await getDocs(itemsInLocationQuery);
+    const itemsInLocationQuery = adminDb.collection(`users/${userId}/inventory`).where("locationId", "==", locationId);
+    const itemsSnapshot = await itemsInLocationQuery.get();
     if (!itemsSnapshot.empty) {
         throw new Error("Cannot remove a location that contains inventory items.");
     }
-    await deleteDoc(doc(db, `users/${userId}/storage-locations`, locationId));
+    await adminDb.collection(`users/${userId}/storage-locations`).doc(locationId).delete();
     return { id: locationId };
 }
 
 
 // Inventory
 export async function getInventory(userId: string): Promise<InventoryItem[]> {
-  const snapshot = await getDocs(collection(db, `users/${userId}/inventory`));
+  const snapshot = await adminDb.collection(`users/${userId}/inventory`).get();
   return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -159,32 +159,33 @@ export async function getInventory(userId: string): Promise<InventoryItem[]> {
 type AddItemData = Omit<InventoryItem, 'id'>;
 
 export async function addInventoryItem(userId: string, item: AddItemData): Promise<InventoryItem> {
-    const docRef = await addDoc(collection(db, `users/${userId}/inventory`), item);
+    const docRef = await adminDb.collection(`users/${userId}/inventory`).add(item);
     return { ...item, id: docRef.id };
 }
 
 export async function updateInventoryItem(userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
     const { id, ...data } = updatedItem;
+    const docRef = adminDb.collection(`users/${userId}/inventory`).doc(id);
     if (data.totalQuantity <= 0) {
-        await deleteDoc(doc(db, `users/${userId}/inventory`, id));
+        await docRef.delete();
         return { ...updatedItem, totalQuantity: 0 };
     } else {
-        await updateDoc(doc(db, `users/${userId}/inventory`, id), data);
+        await docRef.update(data);
         return updatedItem;
     }
 }
 
 export async function removeInventoryItem(userId: string, itemId: string): Promise<{ id: string }> {
-    await deleteDoc(doc(db, `users/${userId}/inventory`, itemId));
+    await adminDb.collection(`users/${userId}/inventory`).doc(itemId).delete();
     return { id: itemId };
 }
 
 export async function removeInventoryItems(userId: string, itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
 
-    const batch = writeBatch(db);
+    const batch = adminDb.batch();
     itemIds.forEach(id => {
-        const docRef = doc(db, `users/${userId}/inventory`, id);
+        const docRef = adminDb.collection(`users/${userId}/inventory`).doc(id);
         batch.delete(docRef);
     });
     await batch.commit();
@@ -193,35 +194,35 @@ export async function removeInventoryItems(userId: string, itemIds: string[]): P
 
 // Personal Details
 export async function getPersonalDetails(userId: string): Promise<PersonalDetails> {
-    const docRef = doc(db, `users/${userId}/app-data`, "personal-details");
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() as PersonalDetails : {};
+    const docRef = adminDb.collection(`users/${userId}/app-data`).doc("personal-details");
+    const docSnap = await docRef.get();
+    return docSnap.exists ? docSnap.data() as PersonalDetails : {};
 }
 
 export async function savePersonalDetails(userId: string, details: PersonalDetails): Promise<PersonalDetails> {
-    await setDoc(doc(db, `users/${userId}/app-data`, "personal-details"), details);
+    await adminDb.collection(`users/${userId}/app-data`).doc("personal-details").set(details);
     return details;
 }
 
 // Settings
 export async function getSettings(userId: string): Promise<Settings> {
-    const docRef = doc(db, `users/${userId}/app-data`, "settings");
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) {
+    const docRef = adminDb.collection(`users/${userId}/app-data`).doc("settings");
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
         const defaultSettings: Settings = {
             unitSystem: 'us',
             aiFeatures: true,
             e2eEncryption: true,
             expiryNotifications: true,
         };
-        await setDoc(docRef, defaultSettings);
+        await docRef.set(defaultSettings);
         return defaultSettings;
     }
     return docSnap.data() as Settings;
 }
 
 export async function saveSettings(userId: string, settings: Settings): Promise<Settings> {
-    await setDoc(doc(db, `users/${userId}/app-data`, "settings"), settings);
+    await adminDb.collection(`users/${userId}/app-data`).doc("settings").set(settings);
     return settings;
 }
 
@@ -232,7 +233,7 @@ export async function getUnitSystem(userId: string): Promise<'us' | 'metric'> {
 
 // Macros
 export async function getTodaysMacros(userId: string): Promise<DailyMacros[]> {
-    const snapshot = await getDocs(collection(db, `users/${userId}/daily-macros`));
+    const snapshot = await adminDb.collection(`users/${userId}/daily-macros`).get();
     return snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -244,8 +245,9 @@ export async function getTodaysMacros(userId: string): Promise<DailyMacros[]> {
 }
 
 export async function logMacros(userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
-    const q = query(collection(db, `users/${userId}/daily-macros`), where("meal", "==", mealType));
-    const snapshot = await getDocs(q);
+    const dailyMacrosCollection = adminDb.collection(`users/${userId}/daily-macros`);
+    const q = dailyMacrosCollection.where("meal", "==", mealType);
+    const snapshot = await q.get();
     const newDish = { name: dishName, ...macros };
 
     if (!snapshot.empty) {
@@ -257,7 +259,7 @@ export async function logMacros(userId: string, mealType: "Breakfast" | "Lunch" 
             carbs: existingLog.totals.carbs + macros.carbs,
             fat: existingLog.totals.fat + macros.fat,
         };
-        await updateDoc(docRef, { dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() });
+        await docRef.update({ dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() });
         return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() };
     } else {
         const newMealLog: Omit<DailyMacros, 'id'> = {
@@ -266,16 +268,16 @@ export async function logMacros(userId: string, mealType: "Breakfast" | "Lunch" 
             totals: { ...macros },
             loggedAt: new Date(),
         };
-        const docRef = await addDoc(collection(db, `users/${userId}/daily-macros`), newMealLog);
+        const docRef = await dailyMacrosCollection.add(newMealLog);
         return { ...newMealLog, id: docRef.id };
     }
 }
 
 export async function updateMealTime(userId: string, mealId: string, newTime: string): Promise<DailyMacros | null> {
-    const docRef = doc(db, `users/${userId}/daily-macros`, mealId);
-    const mealLogDoc = await getDoc(docRef);
-    if (mealLogDoc.exists()) {
-        const mealLogData = mealLogDoc.data();
+    const docRef = adminDb.collection(`users/${userId}/daily-macros`).doc(mealId);
+    const mealLogDoc = await docRef.get();
+    if (mealLogDoc.exists) {
+        const mealLogData = mealLogDoc.data()!;
         // Ensure loggedAt is a valid Date object before proceeding.
         const mealLog = {
             ...mealLogData,
@@ -286,7 +288,7 @@ export async function updateMealTime(userId: string, mealId: string, newTime: st
         const newDate = new Date(mealLog.loggedAt); // Create a new date object from the valid loggedAt
         newDate.setHours(hours, minutes);
         
-        await updateDoc(docRef, { loggedAt: newDate });
+        await docRef.update({ loggedAt: newDate });
         return { ...mealLog, loggedAt: newDate };
     }
     return null;
@@ -294,7 +296,7 @@ export async function updateMealTime(userId: string, mealId: string, newTime: st
 
 // Recipes
 export async function getSavedRecipes(userId: string): Promise<Recipe[]> {
-    const snapshot = await getDocs(collection(db, `users/${userId}/saved-recipes`));
+    const snapshot = await adminDb.collection(`users/${userId}/saved-recipes`).get();
     return snapshot.docs.map(doc => doc.data() as Recipe);
 }
 
@@ -302,8 +304,8 @@ export async function saveRecipe(userId: string, recipe: Recipe): Promise<Recipe
     // Firestore can't store custom objects like RecipeIngredient without conversion
     const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
     const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
-    const docRef = doc(db, `users/${userId}/saved-recipes`, docId);
-    await setDoc(docRef, recipeForDb, { merge: true });
+    const docRef = adminDb.collection(`users/${userId}/saved-recipes`).doc(docId);
+    await docRef.set(recipeForDb, { merge: true });
     return recipe;
 }
 
