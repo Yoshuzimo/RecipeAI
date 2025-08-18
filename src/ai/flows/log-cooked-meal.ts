@@ -24,13 +24,13 @@ const NewLeftoverSchema = z.object({
 
 
 export const LogCookedMealInputSchema = z.object({
-  recipe: z.custom<Recipe>().describe("The full recipe object that was cooked."),
+  recipe: z.string().describe("The JSON string of the full recipe object that was cooked."),
   inventory: z.string().describe("The user's current inventory as a JSON string."),
   servingsEaten: z.number().int().min(0).describe("Number of servings eaten by the current user."),
   servingsEatenByOthers: z.number().int().min(0).describe("Number of servings eaten by other household members."),
-  fridgeLeftovers: z.array(z.custom<LeftoverDestination>()).describe("Servings to be stored as leftovers in the fridge."),
-  freezerLeftovers: z.array(z.custom<LeftoverDestination>()).describe("Servings to be stored as leftovers in the freezer."),
-  storageLocations: z.array(z.custom<StorageLocation>()).describe("A list of available storage locations."),
+  fridgeLeftovers: z.string().describe("JSON string of servings to be stored as leftovers in the fridge."),
+  freezerLeftovers: z.string().describe("JSON string of servings to be stored as leftovers in the freezer."),
+  storageLocations: z.string().describe("JSON string of available storage locations."),
 });
 
 export const LogCookedMealOutputSchema = z.object({
@@ -45,7 +45,7 @@ export type LogCookedMealOutput = z.infer<typeof LogCookedMealOutputSchema>;
 
 const logCookedMealPrompt = ai.definePrompt({
     name: 'logCookedMealPrompt',
-    input: { schema: LogCookedMealInputSchema },
+    input: { schema: z.any() },
     output: { schema: LogCookedMealOutputSchema },
     prompt: `
         You are an inventory management AI. A user has just cooked a meal and you need to calculate the changes to their inventory.
@@ -88,7 +88,11 @@ export const logCookedMealFlow = ai.defineFlow(
   async (input) => {
     const parsedInput = {
       ...input,
+      recipe: JSON.parse(input.recipe) as Recipe,
       inventory: JSON.parse(input.inventory) as InventoryItem[],
+      fridgeLeftovers: JSON.parse(input.fridgeLeftovers) as LeftoverDestination[],
+      freezerLeftovers: JSON.parse(input.freezerLeftovers) as LeftoverDestination[],
+      storageLocations: JSON.parse(input.storageLocations) as StorageLocation[],
     };
     const { output } = await logCookedMealPrompt(parsedInput);
     return output!;

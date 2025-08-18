@@ -35,8 +35,8 @@ export const GenerateMealSuggestionsInputSchema = z.object({
   currentInventory: z.string().describe('A comma-separated list of items the user has in their inventory.'),
   expiringIngredients: z.string().describe('A comma-separated list of ingredients that are expiring soon.'),
   personalDetails: z.string().describe('A JSON string of the user\'s personal details, including dietary restrictions, allergies, and health goals.'),
-  todaysMacros: z.custom<Macros>().describe('The total macros (protein, carbs, fat) the user has consumed today.'),
-  recipeToAdjust: z.custom<Recipe>().optional().describe('An existing recipe that the user wants to adjust the serving size for.'),
+  todaysMacros: z.string().describe('A JSON string of the total macros (protein, carbs, fat) the user has consumed today.'),
+  recipeToAdjust: z.string().optional().describe('A JSON string of an existing recipe that the user wants to adjust the serving size for.'),
   newServingSize: z.number().optional().describe('The desired new serving size if adjusting a recipe.'),
 });
 
@@ -52,7 +52,7 @@ export type GenerateMealSuggestionsOutput = z.infer<typeof GenerateMealSuggestio
 
 const generateMealSuggestionsPrompt = ai.definePrompt({
     name: 'generateMealSuggestionsPrompt',
-    input: { schema: GenerateMealSuggestionsInputSchema },
+    input: { schema: z.any() }, // Using z.any() to allow for parsed objects
     output: { schema: GenerateMealSuggestionsOutputSchema },
     prompt: `
       You are a brilliant chef and nutritionist AI. Your task is to provide personalized meal suggestions.
@@ -107,6 +107,8 @@ export const generateMealSuggestionsFlow = ai.defineFlow(
     const parsedInput = {
       ...input,
       personalDetails: JSON.parse(input.personalDetails) as PersonalDetails,
+      todaysMacros: JSON.parse(input.todaysMacros) as Macros,
+      recipeToAdjust: input.recipeToAdjust ? JSON.parse(input.recipeToAdjust) as Recipe : undefined,
     };
     const { output } = await generateMealSuggestionsPrompt(parsedInput);
     return output!;

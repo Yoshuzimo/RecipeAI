@@ -129,7 +129,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
         currentInventory: formatInventoryToString(inventory),
         expiringIngredients: "", // Removed expiring ingredients calculation
         personalDetails: JSON.stringify(personalDetails),
-        todaysMacros: aggregatedMacros,
+        todaysMacros: JSON.stringify(aggregatedMacros),
     };
 
     const result = await generateMealSuggestions(promptInput);
@@ -177,7 +177,7 @@ export async function handleGenerateSubstitutions(
         const userId = await getCurrentUserId();
         const personalDetails = await getPersonalDetails(userId);
         const result = await generateSubstitutions({
-            recipe,
+            recipe: JSON.stringify(recipe),
             ingredientsToReplace,
             inventory: JSON.stringify(inventory),
             allowExternalSuggestions,
@@ -206,13 +206,13 @@ export async function handleLogCookedMeal(
         const storageLocations = await getStorageLocations(userId);
 
         const result = await logCookedMealFlow({
-            recipe,
+            recipe: JSON.stringify(recipe),
             inventory: JSON.stringify(inventory),
             servingsEaten,
             servingsEatenByOthers,
-            fridgeLeftovers,
-            freezerLeftovers,
-            storageLocations,
+            fridgeLeftovers: JSON.stringify(fridgeLeftovers),
+            freezerLeftovers: JSON.stringify(freezerLeftovers),
+            storageLocations: JSON.stringify(storageLocations),
         });
 
         // The firestore SDK is not available in the serverless environment

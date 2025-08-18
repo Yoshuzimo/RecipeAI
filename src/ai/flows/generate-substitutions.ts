@@ -19,7 +19,7 @@ export const SubstitutionSuggestionSchema = z.object({
 });
 
 export const GenerateSubstitutionsInputSchema = z.object({
-  recipe: z.custom<Recipe>().describe("The full recipe object."),
+  recipe: z.string().describe("The JSON string of the full recipe object."),
   ingredientsToReplace: z.array(z.string()).describe("A list of the specific ingredient strings the user wants to replace."),
   inventory: z.string().describe("The user's current inventory as a JSON string."),
   allowExternalSuggestions: z.boolean().describe("Whether to allow suggestions for items not currently in the user's inventory."),
@@ -37,7 +37,7 @@ export type GenerateSubstitutionsOutput = z.infer<typeof GenerateSubstitutionsOu
 
 const generateSubstitutionsPrompt = ai.definePrompt({
     name: 'generateSubstitutionsPrompt',
-    input: { schema: GenerateSubstitutionsInputSchema },
+    input: { schema: z.any() },
     output: { schema: GenerateSubstitutionsOutputSchema },
     prompt: `
         You are an expert recipe improviser. A user wants to make a recipe but needs to substitute some ingredients.
@@ -78,6 +78,7 @@ export const generateSubstitutionsFlow = ai.defineFlow(
   async (input) => {
     const parsedInput = {
       ...input,
+      recipe: JSON.parse(input.recipe) as Recipe,
       inventory: JSON.parse(input.inventory) as InventoryItem[],
       personalDetails: JSON.parse(input.personalDetails) as PersonalDetails,
     };
