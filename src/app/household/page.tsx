@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "./actions";
+import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import type { Household, HouseholdMember } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
@@ -27,6 +27,60 @@ import {
 // This is a placeholder, in a real app this would come from a server call
 // along with the user's own data to determine if they are in a household.
 const MOCK_CURRENT_HOUSEHOLD: Household | null = null;
+
+
+// Moved outside the main component to prevent re-creation on render
+const NoHouseholdView = ({
+    onCreateHousehold,
+    onJoinHousehold,
+    isCreating,
+    isJoining,
+    joinCode,
+    setJoinCode
+}: {
+    onCreateHousehold: () => void;
+    onJoinHousehold: (e: React.FormEvent) => void;
+    isCreating: boolean;
+    isJoining: boolean;
+    joinCode: string;
+    setJoinCode: (code: string) => void;
+}) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <Card>
+            <CardHeader>
+                <CardTitle>Create a Household</CardTitle>
+                <CardDescription>Start a new household and invite your family or roommates to join.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={onCreateHousehold} disabled={isCreating} className="w-full">
+                    {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Household
+                </Button>
+            </CardContent>
+        </Card>
+            <Card>
+            <CardHeader>
+                <CardTitle>Join a Household</CardTitle>
+                <CardDescription>Enter an invite code from an existing household to join it.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={onJoinHousehold} className="flex items-center gap-2">
+                    <Input 
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(e.target.value)}
+                        placeholder="Enter 4-digit code"
+                        maxLength={4}
+                        className="uppercase tracking-widest font-mono"
+                    />
+                    <Button type="submit" disabled={isJoining || joinCode.length < 4}>
+                        {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Join
+                    </Button>
+                </form>
+            </CardContent>
+        </Card>
+    </div>
+);
 
 
 export default function HouseholdPage() {
@@ -75,7 +129,7 @@ export default function HouseholdPage() {
                 title: "Request Sent!",
                 description: `Your request to join household ${joinCode.toUpperCase()} has been sent for approval.`,
             });
-             setJoinCode("");
+                setJoinCode("");
         } else {
             toast({
                 variant: "destructive",
@@ -98,7 +152,7 @@ export default function HouseholdPage() {
             });
             setCurrentHousehold(null);
         } else {
-             toast({
+                toast({
                 variant: "destructive",
                 title: "Failed to Leave",
                 description: result.error,
@@ -132,7 +186,7 @@ export default function HouseholdPage() {
         if (!currentHousehold) return;
         setIsProcessingRequest(memberId);
         const result = await handleRejectMember(currentHousehold.id, memberId);
-         if (result.success && result.household) {
+            if (result.success && result.household) {
             setCurrentHousehold(result.household);
             toast({ title: "Member Rejected" });
         } else {
@@ -141,62 +195,24 @@ export default function HouseholdPage() {
         setIsProcessingRequest(null);
     }
     
-    const NoHouseholdView = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Create a Household</CardTitle>
-                    <CardDescription>Start a new household and invite your family or roommates to join.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button onClick={onCreateHousehold} disabled={isCreating} className="w-full">
-                        {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Household
-                    </Button>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Join a Household</CardTitle>
-                    <CardDescription>Enter an invite code from an existing household to join it.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <form onSubmit={onJoinHousehold} className="flex items-center gap-2">
-                        <Input 
-                            value={joinCode}
-                            onChange={(e) => setJoinCode(e.target.value)}
-                            placeholder="Enter 4-digit code"
-                            maxLength={4}
-                            className="uppercase tracking-widest font-mono"
-                        />
-                        <Button type="submit" disabled={isJoining || joinCode.length < 4}>
-                            {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Join
-                        </Button>
-                   </form>
-                </CardContent>
-            </Card>
-        </div>
-    );
-    
     const InHouseholdView = () => (
-         <Card>
-          <CardHeader>
+            <Card>
+            <CardHeader>
             <CardTitle>Your Household</CardTitle>
             <CardDescription>
-              Manage your shared inventory, meals, and recipes with family.
+                Manage your shared inventory, meals, and recipes with family.
             </CardDescription>
-             <div className="flex items-center space-x-2 pt-4">
-                 <Label htmlFor="invite-code" className="text-sm font-medium">Invite Code:</Label>
-                 <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1">
+                <div className="flex items-center space-x-2 pt-4">
+                    <Label htmlFor="invite-code" className="text-sm font-medium">Invite Code:</Label>
+                    <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1">
                     <span id="invite-code" className="text-lg font-mono font-bold tracking-widest">{currentHousehold?.inviteCode}</span>
                     <Button variant="ghost" size="icon" onClick={copyInviteCode}>
                         <Copy className="h-4 w-4" />
                     </Button>
-                 </div>
+                    </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            </CardHeader>
+            <CardContent className="space-y-6">
             {isOwner && currentHousehold && currentHousehold.pendingMembers.length > 0 && (
                 <>
                 <Separator />
@@ -215,8 +231,8 @@ export default function HouseholdPage() {
                                 <Button size="icon" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
                                     {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="h-4 w-4" />}
                                 </Button>
-                                 <Button size="icon" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onReject(member.userId)} disabled={!!isProcessingRequest}>
-                                     {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="h-4 w-4" />}
+                                    <Button size="icon" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onReject(member.userId)} disabled={!!isProcessingRequest}>
+                                        {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="h-4 w-4" />}
                                 </Button>
                             </div>
                         </div>
@@ -227,7 +243,7 @@ export default function HouseholdPage() {
 
             <Separator />
             <h3 className="text-lg font-semibold">Active Members</h3>
-             <div className="grid gap-4">
+                <div className="grid gap-4">
                 {currentHousehold?.activeMembers.map(member => (
                     <div key={member.userId} className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -243,13 +259,13 @@ export default function HouseholdPage() {
                         </div>
                     </div>
                 ))}
-             </div>
+                </div>
             <Separator />
             <Button variant="destructive" onClick={() => setIsLeaveAlertOpen(true)}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Leave Household
             </Button>
-          </CardContent>
+            </CardContent>
         </Card>
     );
 
@@ -288,12 +304,12 @@ export default function HouseholdPage() {
                 );
             } else {
                 // Owner leaving as the last member
-                 return (
+                    return (
                     <>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                           You are the last member. Leaving will dissolve the household. This action cannot be undone.
+                            You are the last member. Leaving will dissolve the household. This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -307,7 +323,7 @@ export default function HouseholdPage() {
             }
         } else {
             // Non-owner leaving
-             return (
+                return (
                 <>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -327,26 +343,33 @@ export default function HouseholdPage() {
     }
 
 
-  return (
+    return (
     <MainLayout>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between">
-          <div>
+            <div>
             <h1 className="text-3xl font-bold tracking-tight">Household</h1>
             <p className="text-muted-foreground">
-              {currentHousehold ? "Manage your shared household" : "Join or create a household to get started."}
+                {currentHousehold ? "Manage your shared household" : "Join or create a household to get started."}
             </p>
-          </div>
+            </div>
         </div>
 
-        {currentHousehold ? <InHouseholdView /> : <NoHouseholdView />}
+        {currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
+            onCreateHousehold={onCreateHousehold}
+            onJoinHousehold={onJoinHousehold}
+            isCreating={isCreating}
+            isJoining={isJoining}
+            joinCode={joinCode}
+            setJoinCode={setJoinCode}
+        />}
 
-      </div>
-      <AlertDialog open={isLeaveAlertOpen} onOpenChange={setIsLeaveAlertOpen}>
-          <AlertDialogContent>
-              <LeaveHouseholdDialogContent />
-          </AlertDialogContent>
-      </AlertDialog>
+        </div>
+        <AlertDialog open={isLeaveAlertOpen} onOpenChange={setIsLeaveAlertOpen}>
+            <AlertDialogContent>
+                <LeaveHouseholdDialogContent />
+            </AlertDialogContent>
+        </AlertDialog>
     </MainLayout>
-  );
+    );
 }
