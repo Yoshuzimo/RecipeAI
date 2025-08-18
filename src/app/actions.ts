@@ -235,6 +235,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
       unitSystem,
       personalDetails: personalDetailsString,
       todaysMacros: mockTodaysMacros,
+      specializedEquipment: personalDetails.specializedEquipment,
     };
   
   log += "Prompt compiled.\n\n" + JSON.stringify(promptInput, null, 2);

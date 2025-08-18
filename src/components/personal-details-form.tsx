@@ -50,6 +50,9 @@ const formSchema = z.object({
     medications: z.string().max(500, {
     message: "Medications cannot exceed 500 characters.",
     }).optional(),
+    specializedEquipment: z.string().max(500, {
+        message: "Equipment list cannot exceed 500 characters.",
+    }).optional(),
 });
 
 export function PersonalDetailsForm() {
@@ -62,8 +65,9 @@ export function PersonalDetailsForm() {
       allergies: "",
       favoriteFoods: "",
       dislikedFoods: "",
-        healthConditions: "",
-        medications: "",
+      healthConditions: "",
+      medications: "",
+      specializedEquipment: "",
     },
   });
 
@@ -244,6 +248,33 @@ export function PersonalDetailsForm() {
                         />
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Kitchen Equipment</CardTitle>
+                    <CardDescription>Let us know about any special cooking supplies you have.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <FormField
+                        control={form.control}
+                        name="specializedEquipment"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Special Cooking Supplies</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                placeholder="e.g., Air Fryer, Slow Cooker, Instant Pot, Rice Cooker"
+                                className="resize-none"
+                                {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </CardContent>
+            </Card>
+
 
             <div className="flex justify-end">
                 <Button type="submit">Save All Changes</Button>

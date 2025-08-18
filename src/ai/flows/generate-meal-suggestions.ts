@@ -42,6 +42,7 @@ const GenerateMealSuggestionsInputSchema = z.object({
     servings: z.number(),
   }).optional().describe("An existing recipe to adjust for a new serving size."),
   newServingSize: z.number().optional().describe("The new number of servings to adjust the recipe for."),
+  specializedEquipment: z.string().optional().describe("A list of specialized cooking equipment the user has (e.g., Air Fryer, Slow Cooker)."),
 });
 export type GenerateMealSuggestionsInput = z.infer<
   typeof GenerateMealSuggestionsInputSchema
@@ -116,10 +117,12 @@ Your task is to generate 3-5 complete meal or snack recipes based on the user's 
 3.  **Consider Daily Intake:** Account for the macros the user has already consumed today to suggest nutritionally balanced options.
 4.  **Format Correctly:** Provide all quantities and measurements in the user's preferred unit system: {{{unitSystem}}}.
 5.  **Provide Serving Info**: For each recipe, provide the number of servings it makes and estimate the macronutrients *per serving*.
+6.  **Use Specialized Equipment**: If the user has provided a list of specialized equipment, prioritize suggesting recipes that can be made using those tools.
 
 **User's Context:**
 *   **Inventory:** {{{currentInventory}}}
 *   **Expiring Soon:** {{{expiringIngredients}}}
+*   **Specialized Equipment:** {{{specializedEquipment}}}
 *   **Personal Details (Sensitive - Use for Health-Aware Suggestions):** {{{personalDetails}}}
 *   **Optional Cravings:** {{{cravingsOrMood}}}
 *   **Macros Consumed Today:** Protein: {{{todaysMacros.protein}}}g, Carbs: {{{todaysMacros.carbs}}}g, Fat: {{{todaysMacros.fat}}}g
