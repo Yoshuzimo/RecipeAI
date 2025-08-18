@@ -10,31 +10,26 @@ const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
 ];
 
 export const seedInitialData = async (userId: string) => {
-    console.log(`DATA: Seeding initial data for new user: ${userId}`);
     const batch = adminDb.batch();
     const userRef = adminDb.collection('users').doc(userId);
 
     // Check if user document already exists to prevent re-seeding
     const userDoc = await userRef.get();
     if (userDoc.exists) {
-        console.log("DATA: User document already exists. Skipping seed.");
         return;
     }
     
-    console.log(`DATA: Creating user document placeholder for ${userId}.`);
     // Create a placeholder user document
     batch.set(userRef, { createdAt: new Date() });
 
 
     // Seed Storage Locations
-    console.log(`DATA: Seeding storage locations.`);
     MOCK_STORAGE_LOCATIONS.forEach(loc => {
         const docRef = userRef.collection("storage-locations").doc();
         batch.set(docRef, loc);
     });
     
     // Seed default settings and personal details
-    console.log(`DATA: Seeding default settings and personal details.`);
     const settingsRef = userRef.collection("app-data").doc("settings");
     batch.set(settingsRef, {
         unitSystem: 'us',
@@ -55,9 +50,7 @@ export const seedInitialData = async (userId: string) => {
     });
 
     try {
-        console.log(`DATA: Committing batch for user ${userId}.`);
         await batch.commit();
-        console.log(`DATA: Initial data seeded successfully for user ${userId}.`);
     } catch (error) {
         console.error(`DATA: Error seeding initial data for user ${userId}:`, error);
         throw error; // Re-throw the error after logging
@@ -261,5 +254,3 @@ export async function saveRecipe(userId: string, recipe: Recipe): Promise<Recipe
     await docRef.set(recipeForDb, { merge: true });
     return recipe;
 }
-
-    

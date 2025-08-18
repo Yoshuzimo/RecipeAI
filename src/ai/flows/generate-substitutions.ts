@@ -37,9 +37,14 @@ export type GenerateSubstitutionsInput = z.infer<
   typeof GenerateSubstitutionsInputSchema
 >;
 
+const SubstitutionSchema = z.object({
+    name: z.string().describe("The suggested replacement ingredient with quantity (e.g., '1 cup almond flour')."),
+    note: z.string().describe("A brief note explaining why this is a good substitution in the context of this recipe (e.g., 'Adds a nutty flavor and is gluten-free')."),
+});
+
 const SubstitutionSuggestionSchema = z.object({
   originalIngredient: z.string().describe("The original ingredient that was to be replaced."),
-  suggestedSubstitutions: z.array(z.string()).describe("A list of 1-3 suggested replacement ingredients with quantities."),
+  suggestedSubstitutions: z.array(SubstitutionSchema).describe("A list of 1-3 suggested replacement ingredients, each with a name and a note."),
 });
 
 const GenerateSubstitutionsOutputSchema = z.object({
@@ -63,27 +68,23 @@ const prompt = ai.definePrompt({
   prompt: `You are a culinary expert specializing in recipe adaptations. A user wants to make a recipe but needs to substitute some ingredients.
 
 **Your Task:**
-For each ingredient in the 'ingredientsToReplace' list, provide 1-3 suitable substitution suggestions. Consider the following:
-1.  **Flavor Profile:** The substitution should complement the other ingredients in the recipe.
-2.  **Function:** The substitution should serve a similar purpose (e.g., a fat for a fat, a leavening agent for a leavening agent).
-3.  **Health & Preferences:** The suggestions must align with the user's 'personalDetails' (dietary restrictions, allergies, etc.).
-4.  **Recipe Context:** The substitution must make sense within the context of the full 'recipe'.
-5.  **Quantities:** Provide appropriate quantities for each suggestion in the user's preferred 'unitSystem'.
-6.  **Inventory Constraint:**
+For each ingredient in the 'ingredientsToReplace' list, provide 1-3 suitable substitution suggestions. For each suggestion, provide the new ingredient and quantity, and a brief 'note' explaining why it's a good choice for this specific recipe.
+
+**Considerations:**
+1.  **Flavor Profile & Function:** The substitution should complement the other ingredients and serve a similar purpose (e.g., a fat for a fat).
+2.  **Health & Preferences:** The suggestions must align with the user's 'personalDetails' (dietary restrictions, allergies, etc.).
+3.  **Quantities:** Provide appropriate quantities for each suggestion in the user's preferred 'unitSystem'.
+4.  **Inventory Constraint:**
 {{#if allowExternalSuggestions}}
 You should STRONGLY PRIORITIZE suggesting substitutions from the user's 'currentInventory'. You may suggest items not in their inventory only if no suitable substitution exists.
 {{else}}
 You **MUST** only suggest substitutions using items from the user's 'currentInventory'. Do not suggest any ingredient the user does not currently have. If no suitable substitution is available in their inventory, you should return an empty list of suggestedSubstitutions for that ingredient.
 {{/if}}
 
-**Recipe:**
+**Recipe Context:**
 Title: {{{recipe.title}}}
 Ingredients:
 {{#each recipe.ingredients}}
-- {{{this}}}
-{{/each}}
-Instructions:
-{{#each recipe.instructions}}
 - {{{this}}}
 {{/each}}
 
@@ -108,3 +109,4 @@ const generateSubstitutionsFlow = ai.defineFlow(
     return output!;
   }
 );
+

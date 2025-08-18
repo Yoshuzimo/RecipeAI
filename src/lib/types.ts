@@ -85,9 +85,14 @@ export type Recipe = {
     macros: Macros;
 };
 
+export type AISuggestion = {
+    name: string;
+    note: string;
+}
+
 export type Substitution = {
     originalIngredient: string;
-    suggestedSubstitutions: string[];
+    suggestedSubstitutions: AISuggestion[];
 };
 
 export type LoggedDish = {

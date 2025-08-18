@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
-import { handleGenerateSuggestions, handleSaveRecipe } from "@/app/actions";
-import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
+import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails } from "@/app/actions";
+import type { InventoryItem, Recipe, InventoryItemGroup, Substitution } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -183,11 +183,33 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       // Don't reset ingredientToCheck here, we need it for the inventory dialog logic
   }
 
-  const handleSubstitutionsApplied = (updatedRecipe: Recipe) => {
-      setSuggestions(prev => 
-        prev?.map(s => s.title === updatedRecipe.title ? updatedRecipe : s) || null
-      );
-      setRecipeForSubstitutions(null);
+  const handleSubstitutionsApplied = async (originalRecipeTitle: string, newIngredients: string[]) => {
+      const originalRecipe = suggestions?.find(s => s.title === originalRecipeTitle);
+      if (!originalRecipe) return;
+
+      const newRecipeData = {
+          title: originalRecipe.title,
+          description: originalRecipe.description,
+          ingredients: newIngredients,
+          instructions: originalRecipe.instructions,
+      };
+
+      startTransition(async () => {
+        const result = await handleGenerateRecipeDetails(newRecipeData);
+        if (result.recipe) {
+            setSuggestions(prev => prev?.map(s => s.title === originalRecipeTitle ? result.recipe! : s) || null);
+            toast({
+                title: "Recipe Updated!",
+                description: "Substitutions applied and nutrition info recalculated."
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: result.error
+            });
+        }
+      });
   }
 
   const handleInventoryUpdateAndCheckSubstitutions = async () => {
@@ -289,7 +311,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       </Card>
 
       <div className="space-y-4">
-        {isPending ? (
+        {isPending && !suggestions ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
                <Card key={i}>
@@ -406,7 +428,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                                 <div className="flex gap-2">
                                     <Button onClick={() => handleOpenSubstitutions(recipe)} variant="outline">
                                         <Edit className="mr-2 h-4 w-4" />
-                                        Edit Recipe
+                                        Find Substitutions
                                     </Button>
                                     <Button onClick={() => handleCookItClick(recipe)}>
                                         <ChefHat className="mr-2 h-4 w-4" />
@@ -494,3 +516,4 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     </>
   );
 }
+

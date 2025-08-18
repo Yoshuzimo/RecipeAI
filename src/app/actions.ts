@@ -10,11 +10,10 @@ import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryIte
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { getAuth } from 'firebase-admin/auth';
 import { cookies } from "next/headers";
 import { initFirebaseAdmin } from "@/lib/firebase-admin";
 
-// Initialize Firebase Admin SDK for server-side actions
 initFirebaseAdmin();
 
 
@@ -24,9 +23,10 @@ export async function getCurrentUserId(): Promise<string> {
         throw new Error("Authentication required. Please log in.");
     }
     try {
-        const decodedToken = await getAdminAuth().verifySessionCookie(sessionCookie, true);
+        const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
+        console.error("Error verifying session cookie in getCurrentUserId:", error);
         throw new Error("Your session has expired. Please log in again.");
     }
 }
