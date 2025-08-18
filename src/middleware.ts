@@ -1,15 +1,11 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { initFirebaseAdmin } from './lib/firebase-admin';
 
 // This is a Next.js specific instruction to run this middleware in the Node.js environment,
 // which is required for the Firebase Admin SDK to work.
 export const runtime = 'nodejs';
 
-// Initialize Firebase Admin SDK
-initFirebaseAdmin();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -34,6 +30,9 @@ export async function middleware(request: NextRequest) {
 
   // Verify the session cookie for protected paths.
   try {
+    const { getAuth } = await import('firebase-admin/auth');
+    const { initFirebaseAdmin } = await import('./lib/firebase-admin');
+    initFirebaseAdmin();
     await getAuth().verifySessionCookie(sessionCookie, true);
     console.log(`MIDDLEWARE: Session cookie verified successfully for path '${pathname}'.`);
     return NextResponse.next();
@@ -61,3 +60,5 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
+
+    

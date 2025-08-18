@@ -5,15 +5,15 @@ import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryIte
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit, MoveRequest, SpoilageRequest, StorageLocation, Settings, PersonalDetails, Macros, MarkPrivateRequest } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { getAuth } from 'firebase-admin/auth';
 import { cookies } from "next/headers";
-import { initFirebaseAdmin } from "@/lib/firebase-admin";
-
-
-initFirebaseAdmin();
 
 
 export async function getCurrentUserId(): Promise<string> {
+    // Dynamically import and initialize admin SDK to prevent bundling in client-side code.
+    const { getAuth } = await import('firebase-admin/auth');
+    const { initFirebaseAdmin } = await import('@/lib/firebase-admin');
+    initFirebaseAdmin();
+
     const sessionCookie = cookies().get('__session')?.value;
     if (!sessionCookie) {
         throw new Error("Authentication required. Please log in.");
@@ -461,5 +461,7 @@ export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
     return dataSaveSettings(userId, settings);
 }
+
+    
 
     

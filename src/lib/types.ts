@@ -138,15 +138,16 @@ export type SpoilageRequest = {
 
 // Represents a household member for UI purposes
 export type HouseholdMember = {
-  id: string;
-  name: string;
-  isCurrentUser: boolean;
+  userId: string;
+  userName: string;
 };
 
 export type Household = {
     id: string;
     inviteCode: string;
-    members: string[]; // array of user IDs
+    ownerId: string;
+    activeMembers: HouseholdMember[]; 
+    pendingMembers: HouseholdMember[];
 };
 
 

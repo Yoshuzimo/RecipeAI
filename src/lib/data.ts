@@ -1,7 +1,7 @@
 
 import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
 import { adminDb } from './firebase-admin';
-import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup, runTransaction } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -69,7 +69,7 @@ export const seedInitialData = async (userId: string) => {
 
 // --- Household Functions ---
 
-export async function createHousehold(userId: string, inviteCode: string): Promise<Household> {
+export async function createHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
     return runTransaction(adminDb, async (transaction) => {
         const householdRef = adminDb.collection('households').doc();
         const userRef = adminDb.collection('users').doc(userId);
@@ -77,7 +77,9 @@ export async function createHousehold(userId: string, inviteCode: string): Promi
         const newHousehold: Household = {
             id: householdRef.id,
             inviteCode,
-            members: [userId],
+            ownerId: userId,
+            activeMembers: [{ userId, userName }],
+            pendingMembers: [],
         };
 
         transaction.set(householdRef, newHousehold);
@@ -87,7 +89,7 @@ export async function createHousehold(userId: string, inviteCode: string): Promi
     });
 }
 
-export async function joinHousehold(userId: string, inviteCode: string): Promise<Household> {
+export async function joinHousehold(userId: string, userName: string, inviteCode: string): Promise<Household> {
     return runTransaction(adminDb, async (transaction) => {
         const q = query(adminDb.collection('households'), where('inviteCode', '==', inviteCode), limit(1));
         const snapshot = await q.get();
@@ -98,15 +100,17 @@ export async function joinHousehold(userId: string, inviteCode: string): Promise
 
         const householdDoc = snapshot.docs[0];
         const householdRef = householdDoc.ref;
-        const userRef = adminDb.collection('users').doc(userId);
-
         const householdData = householdDoc.data() as Household;
-        const updatedMembers = [...householdData.members, userId];
 
-        transaction.update(householdRef, { members: updatedMembers });
-        transaction.update(userRef, { householdId: householdRef.id });
+        // Check if user is already an active or pending member
+        if (householdData.activeMembers.some(m => m.userId === userId) || householdData.pendingMembers.some(m => m.userId === userId)) {
+            throw new Error("You are already a member or have a pending request for this household.");
+        }
 
-        return { ...householdData, members: updatedMembers };
+        const newPendingMember = { userId, userName };
+        transaction.update(householdRef, { pendingMembers: arrayUnion(newPendingMember) });
+        
+        return { ...householdData, pendingMembers: [...householdData.pendingMembers, newPendingMember] };
     });
 }
 
@@ -132,10 +136,69 @@ export async function leaveHousehold(userId: string): Promise<void> {
         }
 
         const householdData = householdDoc.data() as Household;
-        const updatedMembers = householdData.members.filter(id => id !== userId);
+        const memberToRemove = householdData.activeMembers.find(m => m.userId === userId);
+
+        if (memberToRemove) {
+            transaction.update(householdRef, { activeMembers: arrayRemove(memberToRemove) });
+        }
         
-        transaction.update(householdRef, { members: updatedMembers });
         transaction.update(userRef, { householdId: null });
+    });
+}
+
+export async function approvePendingMember(currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+    return runTransaction(adminDb, async (transaction) => {
+        const householdRef = adminDb.collection('households').doc(householdId);
+        const memberUserRef = adminDb.collection('users').doc(memberIdToApprove);
+        const householdDoc = await transaction.get(householdRef);
+
+        if (!householdDoc.exists) throw new Error("Household not found.");
+        
+        const householdData = householdDoc.data() as Household;
+        if (householdData.ownerId !== currentUserId) {
+            throw new Error("Only the household owner can approve new members.");
+        }
+
+        const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
+        if (!pendingMember) throw new Error("This user is not pending approval.");
+
+        transaction.update(householdRef, {
+            pendingMembers: arrayRemove(pendingMember),
+            activeMembers: arrayUnion(pendingMember)
+        });
+        transaction.update(memberUserRef, { householdId: householdId });
+
+        return {
+            ...householdData,
+            pendingMembers: householdData.pendingMembers.filter(m => m.userId !== memberIdToApprove),
+            activeMembers: [...householdData.activeMembers, pendingMember],
+        };
+    });
+}
+
+export async function rejectPendingMember(currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
+     return runTransaction(adminDb, async (transaction) => {
+        const householdRef = adminDb.collection('households').doc(householdId);
+        const householdDoc = await transaction.get(householdRef);
+
+        if (!householdDoc.exists) throw new Error("Household not found.");
+        
+        const householdData = householdDoc.data() as Household;
+         if (householdData.ownerId !== currentUserId) {
+            throw new Error("Only the household owner can reject requests.");
+        }
+
+        const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToReject);
+        if (!pendingMember) throw new Error("This user is not pending approval.");
+
+        transaction.update(householdRef, {
+            pendingMembers: arrayRemove(pendingMember),
+        });
+
+        return {
+            ...householdData,
+            pendingMembers: householdData.pendingMembers.filter(m => m.userId !== memberIdToReject),
+        };
     });
 }
 

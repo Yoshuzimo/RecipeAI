@@ -6,32 +6,33 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserPlus, LogOut, Users, Copy } from "lucide-react";
+import { UserPlus, LogOut, Users, Copy, Check, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold } from "./actions";
+import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "./actions";
 import { Separator } from "@/components/ui/separator";
-import type { Household } from "@/lib/types";
+import type { Household, HouseholdMember } from "@/lib/types";
+import { useAuth } from "@/components/auth-provider";
 
 // This is a placeholder, in a real app this would come from a server call
 // along with the user's own data to determine if they are in a household.
 const MOCK_CURRENT_HOUSEHOLD: Household | null = null;
-const MOCK_MEMBERS = [
-    { id: "1", name: "Alex (You)", avatarUrl: "https://placehold.co/100x100.png" },
-    { id: "2", name: "Beth", avatarUrl: "https://placehold.co/100x100.png" },
-]
 
 
 export default function HouseholdPage() {
+    const { user } = useAuth();
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
+    const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(MOCK_CURRENT_HOUSEHOLD);
     const { toast } = useToast();
+    
+    const isOwner = user?.uid === currentHousehold?.ownerId;
 
     const onCreateHousehold = async () => {
         setIsCreating(true);
@@ -59,12 +60,12 @@ export default function HouseholdPage() {
         const result = await handleJoinHousehold(joinCode.toUpperCase());
         setIsJoining(false);
 
-        if (result.success && result.household) {
+        if (result.success) {
             toast({
-                title: "Joined Household!",
-                description: `You are now a member of ${result.household.inviteCode}.`,
+                title: "Request Sent!",
+                description: `Your request to join household ${joinCode.toUpperCase()} has been sent for approval.`,
             });
-             setCurrentHousehold(result.household);
+             setJoinCode("");
         } else {
             toast({
                 variant: "destructive",
@@ -97,6 +98,32 @@ export default function HouseholdPage() {
             toast({ title: "Copied!", description: "Invite code copied to clipboard." });
         }
     }
+
+    const onApprove = async (memberId: string) => {
+        if (!currentHousehold) return;
+        setIsProcessingRequest(memberId);
+        const result = await handleApproveMember(currentHousehold.id, memberId);
+        if (result.success && result.household) {
+            setCurrentHousehold(result.household);
+            toast({ title: "Member Approved!" });
+        } else {
+            toast({ variant: "destructive", title: "Approval Failed", description: result.error });
+        }
+        setIsProcessingRequest(null);
+    }
+
+    const onReject = async (memberId: string) => {
+        if (!currentHousehold) return;
+        setIsProcessingRequest(memberId);
+        const result = await handleRejectMember(currentHousehold.id, memberId);
+         if (result.success && result.household) {
+            setCurrentHousehold(result.household);
+            toast({ title: "Member Rejected" });
+        } else {
+            toast({ variant: "destructive", title: "Rejection Failed", description: result.error });
+        }
+        setIsProcessingRequest(null);
+    }
     
     const NoHouseholdView = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -122,11 +149,11 @@ export default function HouseholdPage() {
                         <Input 
                             value={joinCode}
                             onChange={(e) => setJoinCode(e.target.value)}
-                            placeholder="Enter 6-digit code"
-                            maxLength={6}
-                            className="uppercase"
+                            placeholder="Enter 4-digit code"
+                            maxLength={4}
+                            className="uppercase tracking-widest font-mono"
                         />
-                        <Button type="submit" disabled={isJoining || joinCode.length < 6}>
+                        <Button type="submit" disabled={isJoining || joinCode.length < 4}>
                             {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Join
                         </Button>
@@ -154,17 +181,49 @@ export default function HouseholdPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {isOwner && currentHousehold && currentHousehold.pendingMembers.length > 0 && (
+                <>
+                <Separator />
+                <h3 className="text-lg font-semibold">Pending Requests</h3>
+                <div className="grid gap-4">
+                    {currentHousehold.pendingMembers.map(member => (
+                        <div key={member.userId} className="flex items-center justify-between p-2 rounded-md border">
+                            <div className="flex items-center gap-4">
+                                <Avatar>
+                                    <AvatarImage src={`https://placehold.co/100x100.png`} alt={member.userName} data-ai-hint="person" />
+                                    <AvatarFallback>{member.userName.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <p className="font-medium">{member.userName}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button size="icon" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
+                                    {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="h-4 w-4" />}
+                                </Button>
+                                 <Button size="icon" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onReject(member.userId)} disabled={!!isProcessingRequest}>
+                                     {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                </>
+            )}
+
             <Separator />
-            <h3 className="text-lg font-semibold">Members</h3>
+            <h3 className="text-lg font-semibold">Active Members</h3>
              <div className="grid gap-4">
-                {MOCK_MEMBERS.map(member => (
-                    <div key={member.id} className="flex items-center justify-between">
+                {currentHousehold?.activeMembers.map(member => (
+                    <div key={member.userId} className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Avatar>
-                                <AvatarImage src={member.avatarUrl} alt={member.name} data-ai-hint="person" />
-                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={`https://placehold.co/100x100.png`} alt={member.userName} data-ai-hint="person" />
+                                <AvatarFallback>{member.userName.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <p className="font-medium">{member.name}</p>
+                            <p className="font-medium">
+                                {member.userName}
+                                {member.userId === user?.uid && <span className="text-muted-foreground text-sm ml-2">(You)</span>}
+                                {member.userId === currentHousehold.ownerId && <span className="text-muted-foreground text-sm ml-2">(Owner)</span>}
+                            </p>
                         </div>
                     </div>
                 ))}

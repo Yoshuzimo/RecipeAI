@@ -4,9 +4,8 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-initFirebaseAdmin();
-
 export async function POST(request: NextRequest) {
+  initFirebaseAdmin();
   const { idToken } = await request.json();
 
   if (!idToken) {
@@ -46,3 +45,5 @@ export async function DELETE(request: NextRequest) {
   });
   return response;
 }
+
+    
