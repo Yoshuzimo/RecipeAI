@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -16,7 +15,6 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
-import { v4 as uuidv4 } from 'uuid';
 import { BuyItemsDialog } from "./buy-items-dialog";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 
@@ -104,7 +102,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const onAddItem: SubmitHandler<AddItemForm> = (data) => {
     if (data.item.trim() === "") return;
-    const newItem = { id: `manual-${uuidv4()}`, item: data.item, quantity: "1", checked: false };
+    const newItem = { id: `manual-${crypto.randomUUID()}`, item: data.item, quantity: "1", checked: false };
     const newList = [...myShoppingList, newItem];
     setMyShoppingList(newList);
     localStorage.setItem('myShoppingList', JSON.stringify(newList));
@@ -134,7 +132,7 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
 
   const handleConfirmAdd = () => {
     if (itemToAdd) {
-        const newItem = { ...itemToAdd, id: `sugg-${uuidv4()}`, checked: false };
+        const newItem = { ...itemToAdd, id: `sugg-${crypto.randomUUID()}`, checked: false };
         const newList = [...myShoppingList, newItem];
         setMyShoppingList(newList);
         localStorage.setItem('myShoppingList', JSON.stringify(newList));
