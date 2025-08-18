@@ -1,7 +1,7 @@
 
-import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe } from "./types";
+import { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
 import { adminDb } from './firebase-admin';
-import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, limit, collectionGroup, runTransaction } from 'firebase/firestore';
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -21,8 +21,8 @@ export const seedInitialData = async (userId: string) => {
         return;
     }
     
-    // Create a placeholder user document
-    batch.set(userRef, { createdAt: new Date() });
+    // Create a placeholder user document with no householdId initially
+    batch.set(userRef, { createdAt: new Date(), householdId: null });
 
 
     // Seed Storage Locations
@@ -65,6 +65,80 @@ export const seedInitialData = async (userId: string) => {
         throw error; // Re-throw the error after logging
     }
 };
+
+
+// --- Household Functions ---
+
+export async function createHousehold(userId: string, inviteCode: string): Promise<Household> {
+    return runTransaction(adminDb, async (transaction) => {
+        const householdRef = adminDb.collection('households').doc();
+        const userRef = adminDb.collection('users').doc(userId);
+
+        const newHousehold: Household = {
+            id: householdRef.id,
+            inviteCode,
+            members: [userId],
+        };
+
+        transaction.set(householdRef, newHousehold);
+        transaction.update(userRef, { householdId: householdRef.id });
+
+        return newHousehold;
+    });
+}
+
+export async function joinHousehold(userId: string, inviteCode: string): Promise<Household> {
+    return runTransaction(adminDb, async (transaction) => {
+        const q = query(adminDb.collection('households'), where('inviteCode', '==', inviteCode), limit(1));
+        const snapshot = await q.get();
+
+        if (snapshot.empty) {
+            throw new Error("Invalid invite code. Please check the code and try again.");
+        }
+
+        const householdDoc = snapshot.docs[0];
+        const householdRef = householdDoc.ref;
+        const userRef = adminDb.collection('users').doc(userId);
+
+        const householdData = householdDoc.data() as Household;
+        const updatedMembers = [...householdData.members, userId];
+
+        transaction.update(householdRef, { members: updatedMembers });
+        transaction.update(userRef, { householdId: householdRef.id });
+
+        return { ...householdData, members: updatedMembers };
+    });
+}
+
+export async function leaveHousehold(userId: string): Promise<void> {
+    // This is a complex operation. For now, we'll just remove the user from the household.
+    // A full implementation would need to handle re-assigning ownership of private items.
+    return runTransaction(adminDb, async (transaction) => {
+        const userRef = adminDb.collection('users').doc(userId);
+        const userDoc = await transaction.get(userRef);
+        const householdId = userDoc.data()?.householdId;
+
+        if (!householdId) {
+            throw new Error("You are not currently in a household.");
+        }
+
+        const householdRef = adminDb.collection('households').doc(householdId);
+        const householdDoc = await transaction.get(householdRef);
+        
+        if (!householdDoc.exists) {
+            // Household doesn't exist, just clear the user's householdId
+            transaction.update(userRef, { householdId: null });
+            return;
+        }
+
+        const householdData = householdDoc.data() as Household;
+        const updatedMembers = householdData.members.filter(id => id !== userId);
+        
+        transaction.update(householdRef, { members: updatedMembers });
+        transaction.update(userRef, { householdId: null });
+    });
+}
+
 
 
 // --- Firestore Functions ---

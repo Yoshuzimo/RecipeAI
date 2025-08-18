@@ -143,6 +143,13 @@ export type HouseholdMember = {
   isCurrentUser: boolean;
 };
 
+export type Household = {
+    id: string;
+    inviteCode: string;
+    members: string[]; // array of user IDs
+};
+
+
 // Request to mark certain packages as private to a user
 export type MarkPrivateRequest = {
   ownerId: string;
