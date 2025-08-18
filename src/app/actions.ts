@@ -6,6 +6,7 @@ import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { generateShoppingList } from "@/ai/flows/generate-shopping-list";
 import { generateSubstitutions } from "@/ai/flows/generate-substitutions";
 import { logCookedMeal } from "@/ai/flows/log-cooked-meal";
+import { generateRecipeDetails } from "@/ai/flows/generate-recipe-details";
 import { getPersonalDetails, getUnitSystem, updateInventoryItem, addInventoryItem, removeInventoryItem, getInventory, logMacros, updateMealTime } from "@/lib/data";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, RecipeIngredient, InventoryPackageGroup, Unit } from "@/lib/types";
 import { addDays, parseISO } from "date-fns";
@@ -447,5 +448,24 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
     } catch(e) {
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         return { success: false, error };
+    }
+}
+
+
+export async function handleGenerateRecipeDetails(
+    recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">
+): Promise<{ recipe: Recipe | null, error: string | null}> {
+    try {
+        const result = await generateRecipeDetails(recipeData);
+        // The AI returns the full recipe, we just need to add the parsed ingredients client-side
+        const finalRecipe: Recipe = {
+            ...result.recipe,
+            parsedIngredients: parseIngredients(result.recipe.ingredients)
+        }
+        return { recipe: finalRecipe, error: null };
+    } catch (error) {
+        console.error("Error finalizing recipe details:", error);
+        const errorMessage = error instanceof Error ? error.message : "AI service failed to process the recipe.";
+        return { recipe: null, error: errorMessage };
     }
 }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert } from "lucide-react";
+import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
@@ -21,6 +21,7 @@ import { getInventory } from "@/lib/data";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
+import { CreateRecipeDialog } from "./create-recipe-dialog";
 
 
 const initialState = {
@@ -60,6 +61,8 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
 
   const [isLogMealDialogOpen, setIsLogMealDialogOpen] = useState(false);
   const [recipeToLog, setRecipeToLog] = useState<Recipe | null>(null);
+
+  const [isCreateRecipeDialogOpen, setIsCreateRecipeDialogOpen] = useState(false);
 
 
   const handleSubmit = (formData: FormData) => {
@@ -216,6 +219,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
         title: "Inventory Updated",
         description: "Your inventory has been updated with the new leftovers.",
     })
+  }
+
+  const handleRecipeCreated = (newRecipe: Recipe) => {
+    setSuggestions(prev => [newRecipe, ...(prev || [])]);
   }
 
 
@@ -403,6 +410,10 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             <p className="mt-1 text-sm text-muted-foreground">
               Enter your preferences above to get some delicious meal ideas!
             </p>
+            <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create a Meal
+            </Button>
           </div>
         )}
       </div>
@@ -459,6 +470,12 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             onMealLogged={handleMealLogged}
         />
       )}
+      <CreateRecipeDialog
+        isOpen={isCreateRecipeDialogOpen}
+        setIsOpen={setIsCreateRecipeDialogOpen}
+        inventory={inventory}
+        onRecipeCreated={handleRecipeCreated}
+      />
     </>
   );
 }
