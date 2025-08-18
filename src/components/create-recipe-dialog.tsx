@@ -182,7 +182,7 @@ export function CreateRecipeDialog({
                                                                     key={item.id}
                                                                     value={item.name}
                                                                     onSelect={(currentValue) => {
-                                                                        append({ value: `${item.totalQuantity.toFixed(1)}${item.unit} ${currentValue}`});
+                                                                        append({ value: currentValue });
                                                                         setNewIngredient("");
                                                                         setIngredientPopoverOpen(false);
                                                                     }}
