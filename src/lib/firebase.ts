@@ -31,8 +31,5 @@ if (process.env.NODE_ENV === 'development' && !isEmulatorConnected(db)) {
         console.warn("Could not connect to Firestore emulator. It might already be connected or is not running.");
     }
 }
-// Explicitly enable the network to signal the SDK to connect, especially important for server-side environments.
-enableNetwork(db);
-
 
 export { db };
