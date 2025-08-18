@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -24,29 +23,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const auth = getAuth(app);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
-      
-      // Handle session cookie logic
-      if (user) {
-        try {
-          const token = await user.getIdToken();
-          // Send token to your backend to create a session cookie
-          await fetch('/api/auth/session', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ idToken: token })
-          });
-        } catch (error) {
-            console.error('AuthProvider: Error getting ID token or creating session', error);
-        }
-      } else {
-        // Clear the session cookie on logout
-         await fetch('/api/auth/session', { method: 'DELETE' });
-      }
     });
 
     return () => unsubscribe();

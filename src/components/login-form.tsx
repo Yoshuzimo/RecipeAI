@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -22,12 +21,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { handleSignIn } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "./icons";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { app } from "@/lib/firebase";
+
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -36,6 +37,7 @@ const formSchema = z.object({
 
 export function LoginForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, setIsPending] = useState(false);
 
@@ -49,24 +51,40 @@ export function LoginForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsPending(true);
-    const result = await handleSignIn(values.email, values.password);
+    try {
+      const auth = getAuth(app);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      
+      const idToken = await userCredential.user.getIdToken(true);
 
-    if (result.success) {
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create session.");
+      }
+      
       toast({
         title: "Logged In",
         description: "Welcome back!",
       });
+
       const nextUrl = searchParams.get("next") || "/";
-       // Force a hard reload to ensure the session cookie is picked up by the middleware.
-      window.location.href = nextUrl;
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: result.error,
-      });
+      router.push(nextUrl);
+      
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: error.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setIsPending(false);
     }
-    setIsPending(false);
   };
 
   return (

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -22,12 +21,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { handleSignUp } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "./icons";
+import { handleSignUp } from "@/app/actions";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { app } from "@/lib/firebase";
+
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -51,22 +53,45 @@ export function SignupForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsPending(true);
-    const result = await handleSignUp(values.email, values.password, values.signUpCode);
+    try {
+        const result = await handleSignUp(values.email, values.password, values.signUpCode);
 
-    if (result.success) {
-      toast({
-        title: "Account Created",
-        description: "Welcome to CookSmart! You can now log in.",
-      });
-      router.push("/login");
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Sign-up Failed",
-        description: result.error,
-      });
+        if (!result.success) {
+            throw new Error(result.error || "Sign-up failed.");
+        }
+
+        // After successful sign-up, immediately sign the user in to create a session
+        const auth = getAuth(app);
+        const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+        const idToken = await userCredential.user.getIdToken(true);
+
+        const response = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || "Session creation failed after sign-up.");
+        }
+
+        toast({
+            title: "Account Created!",
+            description: "Welcome to CookSmart. You can now log in.",
+        });
+        
+        router.push("/login");
+
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Sign-up Failed",
+            description: error.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setIsPending(false);
     }
-    setIsPending(false);
   };
 
   return (

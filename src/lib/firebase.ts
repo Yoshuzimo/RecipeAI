@@ -25,7 +25,6 @@ if (process.env.NODE_ENV === 'development') {
     try {
         connectFirestoreEmulator(db, 'localhost', 8080);
         connectAuthEmulator(auth, 'http://localhost:9099');
-        console.log("Connecting to Firebase emulators");
     } catch (e) {
         console.warn("Could not connect to Firebase emulators. They might already be connected or are not running.");
     }

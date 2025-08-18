@@ -21,11 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { handleLogCookedMeal } from "@/app/actions";
+import { handleLogCookedMeal, getClientStorageLocations } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { getStorageLocations } from "@/lib/data";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 
@@ -62,7 +61,7 @@ export function LogMealDialog({
 
   useEffect(() => {
     async function fetchLocations() {
-      const locations = await getStorageLocations();
+      const locations = await getClientStorageLocations();
       const fridges = locations.filter(l => l.type === 'Fridge');
       const freezers = locations.filter(l => l.type === 'Freezer');
       setFridgeLocations(fridges);
