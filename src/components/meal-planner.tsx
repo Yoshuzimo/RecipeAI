@@ -309,9 +309,9 @@ export function MealPlanner({ initialInventory }: { initialInventory: InventoryI
             {suggestions.map((recipe, index) => (
                <Card key={recipe.title}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
-                       <div className="p-6 group flex justify-between items-start">
-                            <AccordionTrigger asChild>
-                                <div className="text-left flex-1 cursor-pointer">
+                        <div className="flex justify-between items-start p-6 group">
+                            <AccordionTrigger className="flex-1 text-left p-0">
+                                <div>
                                     <h3 className="text-lg font-semibold">{recipe.title}</h3>
                                     <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
                                 </div>
