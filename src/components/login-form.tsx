@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { handleSignIn } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Logo } from "./icons";
@@ -36,7 +36,7 @@ const formSchema = z.object({
 
 export function LoginForm() {
   const { toast } = useToast();
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, setIsPending] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -56,8 +56,9 @@ export function LoginForm() {
         title: "Logged In",
         description: "Welcome back!",
       });
+      const nextUrl = searchParams.get("next") || "/";
        // Force a hard reload to ensure the session cookie is picked up by the middleware.
-      window.location.href = "/";
+      window.location.href = nextUrl;
     } else {
       toast({
         variant: "destructive",
