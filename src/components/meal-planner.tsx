@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -435,7 +434,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
         )}
       </div>
 
-       <div className="mt-8 space-y-4">
+       {/* <div className="mt-8 space-y-4">
         <h3 className="text-xl font-bold">Debug Info</h3>
         <div className="space-y-2">
           <Label htmlFor="prompt-input">Prompt Input</Label>
@@ -445,7 +444,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
           <Label htmlFor="raw-response">Raw AI Response</Label>
           <Textarea id="raw-response" readOnly value={debugInfo.rawResponse || ""} className="h-64 font-mono text-xs" />
         </div>
-      </div>
+      </div> */}
     </div>
      {isSubstitutionsDialogOpen && recipeForSubstitutions && (
         <SubstitutionsDialog
