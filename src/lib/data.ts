@@ -293,7 +293,8 @@ export async function getSavedRecipes(): Promise<Recipe[]> {
 export async function saveRecipe(recipe: Recipe): Promise<Recipe> {
     // Firestore can't store custom objects like RecipeIngredient without conversion
     const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
-    const docRef = doc(db, "saved-recipes", recipe.title.toLowerCase().replace(/\s+/g, '-'));
+    const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
+    const docRef = doc(db, "saved-recipes", docId);
     await setDoc(docRef, recipeForDb, { merge: true });
     return recipe;
 }
