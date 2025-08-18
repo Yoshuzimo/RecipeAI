@@ -129,7 +129,7 @@ export function AddIngredientToRecipeDialog({
                                 <CommandItem
                                     key={item.id}
                                     value={item.name}
-                                    onSelect={handleSelect}
+                                    onSelect={() => handleSelect(item.name)}
                                 >
                                     {item.name}
                                 </CommandItem>
