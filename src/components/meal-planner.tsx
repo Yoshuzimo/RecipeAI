@@ -17,7 +17,7 @@ import { SubstitutionsDialog } from "./substitutions-dialog";
 import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
-import { getInventory } from "@/lib/data";
+import { getClientInventory } from "@/app/actions";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
@@ -191,7 +191,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   }
 
   const handleInventoryUpdateAndCheckSubstitutions = async () => {
-    const updatedInventory = await getInventory(); // Re-fetch inventory
+    const updatedInventory = await getClientInventory(); // Re-fetch inventory
     setInventory(updatedInventory);
 
     if (ingredientToCheck) {

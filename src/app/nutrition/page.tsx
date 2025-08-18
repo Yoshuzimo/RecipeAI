@@ -4,7 +4,7 @@
 import * as React from "react";
 import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
-import { getTodaysMacros } from "@/lib/data";
+import { getClientTodaysMacros } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import { CalorieLineChart } from "@/components/calorie-line-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,7 +23,7 @@ export default function NutritionPage() {
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily");
   
   const fetchData = React.useCallback(async () => {
-    const data = await getTodaysMacros();
+    const data = await getClientTodaysMacros();
     setDailyData(data);
   }, []);
 

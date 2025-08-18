@@ -23,7 +23,8 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
 import { Loader2, Move } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { handleMoveInventoryItems, getStorageLocations } from "@/app/actions";
+import { handleMoveInventoryItems } from "@/app/actions";
+import { getClientStorageLocations } from "@/app/actions";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useEffect } from "react";
@@ -50,7 +51,7 @@ export function MoveItemDialog({
   
   useEffect(() => {
     async function fetchLocations() {
-      const locations = await getStorageLocations();
+      const locations = await getClientStorageLocations();
       setAllLocations(locations);
     }
     fetchLocations();

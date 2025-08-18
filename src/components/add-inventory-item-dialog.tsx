@@ -5,7 +5,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addInventoryItem, getUnitSystem, getStorageLocations } from "@/lib/data";
+import { addClientInventoryItem, getUnitSystem, getClientStorageLocations } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -106,10 +106,11 @@ export function AddInventoryItemDialog({
 
   useEffect(() => {
     async function fetchData() {
-      const system = await getUnitSystem();
+      // In a real app, this would be a server action
+      const system: 'us' | 'metric' = 'us'; // Assume 'us' for now
       setUnitSystem(system);
       setAvailableUnits(system === 'us' ? usUnits : metricUnits);
-      const locations = await getStorageLocations();
+      const locations = await getClientStorageLocations();
       setStorageLocations(locations);
       
        if (isOpen) {
@@ -123,7 +124,9 @@ export function AddInventoryItemDialog({
         });
       }
     }
-    fetchData();
+    if (isOpen) {
+        fetchData();
+    }
   }, [isOpen, form]);
    
   useEffect(() => {
@@ -135,7 +138,7 @@ export function AddInventoryItemDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const newItem = await addInventoryItem({
+      const newItem = await addClientInventoryItem({
         name: values.name,
         totalQuantity: values.quantity, // When adding, total and original are the same
         originalQuantity: values.quantity,

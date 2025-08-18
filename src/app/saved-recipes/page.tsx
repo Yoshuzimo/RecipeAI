@@ -1,9 +1,9 @@
 import MainLayout from "@/components/main-layout";
 import { SavedRecipes } from "@/components/saved-recipes";
-import { getSavedRecipes } from "@/lib/data";
+import { getClientSavedRecipes } from "@/app/actions";
 
 export default async function SavedRecipesPage() {
-  const savedRecipes = await getSavedRecipes();
+  const savedRecipes = await getClientSavedRecipes();
 
   return (
     <MainLayout>

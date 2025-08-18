@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { addStorageLocation } from "@/lib/data";
+import { addClientStorageLocation } from "@/app/actions";
 import type { StorageLocation } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useState } from "react";
@@ -58,7 +58,7 @@ export function AddStorageLocationDialog({
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsPending(true);
     try {
-      const newLocation = await addStorageLocation(values);
+      const newLocation = await addClientStorageLocation(values);
       onLocationAdded(newLocation);
       toast({
         title: "Location Added",

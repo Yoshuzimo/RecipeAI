@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { ShieldCheck } from "lucide-react";
-import { getPersonalDetails, savePersonalDetails } from "@/lib/data";
+import { getClientPersonalDetails, savePersonalDetails } from "@/app/actions";
 import { useEffect } from "react";
 
 const formSchema = z.object({
@@ -73,7 +73,7 @@ export function PersonalDetailsForm() {
 
   useEffect(() => {
     async function loadDetails() {
-      const details = await getPersonalDetails();
+      const details = await getClientPersonalDetails();
       form.reset(details);
     }
     loadDetails();

@@ -19,7 +19,7 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart"
 import { Separator } from "./ui/separator"
-import { getTodaysMacros } from "@/lib/data"
+import { getClientTodaysMacros } from "@/app/actions"
 import type { DailyMacros } from "@/lib/types"
 import { CalorieLineChart } from "./calorie-line-chart"
 import { MOCK_NUTRITION_DATA } from "@/lib/mock-nutrition-data"
@@ -48,7 +48,7 @@ export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
 
   const fetchData = React.useCallback(async () => {
-    const data = await getTodaysMacros();
+    const data = await getClientTodaysMacros();
     setDailyData(data);
   }, []);
 

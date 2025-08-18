@@ -34,7 +34,7 @@ import {
 } from "./ui/alert-dialog";
 import { MoveItemDialog } from "./move-item-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
-import { getStorageLocations } from "@/lib/data";
+import { getClientStorageLocations } from "@/app/actions";
 
 const formSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
@@ -107,7 +107,7 @@ export function ViewInventoryItemDialog({
   
   useEffect(() => {
       async function fetchLocations() {
-          const locations = await getStorageLocations();
+          const locations = await getClientStorageLocations();
           setAllLocations(locations);
       }
       fetchLocations();

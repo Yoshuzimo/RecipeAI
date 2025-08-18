@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { getSettings, saveSettings, getStorageLocations } from "@/lib/data";
+import { getSettings, saveSettings, getClientStorageLocations } from "@/app/actions";
 import type { Settings, StorageLocation } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { List, PlusCircle, Trash2, Pencil } from "lucide-react";
@@ -36,7 +36,7 @@ export function SettingsForm() {
     async function loadData() {
       const savedSettings = await getSettings();
       setSettings(savedSettings);
-      const locations = await getStorageLocations();
+      const locations = await getClientStorageLocations();
       setStorageLocations(locations);
     }
     loadData();

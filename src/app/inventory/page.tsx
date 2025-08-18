@@ -1,11 +1,11 @@
 import MainLayout from "@/components/main-layout";
 import InventoryClient from "@/components/inventory-client";
-import { getInventory, getStorageLocations } from "@/lib/data";
+import { getClientInventory, getClientStorageLocations } from "@/app/actions";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 
 export default async function InventoryPage() {
-  const inventoryData = await getInventory();
-  const storageLocations = await getStorageLocations();
+  const inventoryData = await getClientInventory();
+  const storageLocations = await getClientStorageLocations();
 
   const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
     // First, group by item name and unit.

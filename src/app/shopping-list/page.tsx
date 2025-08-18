@@ -1,10 +1,10 @@
 import MainLayout from "@/components/main-layout";
 import { ShoppingList } from "@/components/shopping-list";
-import { getInventory, getPersonalDetails } from "@/lib/data";
+import { getClientInventory, getClientPersonalDetails } from "@/app/actions";
 
 export default async function ShoppingListPage() {
-  const inventory = await getInventory();
-  const personalDetails = await getPersonalDetails();
+  const inventory = await getClientInventory();
+  const personalDetails = await getClientPersonalDetails();
 
   return (
     <MainLayout>

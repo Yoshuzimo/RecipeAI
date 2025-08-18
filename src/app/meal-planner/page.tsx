@@ -1,11 +1,11 @@
 
 import MainLayout from "@/components/main-layout";
 import { MealPlanner } from "@/components/meal-planner";
-import { getInventory, getSavedRecipes } from "@/lib/data";
+import { getClientInventory, getClientSavedRecipes } from "@/app/actions";
 
 export default async function MealPlannerPage() {
-  const inventory = await getInventory();
-  const savedRecipes = await getSavedRecipes();
+  const inventory = await getClientInventory();
+  const savedRecipes = await getClientSavedRecipes();
 
   return (
     <MainLayout>
