@@ -26,12 +26,13 @@ if (process.env.NODE_ENV === 'development' && !isEmulatorConnected(db)) {
     try {
         connectFirestoreEmulator(db, 'localhost', 8080);
         console.log("Connecting to Firestore emulator");
-        // Explicitly enable the network to signal the SDK to connect.
-        enableNetwork(db);
     } catch (e) {
         // This catch block will prevent crashes if the connection is attempted multiple times during hot-reloads.
         console.warn("Could not connect to Firestore emulator. It might already be connected or is not running.");
     }
 }
+// Explicitly enable the network to signal the SDK to connect, especially important for server-side environments.
+enableNetwork(db);
+
 
 export { db };
