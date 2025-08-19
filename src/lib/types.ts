@@ -19,6 +19,11 @@ export type InventoryItem = {
   ownerName?: "You" | "Shared" | string; // Display name for UI. Set on the client based on source.
 };
 
+// Type for adding a new item, with an optional flag for privacy
+export type NewInventoryItem = Omit<InventoryItem, 'id' | 'ownerName'> & {
+  isPrivate?: boolean;
+};
+
 export type InventoryItemGroup = {
   name: string;
   packageInfo: string; 

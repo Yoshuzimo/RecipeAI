@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -291,7 +291,7 @@ export async function getClientTodaysMacros() {
     return getTodaysMacros(db, userId);
 }
 
-export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
+export async function addClientInventoryItem(item: NewInventoryItem) {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -482,3 +482,5 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
+
+    

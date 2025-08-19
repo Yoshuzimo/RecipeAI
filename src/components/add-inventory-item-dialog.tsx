@@ -39,7 +39,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import type { Unit, StorageLocation } from "@/lib/types";
+import type { Unit, StorageLocation, NewInventoryItem } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 
 const formSchema = z.object({
@@ -54,6 +54,7 @@ const formSchema = z.object({
   locationId: z.string({
     required_error: "A storage location is required.",
   }),
+  isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
 }).refine(data => {
     if (data.doesNotExpire) return true;
@@ -102,6 +103,7 @@ export function AddInventoryItemDialog({
       name: "",
       quantity: 1,
       doesNotExpire: false,
+      isPrivate: false,
     },
   });
 
@@ -127,6 +129,7 @@ export function AddInventoryItemDialog({
             expiryDate: addDays(new Date(), 7),
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
+            isPrivate: false,
         });
       }
     }
@@ -151,11 +154,12 @@ export function AddInventoryItemDialog({
         unit: values.unit,
         expiryDate: values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
+        isPrivate: values.isPrivate,
       });
       onItemAdded(newItem);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added to your ${isInHousehold ? 'household' : ''} inventory.`,
+        description: `${newItem.name} has been added to your ${newItem.isPrivate ? 'private' : 'household'} inventory.`,
       });
       setIsOpen(false);
     } catch (error) {
@@ -174,7 +178,6 @@ export function AddInventoryItemDialog({
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
             Add a new container to your inventory. You can manage individual quantities later.
-            {isInHousehold && " Items are added to the shared household inventory by default."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -310,6 +313,31 @@ export function AddInventoryItemDialog({
                 </FormItem>
               )}
             />
+            
+            {isInHousehold && (
+              <FormField
+                control={form.control}
+                name="isPrivate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-lg border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Keep this item Private
+                      </FormLabel>
+                       <FormDescription>
+                          Private items are only visible to you. Unchecked items are added to the shared household inventory.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>

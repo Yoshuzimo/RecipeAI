@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
@@ -196,7 +196,7 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
             const originalItemDocSnapshot = await transaction.get(originalItemDocQuery);
             if (!originalItemDocSnapshot.empty) {
                 const originalItemData = originalItemDocSnapshot.docs[0].data() as InventoryItem;
-                 const newItemForLeaver: Omit<InventoryItem, 'id'> = {
+                 const newItemForLeaver: Omit<InventoryItem, 'id' | 'ownerName'> = {
                     ...originalItemData,
                     totalQuantity: item.quantity,
                     originalQuantity: item.quantity,
@@ -443,18 +443,18 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
 }
 
 
-type AddItemData = Omit<InventoryItem, 'id'>;
-
-export async function addInventoryItem(db: Firestore, userId: string, item: AddItemData): Promise<InventoryItem> {
+export async function addInventoryItem(db: Firestore, userId: string, item: NewInventoryItem): Promise<NewInventoryItem & { id: string }> {
     const household = await getHousehold(db, userId);
-    // If user is in a household, new items are added to the shared inventory by default.
-    // Otherwise, add to the user's personal inventory.
-    const collectionPath = household 
-        ? `households/${household.id}/inventory`
-        : `users/${userId}/inventory`;
+    
+    // If user is not in a household, or if the item is marked as private, add to the user's personal inventory.
+    // Otherwise, add to the shared household inventory.
+    const isPrivate = !household || item.isPrivate;
+    
+    const collectionPath = isPrivate 
+        ? `users/${userId}/inventory`
+        : `households/${household!.id}/inventory`;
 
-    const itemToAdd = { ...item };
-    delete itemToAdd.ownerName; // ownerName is a client-side prop, don't save to DB
+    const { isPrivate: _, ...itemToAdd } = item; // Don't store the isPrivate flag in the database
 
     const docRef = await db.collection(collectionPath).add(itemToAdd);
     return { ...item, id: docRef.id };
