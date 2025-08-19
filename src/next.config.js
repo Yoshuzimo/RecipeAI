@@ -27,7 +27,6 @@ const nextConfig = {
     // Exclude firebase-admin from client-side bundles.
     if (!isServer) {
       config.resolve.fallback = {
-        ...config.resolve.fallback,
         "firebase-admin": false,
       }
     }
