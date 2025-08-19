@@ -63,7 +63,7 @@ const MapLocationsDialog = ({
             };
         });
         setMapping(initialMapping);
-    }, [userInventory, userLocations, householdLocations, userLocationMap]);
+    }, [userInventory, householdLocations, userLocationMap]);
 
     const handleMappingChange = (itemId: string, field: keyof ItemMigrationMapping[string], value: string | boolean) => {
         setMapping(prev => ({
@@ -369,8 +369,7 @@ export default function HouseholdPage() {
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(null);
-    const [householdInventory, setHouseholdInventory] = React.useState<InventoryItem[]>([]);
-    const [userInventory, setUserInventory] = React.useState<InventoryItem[]>([]);
+    const [allInventory, setAllInventory] = React.useState<InventoryItem[]>([]);
     const [userLocations, setUserLocations] = React.useState<StorageLocation[]>([]);
     const [householdToJoin, setHouseholdToJoin] = React.useState<Household | null>(null);
     
@@ -384,13 +383,9 @@ export default function HouseholdPage() {
             try {
                 const household = await getClientHousehold();
                 setCurrentHousehold(household);
-                const { privateItems, sharedItems } = await getClientInventory();
+                const inventoryItems = await getClientInventory();
+                setAllInventory([...inventoryItems.privateItems, ...inventoryItems.sharedItems]);
                 const locations = await getClientStorageLocations();
-
-                if (household) {
-                    setHouseholdInventory(sharedItems);
-                }
-                setUserInventory(privateItems);
                 setUserLocations(locations);
             } catch(e) {
                 console.error("Failed to fetch household data", e);
@@ -409,6 +404,8 @@ export default function HouseholdPage() {
     const isOwner = user?.uid === currentHousehold?.ownerId;
     const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];
 
+    const userInventory = React.useMemo(() => allInventory.filter(i => i.isPrivate), [allInventory]);
+    const householdInventory = React.useMemo(() => allInventory.filter(i => !i.isPrivate), [allInventory]);
 
     const onCreateHousehold = async () => {
         setIsCreateConfirmOpen(false);
