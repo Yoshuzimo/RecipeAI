@@ -1,4 +1,3 @@
-
 import type {Auth} from 'firebase-admin/auth';
 import type {Firestore, FieldValue} from 'firebase-admin/firestore';
 
@@ -49,3 +48,5 @@ export function getAdmin() {
 
   return adminInstance;
 }
+
+    

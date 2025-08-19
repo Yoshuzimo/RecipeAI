@@ -503,9 +503,12 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
     const batch = db.batch();
 
     items.forEach(item => {
-        const collectionPath = (household && item.ownerName === "Shared")
+        const collectionPath = (household && item.ownerName !== "Shared" && item.ownerId !== userId)
+            ? `users/${item.ownerId}/inventory`
+            : (household && item.ownerName === "Shared")
             ? `households/${household.id}/inventory`
             : `users/${userId}/inventory`;
+
         const docRef = db.collection(collectionPath).doc(item.id);
         batch.delete(docRef);
     });
@@ -513,36 +516,42 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
     await batch.commit();
 }
 
-export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, item: InventoryItem, newPrivacyState: boolean): Promise<void> {
+export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, items: InventoryItem[], newPrivacyState: boolean): Promise<void> {
     return db.runTransaction(async (transaction) => {
-        const isCurrentlyPrivate = item.ownerName !== "Shared";
+        for (const item of items) {
+            const isCurrentlyPrivate = item.ownerName !== "Shared";
 
-        if (isCurrentlyPrivate === newPrivacyState) {
-            return; // No change needed
+            if (isCurrentlyPrivate === newPrivacyState) {
+                continue; // No change needed for this item
+            }
+
+            const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+            const destCollectionPath = newPrivacyState ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+            
+            const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
+            // In the new model, we can keep the same ID when moving.
+            const destDocRef = db.collection(destCollectionPath).doc(item.id); 
+
+            const itemDoc = await transaction.get(sourceDocRef);
+            if (!itemDoc.exists) {
+                console.warn(`Item with ID ${item.id} not found in ${sourceCollectionPath}. Skipping.`);
+                continue;
+            }
+
+            const itemData = itemDoc.data()!;
+            const { ownerName, ...restOfData } = itemData; // remove ownerName as it's a client-side prop
+            const newItemData = {
+                ...restOfData,
+                ownerId: newPrivacyState ? userId : null,
+                isPrivate: newPrivacyState,
+            };
+            
+            transaction.set(destDocRef, newItemData);
+            transaction.delete(sourceDocRef);
         }
-
-        const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
-        const destCollectionPath = newPrivacyState ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
-        
-        const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-        const destDocRef = db.collection(destCollectionPath).doc(); // New document in the destination
-
-        const itemDoc = await transaction.get(sourceDocRef);
-        if (!itemDoc.exists) {
-            throw new Error("Item to toggle was not found in its original location.");
-        }
-
-        const itemData = itemDoc.data()!;
-        const newItemData = {
-            ...itemData,
-            ownerId: newPrivacyState ? userId : null,
-            isPrivate: newPrivacyState,
-        };
-        
-        transaction.set(destDocRef, newItemData);
-        transaction.delete(sourceDocRef);
     });
 }
+
 
 
 // Personal Details
@@ -717,3 +726,5 @@ export async function removeCheckedShoppingListItems(db: Firestore, userId: stri
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
 }
+
+    

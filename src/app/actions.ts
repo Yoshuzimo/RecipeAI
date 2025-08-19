@@ -222,7 +222,7 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
     }
 }
 
-export async function handleToggleItemPrivacy(item: InventoryItem, newPrivacyState: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleToggleItemPrivacy(items: InventoryItem[], newPrivacyState: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
     try {
@@ -230,7 +230,7 @@ export async function handleToggleItemPrivacy(item: InventoryItem, newPrivacySta
         if (!household) {
             return { success: false, error: "You must be in a household to change item privacy." };
         }
-        await dataToggleItemPrivacy(db, userId, household.id, item, newPrivacyState);
+        await dataToggleItemPrivacy(db, userId, household.id, items, newPrivacyState);
         const newInventory = await getInventory(db, userId);
         return { success: true, newInventory, error: null };
     } catch (e) {
@@ -453,3 +453,5 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
+
+    

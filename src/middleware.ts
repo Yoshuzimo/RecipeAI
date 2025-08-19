@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -67,3 +66,5 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
+
+    

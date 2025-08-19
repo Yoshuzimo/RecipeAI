@@ -1,7 +1,6 @@
-
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { initFirebaseAdmin, getAdmin } from "@/lib/firebase-admin";
+import { initFirebaseAdmin } from "@/lib/firebase-admin";
 
 export async function POST(request: NextRequest) {
   initFirebaseAdmin();
@@ -45,3 +44,5 @@ export async function DELETE(request: NextRequest) {
   });
   return response;
 }
+
+    
