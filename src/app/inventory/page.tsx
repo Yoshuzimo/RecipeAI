@@ -1,13 +1,13 @@
 
 import MainLayout from "@/components/main-layout";
 import InventoryClient from "@/components/inventory-client";
-import { getInventory as getServerInventory, getClientStorageLocations } from "@/app/actions";
+import { getClientInventory, getClientStorageLocations } from "@/app/actions";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
-  const { privateItems, sharedItems } = await getServerInventory();
+  const { privateItems, sharedItems } = await getClientInventory();
   const storageLocations = await getClientStorageLocations();
 
   const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {

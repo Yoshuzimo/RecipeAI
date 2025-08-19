@@ -26,7 +26,6 @@ const nextConfig = {
     
     // Exclude firebase-admin from client-side bundles.
     if (!isServer) {
-      // This is the most robust way to prevent the client from trying to bundle a server-only package.
       config.resolve.alias['firebase-admin'] = false;
     }
 
