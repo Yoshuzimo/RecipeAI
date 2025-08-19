@@ -50,7 +50,7 @@ const MapLocationsDialog = ({
     const [currentPage, setCurrentPage] = React.useState(0);
     const itemsPerPage = 10;
 
-    const userLocationMap = new Map(userLocations.map(l => [l.id, l.name]));
+    const userLocationMap = React.useMemo(() => new Map(userLocations.map(l => [l.id, l.name])), [userLocations]);
 
     React.useEffect(() => {
         const initialMapping: ItemMigrationMapping = {};
