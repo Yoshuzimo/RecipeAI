@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import type { Household, HouseholdMember } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
@@ -22,14 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
-// This is a placeholder, in a real app this would come from a server call
-// along with the user's own data to determine if they are in a household.
-const MOCK_CURRENT_HOUSEHOLD: Household | null = null;
-
-
-// Moved outside the main component to prevent re-creation on render
 const NoHouseholdView = ({
     onCreateHousehold,
     onJoinHousehold,
@@ -82,18 +77,64 @@ const NoHouseholdView = ({
     </div>
 );
 
+const LoadingSkeleton = () => (
+    <Card>
+        <CardHeader>
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-4 w-3/4 mt-2" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="flex items-center space-x-4">
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-10 w-40" />
+            </div>
+            <Separator />
+            <Skeleton className="h-6 w-1/3" />
+             <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                </div>
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <Skeleton className="h-4 w-24" />
+                    </div>
+                </div>
+            </div>
+             <Separator />
+             <Skeleton className="h-10 w-40" />
+        </CardContent>
+    </Card>
+);
+
 
 export default function HouseholdPage() {
     const { user } = useAuth();
+    const [isLoading, setIsLoading] = React.useState(true);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
-    const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(MOCK_CURRENT_HOUSEHOLD);
+    const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(null);
     const [newOwnerId, setNewOwnerId] = React.useState<string>("");
     const { toast } = useToast();
     
+    React.useEffect(() => {
+        const fetchHousehold = async () => {
+            if (user) {
+                setIsLoading(true);
+                const household = await getClientHousehold();
+                setCurrentHousehold(household);
+                setIsLoading(false);
+            }
+        };
+        fetchHousehold();
+    }, [user]);
+
     const isOwner = user?.uid === currentHousehold?.ownerId;
     const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];
 
@@ -350,12 +391,12 @@ export default function HouseholdPage() {
             <div>
             <h1 className="text-3xl font-bold tracking-tight">Household</h1>
             <p className="text-muted-foreground">
-                {currentHousehold ? "Manage your shared household" : "Join or create a household to get started."}
+                {isLoading ? "Loading your household info..." : currentHousehold ? "Manage your shared household" : "Join or create a household to get started."}
             </p>
             </div>
         </div>
 
-        {currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
+        {isLoading ? <LoadingSkeleton /> : currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
             onCreateHousehold={onCreateHousehold}
             onJoinHousehold={onJoinHousehold}
             isCreating={isCreating}

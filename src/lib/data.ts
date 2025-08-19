@@ -66,6 +66,15 @@ export const seedInitialData = async (db: Firestore, userId: string) => {
 
 
 // --- Household Functions ---
+export async function getHousehold(db: Firestore, userId: string): Promise<Household | null> {
+    const userDoc = await db.collection('users').doc(userId).get();
+    const householdId = userDoc.data()?.householdId;
+    if (!householdId) {
+        return null;
+    }
+    const householdDoc = await db.collection('households').doc(householdId).get();
+    return householdDoc.exists ? householdDoc.data() as Household : null;
+}
 
 export async function createHousehold(db: Firestore, userId: string, userName: string, inviteCode: string): Promise<Household> {
     const batch = db.batch();

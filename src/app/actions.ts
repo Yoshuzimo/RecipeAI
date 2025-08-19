@@ -1,11 +1,8 @@
 
 "use server";
 
-import * as admin from 'firebase-admin';
 import { cookies } from "next/headers";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails, 
@@ -31,7 +28,8 @@ import {
     joinHousehold as dataJoinHousehold, 
     leaveHousehold as dataLeaveHousehold, 
     approvePendingMember as dataApprovePendingMember, 
-    rejectPendingMember as dataRejectPendingMember
+    rejectPendingMember as dataRejectPendingMember,
+    getHousehold as dataGetHousehold
 } from "@/lib/data";
 import { addDays } from "date-fns";
 
@@ -39,8 +37,8 @@ import { addDays } from "date-fns";
 // The actual implementation is at the bottom of the file, wrapped in a
 // server-only condition to prevent it from being bundled into the client.
 function getAdmin() {
-  if (global.adminInstance) {
-    return global.adminInstance;
+  if ((global as any).adminInstance) {
+    return (global as any).adminInstance;
   }
   throw new Error("Firebase Admin has not been initialized. This function should only be called on the server.");
 }
@@ -310,10 +308,21 @@ function generateInviteCode(): string {
   return result;
 }
 
+export async function getClientHousehold(): Promise<Household | null> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    try {
+        return await dataGetHousehold(db, userId);
+    } catch (error) {
+        console.error("Error fetching client household:", error);
+        return null;
+    }
+}
+
 export async function handleCreateHousehold() {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
-    const userSettings = await getSettings(db, userId);
+    const userSettings = await dataGetSettings(db, userId);
     const ownerName = userSettings.displayName || "Owner";
     const inviteCode = generateInviteCode();
     try {
@@ -327,7 +336,7 @@ export async function handleCreateHousehold() {
 export async function handleJoinHousehold(inviteCode: string) {
     const userId = await getCurrentUserId();
     const { db, FieldValue } = getAdmin();
-    const userSettings = await getSettings(db, userId);
+    const userSettings = await dataGetSettings(db, userId);
     const userName = userSettings.displayName || "New Member";
      try {
         const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase());
@@ -376,9 +385,21 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
 // This block of code will only be included in the server-side bundle,
 // preventing the 'firebase-admin' package from being sent to the client.
 if (typeof window === 'undefined') {
-  // Use a global variable to store the admin instance to avoid re-initialization
-  // in development with hot-reloading.
-  if (!global.adminInstance) {
+  // Redefine the getAdmin function for server-side execution.
+  // This will overwrite the placeholder function defined at the top of the file.
+  // @ts-ignore
+  getAdmin = () => {
+    // Use a global variable to store the admin instance to avoid re-initialization
+    // in development with hot-reloading.
+    if ((global as any).adminInstance) {
+        return (global as any).adminInstance;
+    }
+
+    // Dynamic requires to prevent webpack from bundling them on the client
+    const admin = require('firebase-admin');
+    const { getAuth } = require('firebase-admin/auth');
+    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+
     const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccountKey) {
         throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in environment variables.');
@@ -392,15 +413,12 @@ if (typeof window === 'undefined') {
       });
     }
 
-    global.adminInstance = {
+    (global as any).adminInstance = {
       auth: getAuth(),
       db: getFirestore(),
       FieldValue,
     };
-  }
-
-  // Redefine the getAdmin function for server-side execution.
-  // This will overwrite the placeholder function defined at the top of the file.
-  // @ts-ignore
-  getAdmin = () => global.adminInstance;
+    
+    return (global as any).adminInstance;
+  };
 }
