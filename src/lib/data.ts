@@ -454,17 +454,18 @@ export async function addInventoryItem(db: Firestore, userId: string, item: AddI
         : `users/${userId}/inventory`;
 
     const itemToAdd = { ...item };
+    delete itemToAdd.ownerName; // ownerName is a client-side prop, don't save to DB
 
     const docRef = await db.collection(collectionPath).add(itemToAdd);
-    return { ...itemToAdd, id: docRef.id };
+    return { ...item, id: docRef.id };
 }
 
 export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
-    const { id, ...data } = updatedItem;
+    const { id, ownerName, ...data } = updatedItem;
 
     // Determine if the item is in the user's private inventory or a household inventory
-    const collectionPath = (household && data.ownerName === "Shared")
+    const collectionPath = (household && ownerName === "Shared")
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
     
@@ -511,17 +512,20 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
 export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, items: InventoryItem[], makePrivate: boolean): Promise<void> {
     return db.runTransaction(async (transaction) => {
         for (const item of items) {
+            // ownerName is determined on the client, so we trust it.
             const isCurrentlyPrivate = item.ownerName !== "Shared";
 
+            // If the item is already in the desired state, skip it.
             if (isCurrentlyPrivate === makePrivate) {
-                continue; // No change needed for this item
+                continue; 
             }
 
             const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             const destCollectionPath = makePrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             
             const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-            const destDocRef = db.collection(destCollectionPath).doc(item.id); 
+            // Use a new doc ref in destination to avoid ID clashes if user has another item with same ID
+            const destDocRef = db.collection(destCollectionPath).doc(); 
 
             const itemDoc = await transaction.get(sourceDocRef);
             if (!itemDoc.exists) {
@@ -530,13 +534,8 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
             }
 
             const itemData = itemDoc.data()!;
-            // ownerName is a client-side convenience prop, so we don't save it
-            const { ownerName, ...dataToMove } = item;
             
-            transaction.set(destDocRef, {
-                ...dataToMove,
-                id: undefined, // Don't save id field in document
-            });
+            transaction.set(destDocRef, itemData);
             transaction.delete(sourceDocRef);
         }
     });
