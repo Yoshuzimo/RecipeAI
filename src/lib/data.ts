@@ -513,6 +513,37 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
     await batch.commit();
 }
 
+export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, item: InventoryItem, newPrivacyState: boolean): Promise<void> {
+    return db.runTransaction(async (transaction) => {
+        const isCurrentlyPrivate = item.ownerName !== "Shared";
+
+        if (isCurrentlyPrivate === newPrivacyState) {
+            return; // No change needed
+        }
+
+        const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+        const destCollectionPath = newPrivacyState ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+        
+        const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
+        const destDocRef = db.collection(destCollectionPath).doc(); // New document in the destination
+
+        const itemDoc = await transaction.get(sourceDocRef);
+        if (!itemDoc.exists) {
+            throw new Error("Item to toggle was not found in its original location.");
+        }
+
+        const itemData = itemDoc.data()!;
+        const newItemData = {
+            ...itemData,
+            ownerId: newPrivacyState ? userId : null,
+            isPrivate: newPrivacyState,
+        };
+        
+        transaction.set(destDocRef, newItemData);
+        transaction.delete(sourceDocRef);
+    });
+}
+
 
 // Personal Details
 export async function getPersonalDetails(db: Firestore, userId: string): Promise<PersonalDetails> {

@@ -37,6 +37,7 @@ import {
     updateShoppingListItem,
     removeShoppingListItem,
     removeCheckedShoppingListItems,
+    toggleItemPrivacy as dataToggleItemPrivacy,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { getAdmin } from "@/lib/firebase-admin";
@@ -218,6 +219,22 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
         return { success: true, error: null, newInventory };
     } catch (e) {
         return { success: false, error: "Failed to report spoilage." };
+    }
+}
+
+export async function handleToggleItemPrivacy(item: InventoryItem, newPrivacyState: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    try {
+        const household = await dataGetHousehold(db, userId);
+        if (!household) {
+            return { success: false, error: "You must be in a household to change item privacy." };
+        }
+        await dataToggleItemPrivacy(db, userId, household.id, item, newPrivacyState);
+        const newInventory = await getInventory(db, userId);
+        return { success: true, newInventory, error: null };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
     }
 }
 
