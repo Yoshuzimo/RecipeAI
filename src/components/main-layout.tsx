@@ -22,10 +22,10 @@ const menuItems = [
   { href: "/meal-planner", label: "Meal Planner", icon: Home },
   { href: "/inventory", label: "Inventory", icon: Warehouse },
   { href: "/shopping-list", label: "Shopping List", icon: ShoppingCart },
-  { href: "/household", label: "Household", icon: Users },
   { href: "/nutrition", label: "Nutrition", icon: BarChart },
   { href: "/saved-recipes", label: "Saved Recipes", icon: Bookmark },
   { href: "/personal-details", label: "Personal Details", icon: FileText },
+  { href: "/household", label: "Household", icon: Users },
   { href: "/subscriptions", label: "Subscriptions", icon: Gem },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

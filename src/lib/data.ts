@@ -506,6 +506,7 @@ export async function addInventoryItem(db: Firestore, userId: string, item: NewI
         ? `households/${household!.id}/inventory`
         : `users/${userId}/inventory`;
 
+    // We don't store the isPrivate flag in the database, it's derived.
     const { isPrivate, ...itemToAdd } = item;
 
     const docRef = await db.collection(collectionPath).add(itemToAdd);
@@ -565,7 +566,6 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
 export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, items: InventoryItem[], makePrivate: boolean): Promise<void> {
     return db.runTransaction(async (transaction) => {
         for (const item of items) {
-            // isPrivate is determined on the client, so we trust it.
             const isCurrentlyPrivate = item.isPrivate;
 
             if (isCurrentlyPrivate === makePrivate) {
@@ -576,7 +576,7 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
             const destCollectionPath = makePrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             
             const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-            const destDocRef = db.collection(destCollectionPath).doc(); 
+            const destDocRef = db.collection(destCollectionPath).doc(); // Create a new doc in the destination
 
             const itemDoc = await transaction.get(sourceDocRef);
             if (!itemDoc.exists) {
@@ -584,8 +584,9 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
                 continue;
             }
 
-            const { isPrivate, ...itemData } = itemDoc.data()!;
+            const itemData = itemDoc.data()!;
             
+            // We don't store the isPrivate flag, so just move the data
             transaction.set(destDocRef, itemData);
             transaction.delete(sourceDocRef);
         }
