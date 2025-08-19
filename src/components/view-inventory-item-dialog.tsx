@@ -96,13 +96,14 @@ export function ViewInventoryItemDialog({
   }, [group.items]);
 
   const defaultValues = useMemo(() => {
-    return Object.values(packageGroups).reduce((acc, pkgGroup) => {
-        acc[pkgGroup.size] = {
-            full: pkgGroup.fullPackages.length,
-            partial: pkgGroup.partialPackage?.totalQuantity ?? 0,
-        };
-        return acc;
-    }, {} as FormData);
+    const values: FormData = {};
+    for (const pkgGroup of Object.values(packageGroups)) {
+      values[pkgGroup.size] = {
+        full: pkgGroup.fullPackages.length,
+        partial: pkgGroup.partialPackage?.totalQuantity ?? 0,
+      };
+    }
+    return values;
   }, [packageGroups]);
   
   const { control, handleSubmit, watch, formState: {isDirty}, reset } = useForm<FormData>({

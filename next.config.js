@@ -26,6 +26,7 @@ const nextConfig = {
     
     // Exclude firebase-admin from client-side bundles
     if (!isServer) {
+      config.externals.push('firebase-admin');
       config.resolve.alias['firebase-admin'] = false;
     }
 
