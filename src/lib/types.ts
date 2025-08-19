@@ -146,6 +146,7 @@ export type Household = {
     id: string;
     inviteCode: string;
     ownerId: string;
+    ownerName: string;
     activeMembers: HouseholdMember[]; 
     pendingMembers: HouseholdMember[];
     transferOwnership?: {

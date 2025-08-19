@@ -6,14 +6,14 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserPlus, LogOut, Users, Copy, Check, X, Loader2 } from "lucide-react";
+import { LogOut, Copy, Check, X, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
-import type { Household, HouseholdMember } from "@/lib/types";
+import type { Household } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import {
   Select,
@@ -62,7 +62,7 @@ const NoHouseholdView = ({
                 <form onSubmit={onJoinHousehold} className="flex items-center gap-2">
                     <Input 
                         value={joinCode}
-                        onChange={(e) => setJoinCode(e.target.value)}
+                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                         placeholder="Enter 4-digit code"
                         maxLength={4}
                         className="uppercase tracking-widest font-mono"
@@ -127,13 +127,19 @@ export default function HouseholdPage() {
         const fetchHousehold = async () => {
             if (user) {
                 setIsLoading(true);
-                const household = await getClientHousehold();
-                setCurrentHousehold(household);
-                setIsLoading(false);
+                try {
+                    const household = await getClientHousehold();
+                    setCurrentHousehold(household);
+                } catch(e) {
+                    console.error("Failed to fetch household", e);
+                    toast({variant: "destructive", title: "Error", description: "Could not fetch household information."})
+                } finally {
+                    setIsLoading(false);
+                }
             }
         };
         fetchHousehold();
-    }, [user]);
+    }, [user, toast]);
 
     const isOwner = user?.uid === currentHousehold?.ownerId;
     const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];

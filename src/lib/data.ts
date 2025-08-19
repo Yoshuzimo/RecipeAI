@@ -1,5 +1,6 @@
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
-import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
+import type { Firestore, WriteBatch } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -73,8 +74,45 @@ export async function getHousehold(db: Firestore, userId: string): Promise<House
         return null;
     }
     const householdDoc = await db.collection('households').doc(householdId).get();
-    return householdDoc.exists ? householdDoc.data() as Household : null;
+    if (!householdDoc.exists) {
+        return null;
+    }
+    
+    const householdData = householdDoc.data() as Household;
+
+    const fetchMemberName = async (memberId: string): Promise<string> => {
+        const settings = await getSettings(db, memberId);
+        return settings.displayName || "Unknown Member";
+    };
+
+    // Fetch and update names for active members
+    const updatedActiveMembers = await Promise.all(
+        householdData.activeMembers.map(async (member) => ({
+            ...member,
+            userName: await fetchMemberName(member.userId),
+        }))
+    );
+    
+    // Fetch and update names for pending members
+    const updatedPendingMembers = await Promise.all(
+        householdData.pendingMembers.map(async (member) => ({
+            ...member,
+            userName: await fetchMemberName(member.userId),
+        }))
+    );
+
+    // Fetch owner's name
+    const ownerName = await fetchMemberName(householdData.ownerId);
+
+    return {
+        ...householdData,
+        id: householdDoc.id,
+        activeMembers: updatedActiveMembers,
+        pendingMembers: updatedPendingMembers,
+        ownerName: ownerName,
+    };
 }
+
 
 export async function createHousehold(db: Firestore, userId: string, userName: string, inviteCode: string): Promise<Household> {
     const batch = db.batch();
@@ -86,6 +124,7 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
         id: householdRef.id,
         inviteCode,
         ownerId: userId,
+        ownerName: userName,
         activeMembers: [{ userId, userName }],
         pendingMembers: [],
     };
@@ -98,7 +137,7 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
     return newHousehold;
 }
 
-export async function joinHousehold(db: Firestore, arrayUnion: (elements: any[]) => FieldValue, userId: string, userName: string, inviteCode: string): Promise<Household> {
+export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const q = db.collection('households').where('inviteCode', '==', inviteCode).limit(1);
         const snapshot = await transaction.get(q);
@@ -119,11 +158,11 @@ export async function joinHousehold(db: Firestore, arrayUnion: (elements: any[])
         const newPendingMember = { userId, userName };
         transaction.update(householdRef, { pendingMembers: arrayUnion(newPendingMember) });
         
-        return { ...householdData, pendingMembers: [...householdData.pendingMembers, newPendingMember] };
+        return { ...householdData, id: householdDoc.id, pendingMembers: [...householdData.pendingMembers, newPendingMember] };
     });
 }
 
-export async function leaveHousehold(db: Firestore, arrayRemove: (elements: any[]) => FieldValue, userId: string, newOwnerId?: string): Promise<void> {
+export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: string, newOwnerId?: string): Promise<void> {
     await db.runTransaction(async (transaction) => {
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
@@ -154,7 +193,9 @@ export async function leaveHousehold(db: Firestore, arrayRemove: (elements: any[
             if (remainingMembers.length > 0) {
                 if (newOwnerId) {
                     // Transfer ownership
-                    transaction.update(householdRef, { ownerId: newOwnerId });
+                    const newOwnerSettings = await getSettings(db, newOwnerId);
+                    const newOwnerName = newOwnerSettings.displayName || "New Owner";
+                    transaction.update(householdRef, { ownerId: newOwnerId, ownerName: newOwnerName });
                 } else {
                     throw new Error("A new owner must be selected before the current owner can leave.");
                 }
@@ -169,7 +210,7 @@ export async function leaveHousehold(db: Firestore, arrayRemove: (elements: any[
 }
 
 
-export async function approvePendingMember(db: Firestore, arrayUnion: (elements: any[]) => FieldValue, arrayRemove: (elements: any[]) => FieldValue, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+export async function approvePendingMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const memberUserRef = db.collection('users').doc(memberIdToApprove);
@@ -190,16 +231,15 @@ export async function approvePendingMember(db: Firestore, arrayUnion: (elements:
             activeMembers: arrayUnion(pendingMember)
         });
         transaction.update(memberUserRef, { householdId: householdId });
+        
+        const updatedHousehold = await getHousehold(db, currentUserId);
+        if (!updatedHousehold) throw new Error("Failed to refetch household data after approval.");
 
-        return {
-            ...householdData,
-            pendingMembers: householdData.pendingMembers.filter(m => m.userId !== memberIdToApprove),
-            activeMembers: [...householdData.activeMembers, pendingMember],
-        };
+        return updatedHousehold;
     });
 }
 
-export async function rejectPendingMember(db: Firestore, arrayRemove: (elements: any[]) => FieldValue, currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
+export async function rejectPendingMember(db: Firestore, arrayRemove: any, currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
      return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
@@ -217,11 +257,11 @@ export async function rejectPendingMember(db: Firestore, arrayRemove: (elements:
         transaction.update(householdRef, {
             pendingMembers: arrayRemove(pendingMember),
         });
-
-        return {
-            ...householdData,
-            pendingMembers: householdData.pendingMembers.filter(m => m.userId !== memberIdToReject),
-        };
+        
+        const updatedHousehold = await getHousehold(db, currentUserId);
+        if (!updatedHousehold) throw new Error("Failed to refetch household data after rejection.");
+        
+        return updatedHousehold;
     });
 }
 
@@ -347,11 +387,6 @@ export async function saveSettings(db: Firestore, userId: string, settings: Sett
     return settings;
 }
 
-export async function getUnitSystem(db: Firestore, userId: string): Promise<'us' | 'metric'> {
-    const settings = await getSettings(db, userId);
-    return settings.unitSystem;
-}
-
 // Macros
 export async function getTodaysMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
     const snapshot = await db.collection(`users/${userId}/daily-macros`).get();
@@ -410,7 +445,7 @@ export async function updateMealTime(db: Firestore, userId: string, mealId: stri
         newDate.setHours(hours, minutes);
         
         await docRef.update({ loggedAt: newDate });
-        return { ...mealLog, loggedAt: newDate };
+        return { ...mealLog, id: mealId, loggedAt: newDate };
     }
     return null;
 }

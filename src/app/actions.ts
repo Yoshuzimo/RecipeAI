@@ -5,8 +5,7 @@ import { cookies } from "next/headers";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
-    getPersonalDetails, 
-    getUnitSystem, 
+    getPersonalDetails as dataGetPersonalDetails,
     updateInventoryItem as dataUpdateInventoryItem,
     addInventoryItem as dataAddInventoryItem,
     removeInventoryItem as dataRemoveInventoryItem,
@@ -36,10 +35,11 @@ import { addDays } from "date-fns";
 // This is a placeholder function for getting the admin instance.
 // The actual implementation is at the bottom of the file, wrapped in a
 // server-only condition to prevent it from being bundled into the client.
-function getAdmin() {
+function getAdmin(): any {
   if ((global as any).adminInstance) {
     return (global as any).adminInstance;
   }
+  // This will be overridden by the server-only implementation below
   throw new Error("Firebase Admin has not been initialized. This function should only be called on the server.");
 }
 
@@ -246,7 +246,7 @@ export async function getClientSavedRecipes() {
 export async function getClientPersonalDetails() {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
-    return getPersonalDetails(db, userId);
+    return dataGetPersonalDetails(db, userId);
 }
 
 export async function savePersonalDetails(details: PersonalDetails) {
@@ -387,8 +387,7 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
 if (typeof window === 'undefined') {
   // Redefine the getAdmin function for server-side execution.
   // This will overwrite the placeholder function defined at the top of the file.
-  // @ts-ignore
-  getAdmin = () => {
+  (global as any).getAdmin = () => {
     // Use a global variable to store the admin instance to avoid re-initialization
     // in development with hot-reloading.
     if ((global as any).adminInstance) {
