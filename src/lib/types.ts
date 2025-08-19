@@ -18,7 +18,7 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
-  ownerId?: string; // ID of the user who owns this, null/undefined if shared
+  ownerId?: string | null; // ID of the user who owns this, null/undefined if shared
   ownerName?: string; // Name of the user who owns this
 };
 
@@ -143,6 +143,23 @@ export type HouseholdMember = {
   wantsToMergeInventory?: boolean;
 };
 
+
+export type RequestedItem = {
+    name: string;
+    quantity: number;
+    unit: Unit;
+    // Store a reference to one of the original items for data consistency
+    originalItemId: string; 
+};
+
+export type LeaveRequest = {
+    requestId: string;
+    userId: string;
+    userName: string;
+    requestedItems: RequestedItem[];
+    status: 'pending_review' | 'completed';
+};
+
 export type Household = {
     id: string;
     inviteCode: string;
@@ -150,10 +167,7 @@ export type Household = {
     ownerName: string;
     activeMembers: HouseholdMember[]; 
     pendingMembers: HouseholdMember[];
-    transferOwnership?: {
-        from: string;
-        to: string;
-    }
+    leaveRequests?: LeaveRequest[];
 };
 
 

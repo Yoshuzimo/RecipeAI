@@ -5,7 +5,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addClientInventoryItem, getClientStorageLocations } from "@/app/actions";
+import { addClientInventoryItem, getClientStorageLocations, getClientHousehold } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,6 +53,7 @@ const formSchema = z.object({
   locationId: z.string({
     required_error: "A storage location is required.",
   }),
+  isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
 }).refine(data => {
     if (data.doesNotExpire) return true;
@@ -93,6 +94,7 @@ export function AddInventoryItemDialog({
   const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us'); 
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+  const [isInHousehold, setIsInHousehold] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -100,6 +102,7 @@ export function AddInventoryItemDialog({
       name: "",
       quantity: 1,
       doesNotExpire: false,
+      isPrivate: false,
     },
   });
 
@@ -111,9 +114,11 @@ export function AddInventoryItemDialog({
     setUnitSystem(system);
     setAvailableUnits(system === 'us' ? usUnits : metricUnits);
 
-    async function fetchLocations() {
+    async function fetchData() {
       const locations = await getClientStorageLocations();
       setStorageLocations(locations);
+      const household = await getClientHousehold();
+      setIsInHousehold(!!household);
       
        if (isOpen) {
         form.reset({
@@ -123,11 +128,12 @@ export function AddInventoryItemDialog({
             expiryDate: addDays(new Date(), 7),
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
+            isPrivate: false,
         });
       }
     }
     if (isOpen) {
-        fetchLocations();
+        fetchData();
     }
   }, [isOpen, form]);
    
@@ -147,6 +153,7 @@ export function AddInventoryItemDialog({
         unit: values.unit,
         expiryDate: values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
+        ownerId: values.isPrivate ? "CURRENT_USER" : null, // A placeholder the action will interpret
       });
       onItemAdded(newItem);
       toast({
@@ -305,6 +312,32 @@ export function AddInventoryItemDialog({
                 </FormItem>
               )}
             />
+
+            {isInHousehold && (
+                 <FormField
+                  control={form.control}
+                  name="isPrivate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-lg border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Mark as Private
+                        </FormLabel>
+                        <FormDescription>
+                            Private items are only visible to you.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+            )}
+
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Adding..." : "Add Item"}

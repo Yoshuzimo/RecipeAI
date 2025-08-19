@@ -1,8 +1,9 @@
 
 "use server";
 
+import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -29,7 +30,8 @@ import {
     approvePendingMember as dataApprovePendingMember, 
     approveAndMergeMember as dataApproveAndMergeMember,
     rejectPendingMember as dataRejectPendingMember,
-    getHousehold as dataGetHousehold
+    getHousehold as dataGetHousehold,
+    processLeaveRequest as dataProcessLeaveRequest,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { getAdmin } from "@/lib/firebase-admin";
@@ -254,7 +256,9 @@ export async function getClientTodaysMacros() {
 export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
-    return dataAddInventoryItem(db, userId, item);
+    const household = await dataGetHousehold(db, userId);
+    const itemToAdd = { ...item, ownerId: household ? userId : null };
+    return dataAddInventoryItem(db, userId, itemToAdd);
 }
 
 export async function addClientStorageLocation(location: Omit<StorageLocation, 'id'>) {
@@ -336,16 +340,28 @@ export async function handleJoinHousehold(inviteCode: string, mergeInventory: bo
     }
 }
 
-export async function handleLeaveHousehold(newOwnerId?: string) {
+export async function handleLeaveHousehold(itemsToTake: RequestedItem[], newOwnerId?: string) {
     const userId = await getCurrentUserId();
     const { db, FieldValue } = getAdmin();
     try {
-        await dataLeaveHousehold(db, FieldValue.arrayRemove, userId, newOwnerId);
+        await dataLeaveHousehold(db, FieldValue.arrayRemove, FieldValue.arrayUnion, userId, newOwnerId, itemsToTake);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
+
+export async function handleReviewLeaveRequest(requestId: string, approve: boolean) {
+    const userId = await getCurrentUserId();
+    const { db, FieldValue } = getAdmin();
+    try {
+        const updatedHousehold = await dataProcessLeaveRequest(db, FieldValue.arrayRemove, userId, requestId, approve);
+        return { success: true, household: updatedHousehold };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
+    }
+}
+
 
 export async function handleApproveMember(householdId: string, memberIdToApprove: string) {
     const currentUserId = await getCurrentUserId();

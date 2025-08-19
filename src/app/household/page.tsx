@@ -6,14 +6,14 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Copy, Check, X, Loader2, GitMerge } from "lucide-react";
+import { LogOut, Copy, Check, X, Loader2, GitMerge, Inbox, History, PackageCheck, PackageX } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
-import type { Household } from "@/lib/types";
+import type { Household, InventoryItem, RequestedItem, LeaveRequest } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import {
   Select,
@@ -23,6 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +115,100 @@ const LoadingSkeleton = () => (
     </Card>
 );
 
+const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    inventory: InventoryItem[];
+    onConfirm: (items: RequestedItem[]) => void;
+}) => {
+    const [selectedItems, setSelectedItems] = React.useState<Record<string, number>>({});
+
+    const handleConfirm = () => {
+        const itemsToTake: RequestedItem[] = Object.entries(selectedItems).map(([id, quantity]) => {
+            const item = inventory.find(i => i.id === id)!;
+            return {
+                originalItemId: id,
+                name: item.name,
+                quantity: quantity,
+                unit: item.unit
+            };
+        });
+        onConfirm(itemsToTake);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Take Items With You</DialogTitle>
+                    <DialogDescription>Select any items and quantities you wish to take from the household inventory. These will be copied to your personal inventory.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-96 pr-4 my-4">
+                    <div className="space-y-4">
+                        {inventory.map(item => (
+                            <div key={item.id} className="p-3 border rounded-md">
+                                <div className="flex justify-between items-center">
+                                    <Label htmlFor={`item-${item.id}`}>{item.name}</Label>
+                                    <span className="text-sm text-muted-foreground">{item.totalQuantity.toFixed(2)} {item.unit} available</span>
+                                </div>
+                                <Input
+                                    id={`item-${item.id}`}
+                                    type="number"
+                                    min={0}
+                                    max={item.totalQuantity}
+                                    step="any"
+                                    value={selectedItems[item.id] || 0}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setSelectedItems(prev => ({ ...prev, [item.id]: isNaN(val) ? 0 : Math.max(0, Math.min(val, item.totalQuantity)) }))
+                                    }}
+                                    className="mt-2"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleConfirm}>Confirm & Leave</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const ReviewLeaveRequestDialog = ({ isOpen, setIsOpen, request, onProcess }: {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    request: LeaveRequest;
+    onProcess: (requestId: string, approve: boolean) => void;
+}) => {
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Review Items Taken by {request.userName}</DialogTitle>
+                    <DialogDescription>
+                        {request.userName} has left the household and taken the items below. Approving will deduct them from the household inventory.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-72 my-4">
+                    <ul className="list-disc list-inside space-y-2">
+                        {request.requestedItems.map(item => (
+                            <li key={item.originalItemId}>
+                                <span className="font-semibold">{item.name}</span>: {item.quantity} {item.unit}
+                            </li>
+                        ))}
+                    </ul>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="destructive" onClick={() => onProcess(request.requestId, false)}><PackageX className="mr-2 h-4 w-4" />Don't Deduct</Button>
+                    <Button onClick={() => onProcess(request.requestId, true)}><PackageCheck className="mr-2 h-4 w-4" />Deduct from Inventory</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function HouseholdPage() {
     const { user } = useAuth();
@@ -119,31 +217,40 @@ export default function HouseholdPage() {
     const [isJoinConfirmOpen, setIsJoinConfirmOpen] = React.useState(false);
     const [isJoinPrivateConfirmOpen, setIsJoinPrivateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
+    const [isTakeItemsOpen, setIsTakeItemsOpen] = React.useState(false);
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(null);
+    const [householdInventory, setHouseholdInventory] = React.useState<InventoryItem[]>([]);
     const [newOwnerId, setNewOwnerId] = React.useState<string>("");
+    const [reviewRequest, setReviewRequest] = React.useState<LeaveRequest | null>(null);
+
     const { toast } = useToast();
     
-    React.useEffect(() => {
-        const fetchHousehold = async () => {
-            if (user) {
-                setIsLoading(true);
-                try {
-                    const household = await getClientHousehold();
-                    setCurrentHousehold(household);
-                } catch(e) {
-                    console.error("Failed to fetch household", e);
-                    toast({variant: "destructive", title: "Error", description: "Could not fetch household information."})
-                } finally {
-                    setIsLoading(false);
+    const fetchHouseholdData = React.useCallback(async () => {
+        if (user) {
+            try {
+                const household = await getClientHousehold();
+                setCurrentHousehold(household);
+                if (household) {
+                    const inventory = await getClientInventory();
+                    setHouseholdInventory(inventory);
                 }
+            } catch(e) {
+                console.error("Failed to fetch household", e);
+                toast({variant: "destructive", title: "Error", description: "Could not fetch household information."})
+            } finally {
+                setIsLoading(false);
             }
-        };
-        fetchHousehold();
+        }
     }, [user, toast]);
+
+    React.useEffect(() => {
+        setIsLoading(true);
+        fetchHouseholdData();
+    }, [fetchHouseholdData]);
 
     const isOwner = user?.uid === currentHousehold?.ownerId;
     const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];
@@ -192,13 +299,13 @@ export default function HouseholdPage() {
         }
     };
     
-    const onLeaveHousehold = async () => {
+    const onLeaveHousehold = async (itemsToTake: RequestedItem[]) => {
         if (isOwner && otherMembers.length > 0 && !newOwnerId) {
             toast({ variant: "destructive", title: "New Owner Required", description: "You must select a new owner before leaving."});
             return;
         }
 
-        const result = await handleLeaveHousehold(newOwnerId || undefined);
+        const result = await handleLeaveHousehold(itemsToTake, newOwnerId || undefined);
         if (result.success) {
             toast({
                 title: "You have left the household."
@@ -260,6 +367,17 @@ export default function HouseholdPage() {
         }
         setIsProcessingRequest(null);
     }
+
+    const handleProcessLeaveRequest = async (requestId: string, approve: boolean) => {
+        setReviewRequest(null); // Close dialog immediately
+        const result = await handleReviewLeaveRequest(requestId, approve);
+        if (result.success) {
+            setCurrentHousehold(result.household);
+            toast({ title: "Request Processed", description: `The inventory has been updated.` });
+        } else {
+            toast({ variant: "destructive", title: "Failed to Process", description: result.error });
+        }
+    };
     
     const InHouseholdView = () => (
             <Card>
@@ -279,6 +397,29 @@ export default function HouseholdPage() {
             </div>
             </CardHeader>
             <CardContent className="space-y-6">
+
+             {isOwner && currentHousehold && currentHousehold.leaveRequests && currentHousehold.leaveRequests.length > 0 && (
+                 <>
+                 <Separator />
+                 <h3 className="text-lg font-semibold">Leaving Members</h3>
+                  <div className="grid gap-4">
+                    {currentHousehold.leaveRequests.map(req => (
+                         <div key={req.requestId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border gap-3">
+                             <div className="flex items-center gap-4">
+                                <History className="h-8 w-8 text-muted-foreground" />
+                                 <div>
+                                    <p className="font-medium">{req.userName} has left and took {req.requestedItems.length} item(s).</p>
+                                    <p className="text-sm text-muted-foreground">Review to update inventory.</p>
+                                 </div>
+                             </div>
+                              <Button size="sm" variant="outline" onClick={() => setReviewRequest(req)}>Review</Button>
+                         </div>
+                    ))}
+                  </div>
+                 </>
+             )}
+
+
             {isOwner && currentHousehold && currentHousehold.pendingMembers.length > 0 && (
                 <>
                 <Separator />
@@ -381,8 +522,8 @@ export default function HouseholdPage() {
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={onLeaveHousehold} disabled={!newOwnerId} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                            Leave and Transfer Ownership
+                        <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} disabled={!newOwnerId} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                            Next
                         </AlertDialogAction>
                     </AlertDialogFooter>
                     </>
@@ -399,7 +540,7 @@ export default function HouseholdPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={onLeaveHousehold} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                             Yes, Leave and Dissolve
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -418,7 +559,7 @@ export default function HouseholdPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onLeaveHousehold} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                    <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                         Yes, Leave Household
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -455,6 +596,26 @@ export default function HouseholdPage() {
                 <LeaveHouseholdDialogContent />
             </AlertDialogContent>
         </AlertDialog>
+
+        <TakeItemsDialog 
+            isOpen={isTakeItemsOpen}
+            setIsOpen={setIsTakeItemsOpen}
+            inventory={householdInventory}
+            onConfirm={(items) => {
+                onLeaveHousehold(items);
+                setIsTakeItemsOpen(false);
+            }}
+        />
+
+        {reviewRequest && (
+            <ReviewLeaveRequestDialog
+                isOpen={!!reviewRequest}
+                setIsOpen={() => setReviewRequest(null)}
+                request={reviewRequest}
+                onProcess={handleProcessLeaveRequest}
+            />
+        )}
+
 
         <AlertDialog open={isCreateConfirmOpen} onOpenChange={setIsCreateConfirmOpen}>
              <AlertDialogContent>

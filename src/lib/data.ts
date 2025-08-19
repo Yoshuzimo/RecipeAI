@@ -1,5 +1,5 @@
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
@@ -100,6 +100,14 @@ export async function getHousehold(db: Firestore, userId: string): Promise<House
             userName: await fetchMemberName(member.userId),
         }))
     );
+    
+    const updatedLeaveRequests = householdData.leaveRequests ? await Promise.all(
+        householdData.leaveRequests.map(async (req) => ({
+            ...req,
+            userName: await fetchMemberName(req.userId),
+        }))
+    ) : [];
+
 
     // Fetch owner's name
     const ownerName = await fetchMemberName(householdData.ownerId);
@@ -109,6 +117,7 @@ export async function getHousehold(db: Firestore, userId: string): Promise<House
         id: householdDoc.id,
         activeMembers: updatedActiveMembers,
         pendingMembers: updatedPendingMembers,
+        leaveRequests: updatedLeaveRequests,
         ownerName: ownerName,
     };
 }
@@ -120,13 +129,12 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
     const householdRef = db.collection('households').doc();
     const userRef = db.collection('users').doc(userId);
 
-    const newHousehold: Household = {
-        id: householdRef.id,
+    const newHousehold: Omit<Household, 'id' | 'ownerName'> = {
         inviteCode,
         ownerId: userId,
-        ownerName: userName,
         activeMembers: [{ userId, userName }],
         pendingMembers: [],
+        leaveRequests: [],
     };
 
     batch.set(householdRef, newHousehold);
@@ -134,7 +142,7 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
 
     await batch.commit();
 
-    return newHousehold;
+    return { ...newHousehold, id: householdRef.id, ownerName: userName };
 }
 
 export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string, mergeInventory: boolean): Promise<Household> {
@@ -158,19 +166,18 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
         const newPendingMember = { userId, userName, wantsToMergeInventory: mergeInventory };
         transaction.update(householdRef, { pendingMembers: arrayUnion(newPendingMember) });
         
-        return { ...householdData, id: householdDoc.id, pendingMembers: [...householdData.pendingMembers, newPendingMember] };
+        const ownerName = (await getSettings(db, householdData.ownerId)).displayName || "Owner";
+        return { ...householdData, id: householdDoc.id, ownerName, pendingMembers: [...householdData.pendingMembers, newPendingMember] };
     });
 }
 
-export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: string, newOwnerId?: string): Promise<void> {
-    await db.runTransaction(async (transaction) => {
+export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[]): Promise<void> {
+    return db.runTransaction(async (transaction) => {
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
 
-        if (!householdId) {
-            throw new Error("You are not currently in a household.");
-        }
+        if (!householdId) throw new Error("You are not currently in a household.");
 
         const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
@@ -183,16 +190,43 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: st
         const householdData = householdDoc.data() as Household;
         const memberToRemove = householdData.activeMembers.find(m => m.userId === userId);
 
-        if (memberToRemove) {
-            transaction.update(householdRef, { activeMembers: arrayRemove(memberToRemove) });
-        }
+        if (!memberToRemove) throw new Error("You are not an active member of this household.");
 
+        // 1. Copy items to the leaving user's inventory
+        const userInventoryCollection = userRef.collection('inventory');
+        for (const item of itemsToTake) {
+            const originalItemDoc = await transaction.get(db.collectionGroup('inventory').where('name', '==', item.name).limit(1));
+            if (!originalItemDoc.empty) {
+                const originalItemData = originalItemDoc.docs[0].data() as InventoryItem;
+                 const newItemForLeaver: Omit<InventoryItem, 'id'> = {
+                    ...originalItemData,
+                    totalQuantity: item.quantity,
+                    originalQuantity: item.quantity, // Treat it as a new package
+                    ownerId: userId, // Mark as private to the leaver
+                 };
+                transaction.set(userInventoryCollection.doc(), newItemForLeaver);
+            }
+        }
+        
+        // 2. Create a leave request for the owner to review
+        const leaveRequest: LeaveRequest = {
+            requestId: db.collection('households').doc().id, // Generate a unique ID
+            userId: userId,
+            userName: memberToRemove.userName,
+            requestedItems: itemsToTake,
+            status: 'pending_review',
+        };
+        transaction.update(householdRef, { leaveRequests: arrayUnion(leaveRequest) });
+
+
+        // 3. Remove user from active members
+        transaction.update(householdRef, { activeMembers: arrayRemove(memberToRemove) });
+
+        // 4. Handle ownership transfer or dissolution
         if (householdData.ownerId === userId) {
-            // Owner is leaving
             const remainingMembers = householdData.activeMembers.filter(m => m.userId !== userId);
             if (remainingMembers.length > 0) {
                 if (newOwnerId) {
-                    // Transfer ownership
                     const newOwnerSettings = await getSettings(db, newOwnerId);
                     const newOwnerName = newOwnerSettings.displayName || "New Owner";
                     transaction.update(householdRef, { ownerId: newOwnerId, ownerName: newOwnerName });
@@ -200,12 +234,50 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: st
                     throw new Error("A new owner must be selected before the current owner can leave.");
                 }
             } else {
-                // Last member is leaving, delete the household
                 transaction.delete(householdRef);
             }
         }
 
+        // 5. Unlink user from household
         transaction.update(userRef, { householdId: null });
+    });
+}
+
+export async function processLeaveRequest(db: Firestore, arrayRemove: any, currentUserId: string, requestId: string, approve: boolean): Promise<Household> {
+    return db.runTransaction(async (transaction) => {
+        const household = await getHousehold(db, currentUserId);
+        if (!household) throw new Error("Could not find household.");
+        if (household.ownerId !== currentUserId) throw new Error("Only the owner can process leave requests.");
+
+        const householdRef = db.collection('households').doc(household.id);
+        const request = household.leaveRequests?.find(r => r.requestId === requestId);
+        if (!request) throw new Error("Leave request not found.");
+
+        if (approve) {
+            // Deduct items from owner's inventory
+            for (const item of request.requestedItems) {
+                const q = db.collection(`users/${currentUserId}/inventory`).where('name', '==', item.name).limit(1);
+                const snapshot = await transaction.get(q);
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    const invItem = doc.data() as InventoryItem;
+                    const newQuantity = invItem.totalQuantity - item.quantity;
+                    if (newQuantity <= 0) {
+                        transaction.delete(doc.ref);
+                    } else {
+                        transaction.update(doc.ref, { totalQuantity: newQuantity });
+                    }
+                }
+            }
+        }
+
+        // Remove the request from the array
+        transaction.update(householdRef, { leaveRequests: arrayRemove(request) });
+        
+        const updatedHousehold = await getHousehold(db, currentUserId);
+        if(!updatedHousehold) throw new Error("Could not fetch household after processing request.");
+        
+        return updatedHousehold;
     });
 }
 
@@ -263,7 +335,6 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
         // --- MERGE LOGIC ---
         const memberInventorySnapshot = await transaction.get(memberUserRef.collection('inventory'));
         const ownerInventoryCollection = ownerUserRef.collection('inventory');
-        const memberInventoryCollection = memberUserRef.collection('inventory');
 
         memberInventorySnapshot.docs.forEach(doc => {
             const itemData = doc.data();
@@ -324,7 +395,9 @@ export async function rejectPendingMember(db: Firestore, arrayRemove: any, curre
 
 // Storage Locations
 export async function getStorageLocations(db: Firestore, userId: string): Promise<StorageLocation[]> {
-    const q = db.collection(`users/${userId}/storage-locations`);
+    const household = await getHousehold(db, userId);
+    const idToQuery = household ? household.ownerId : userId;
+    const q = db.collection(`users/${idToQuery}/storage-locations`);
     const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
 }
@@ -369,42 +442,45 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
   }
 
   // --- Household Inventory Logic ---
-
-  // For members who are not the owner, they see the owner's non-private inventory plus their own private inventory.
-  if (userId !== household.ownerId) {
-      const ownerInventoryPromise = db.collection(`users/${household.ownerId}/inventory`).where('ownerId', '==', null).get();
-      const userInventoryPromise = db.collection(`users/${userId}/inventory`).where('ownerId', '==', userId).get();
-
-      const [ownerSnapshot, userSnapshot] = await Promise.all([ownerInventoryPromise, userInventoryPromise]);
-      
-      const ownerItems = ownerSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-              id: doc.id, ...data, expiryDate: data.expiryDate?.toDate() ?? null
-          } as InventoryItem;
-      });
-      const userItems = userSnapshot.docs.map(doc => {
-          const data = doc.data();
-           return {
-              id: doc.id, ...data, expiryDate: data.expiryDate?.toDate() ?? null
-          } as InventoryItem;
-      });
-
-      return [...ownerItems, ...userItems];
-  }
+  const memberNames = new Map(household.activeMembers.map(m => [m.userId, m.userName]));
+  memberNames.set(household.ownerId, household.ownerName);
 
   // For the owner, they see their own entire inventory (which is the master list).
-  const snapshot = await db.collection(`users/${userId}/inventory`).get();
-  return snapshot.docs.map(doc => {
+  if (userId === household.ownerId) {
+     const snapshot = await db.collection(`users/${userId}/inventory`).get();
+     return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            expiryDate: data.expiryDate?.toDate() ?? null,
+            // Show names for items that are privately owned by other members
+            ownerName: data.ownerId && data.ownerId !== userId ? memberNames.get(data.ownerId) : undefined
+        } as InventoryItem;
+     });
+  }
+
+  // For members who are not the owner, they see the owner's non-private inventory plus their own private inventory.
+  const ownerInventoryPromise = db.collection(`users/${household.ownerId}/inventory`).where('ownerId', 'in', [null, undefined]).get();
+  const userInventoryPromise = db.collection(`users/${userId}/inventory`).where('ownerId', '==', userId).get();
+
+  const [ownerSnapshot, userSnapshot] = await Promise.all([ownerInventoryPromise, userInventoryPromise]);
+  
+  const ownerItems = ownerSnapshot.docs.map(doc => {
       const data = doc.data();
-      const memberNames = new Map(household.activeMembers.map(m => [m.userId, m.userName]));
       return {
-          id: doc.id,
-          ...data,
-          expiryDate: data.expiryDate?.toDate() ?? null,
-          ownerName: data.ownerId && data.ownerId !== userId ? memberNames.get(data.ownerId) : undefined
+          id: doc.id, ...data, expiryDate: data.expiryDate?.toDate() ?? null
       } as InventoryItem;
   });
+
+  const userItems = userSnapshot.docs.map(doc => {
+      const data = doc.data();
+       return {
+          id: doc.id, ...data, expiryDate: data.expiryDate?.toDate() ?? null, ownerName: 'You'
+      } as InventoryItem;
+  });
+
+  return [...ownerItems, ...userItems];
 }
 
 
@@ -458,9 +534,11 @@ export async function savePersonalDetails(db: Firestore, userId: string, details
 
 // Settings
 export async function getSettings(db: Firestore, userId: string): Promise<Settings> {
-    const docRef = db.collection(`users/${userId}/app-data`).doc("settings");
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) {
+    const userDocRef = db.collection('users').doc(userId);
+    const settingsDocRef = userDocRef.collection("app-data").doc("settings");
+    
+    let settingsDoc = await settingsDocRef.get();
+    if (!settingsDoc.exists) {
         const defaultSettings: Settings = {
             displayName: "New User",
             unitSystem: 'us',
@@ -473,10 +551,10 @@ export async function getSettings(db: Firestore, userId: string): Promise<Settin
             carbsGoal: 250,
             fatGoal: 70,
         };
-        await docRef.set(defaultSettings);
-        return defaultSettings;
+        await settingsDocRef.set(defaultSettings);
+        settingsDoc = await settingsDocRef.get();
     }
-    return docSnap.data() as Settings;
+    return settingsDoc.data() as Settings;
 }
 
 export async function saveSettings(db: Firestore, userId: string, settings: Settings): Promise<Settings> {

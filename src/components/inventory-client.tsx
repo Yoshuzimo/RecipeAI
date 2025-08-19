@@ -36,9 +36,9 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // First, group by item name and unit.
+        // Group by item name, unit, and ownerId to separate private items
         const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
-          const key = `${item.name}-${item.unit}`;
+          const key = `${item.name}-${item.unit}-${item.ownerId || 'shared'}`;
           if (!acc[key]) {
             acc[key] = { items: [], unit: item.unit };
           }
@@ -50,7 +50,7 @@ export default function InventoryClient({
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
           const { items, unit } = groupData;
           // If any item in the group has an owner, we use that name for display
-          const representativeItem = items.find(item => item.ownerName) || items[0];
+          const representativeItem = items[0];
           const displayName = representativeItem.ownerName
             ? `${representativeItem.name} (${representativeItem.ownerName})`
             : representativeItem.name;
