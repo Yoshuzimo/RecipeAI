@@ -180,16 +180,20 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
 
 export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[]): Promise<void> {
     return db.runTransaction(async (transaction) => {
+        // --- ALL READS FIRST ---
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
 
-        if (!householdId) throw new Error("You are not currently in a household.");
+        if (!householdId) {
+            throw new Error("You are not currently in a household.");
+        }
 
         const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
 
         if (!householdDoc.exists) {
+            // Household doesn't exist, just clear the user's householdId
             transaction.update(userRef, { householdId: null });
             return;
         }
@@ -197,23 +201,39 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
         const householdData = householdDoc.data() as Household;
         const memberToRemove = householdData.activeMembers.find(m => m.userId === userId);
 
-        if (!memberToRemove) throw new Error("You are not an active member of this household.");
+        if (!memberToRemove) {
+            throw new Error("You are not an active member of this household.");
+        }
 
-        const userInventoryCollection = userRef.collection('inventory');
+        // Pre-fetch all original items to be taken
+        const itemsToCreate = [];
         for (const item of itemsToTake) {
-            const originalItemDocQuery = householdRef.collection('inventory').where('name', '==', item.name).limit(1);
-            const originalItemDocSnapshot = await transaction.get(originalItemDocQuery);
-            if (!originalItemDocSnapshot.empty) {
+             const originalItemDocQuery = householdRef.collection('inventory').where('name', '==', item.name).limit(1);
+             const originalItemDocSnapshot = await transaction.get(originalItemDocQuery);
+             if (!originalItemDocSnapshot.empty) {
                 const originalItemData = originalItemDocSnapshot.docs[0].data() as InventoryItem;
                  const newItemForLeaver: Omit<InventoryItem, 'id'> = {
                     ...originalItemData,
                     totalQuantity: item.quantity,
                     originalQuantity: item.quantity,
                  };
-                transaction.set(userInventoryCollection.doc(), newItemForLeaver);
-            }
+                 itemsToCreate.push(newItemForLeaver);
+             }
         }
         
+        let newOwnerName: string | undefined;
+        if (householdData.ownerId === userId && newOwnerId) {
+             const newOwnerSettings = await getSettings(db, newOwnerId);
+             newOwnerName = newOwnerSettings.displayName || "New Owner";
+        }
+
+
+        // --- ALL WRITES LAST ---
+        const userInventoryCollection = userRef.collection('inventory');
+        itemsToCreate.forEach(item => {
+            transaction.set(userInventoryCollection.doc(), item);
+        });
+
         const leaveRequest: LeaveRequest = {
             requestId: db.collection('households').doc().id,
             userId: userId,
@@ -228,17 +248,22 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
         if (householdData.ownerId === userId) {
             const remainingMembers = householdData.activeMembers.filter(m => m.userId !== userId);
             if (remainingMembers.length > 0) {
-                if (newOwnerId) {
-                    const newOwnerSettings = await getSettings(db, newOwnerId);
-                    const newOwnerName = newOwnerSettings.displayName || "New Owner";
+                if (newOwnerId && newOwnerName) {
                     transaction.update(householdRef, { ownerId: newOwnerId, ownerName: newOwnerName });
                 } else {
                     throw new Error("A new owner must be selected before the current owner can leave.");
                 }
             } else {
-                // Last person leaving, delete household locations too
+                // Last person leaving, delete household and its subcollections
                 const locationsSnapshot = await transaction.get(householdRef.collection('storage-locations'));
                 locationsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
+                
+                const inventorySnapshot = await transaction.get(householdRef.collection('inventory'));
+                inventorySnapshot.docs.forEach(doc => transaction.delete(doc.ref));
+                
+                const shoppingListSnapshot = await transaction.get(householdRef.collection('shopping-list'));
+                shoppingListSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
+
                 transaction.delete(householdRef);
             }
         }
@@ -471,6 +496,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<{ pri
             id: doc.id,
             ...data,
             expiryDate: data.expiryDate?.toDate() ?? null,
+            isPrivate: true,
         } as InventoryItem;
     });
 
@@ -487,6 +513,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<{ pri
                 id: doc.id,
                 ...data,
                 expiryDate: data.expiryDate?.toDate() ?? null,
+                isPrivate: false,
             } as InventoryItem;
         })
         .filter((item): item is InventoryItem => item !== null);
@@ -508,12 +535,13 @@ export async function addInventoryItem(db: Firestore, userId: string, item: NewI
     return { 
         ...itemData, 
         id: docRef.id,
+        isPrivate: isPrivate,
     };
 }
 
-export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem, isPrivate: boolean): Promise<InventoryItem> {
+export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
-    const { id, ...data } = updatedItem;
+    const { id, isPrivate, ...data } = updatedItem;
 
     const collectionPath = (household && !isPrivate)
         ? `households/${household.id}/inventory`
@@ -530,9 +558,9 @@ export async function updateInventoryItem(db: Firestore, userId: string, updated
     }
 }
 
-export async function removeInventoryItem(db: Firestore, userId: string, item: InventoryItem, isPrivate: boolean): Promise<{ id: string }> {
+export async function removeInventoryItem(db: Firestore, userId: string, item: InventoryItem): Promise<{ id: string }> {
     const household = await getHousehold(db, userId);
-    const collectionPath = (household && !isPrivate)
+    const collectionPath = (household && !item.isPrivate)
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
 
@@ -540,19 +568,30 @@ export async function removeInventoryItem(db: Firestore, userId: string, item: I
     return { id: item.id };
 }
 
-export async function removeInventoryItems(db: Firestore, userId: string, items: InventoryItem[], isPrivate: boolean): Promise<void> {
+export async function removeInventoryItems(db: Firestore, userId: string, items: InventoryItem[]): Promise<void> {
     if (items.length === 0) return;
     const household = await getHousehold(db, userId);
     const batch = db.batch();
 
-    const collectionPath = (household && !isPrivate)
-        ? `households/${household.id}/inventory`
-        : `users/${userId}/inventory`;
+    // The items themselves know if they are private or not
+    const privateItems = items.filter(i => i.isPrivate);
+    const sharedItems = items.filter(i => !i.isPrivate);
 
-    items.forEach(item => {
-        const docRef = db.collection(collectionPath).doc(item.id);
-        batch.delete(docRef);
-    });
+    if (privateItems.length > 0) {
+        const collectionPath = `users/${userId}/inventory`;
+        privateItems.forEach(item => {
+            const docRef = db.collection(collectionPath).doc(item.id);
+            batch.delete(docRef);
+        });
+    }
+    
+    if (sharedItems.length > 0 && household) {
+        const collectionPath = `households/${household.id}/inventory`;
+        sharedItems.forEach(item => {
+            const docRef = db.collection(collectionPath).doc(item.id);
+            batch.delete(docRef);
+        });
+    }
 
     await batch.commit();
 }
@@ -560,17 +599,17 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
 export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, items: InventoryItem[], makePrivate: boolean): Promise<void> {
     return db.runTransaction(async (transaction) => {
         for (const item of items) {
-            const isCurrentlyPrivate = !item.locationId.startsWith('households/');
+            const isCurrentlyPrivate = item.isPrivate;
 
             if (isCurrentlyPrivate === makePrivate) {
                 continue; 
             }
 
-            const sourceCollectionPath = isPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+            const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             const destCollectionPath = makePrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             
             const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-            const destDocRef = db.collection(destCollectionPath).doc(); // Create new doc with new ID
+            const destDocRef = db.collection(destCollectionPath).doc();
 
             const itemDoc = await transaction.get(sourceDocRef);
             if (!itemDoc.exists) {
@@ -578,7 +617,7 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
                 continue;
             }
 
-            const { id, ...itemData } = item;
+            const { id, isPrivate, ...itemData } = item;
             
             transaction.set(destDocRef, itemData);
             transaction.delete(sourceDocRef);

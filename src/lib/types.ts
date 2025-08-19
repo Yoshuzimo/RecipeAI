@@ -16,10 +16,11 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
+  isPrivate: boolean;
 };
 
 // Type for adding a new item, with an optional flag for privacy
-export type NewInventoryItem = Omit<InventoryItem, 'id'> & { isPrivate?: boolean };
+export type NewInventoryItem = Omit<InventoryItem, 'id'>;
 
 export type InventoryItemGroup = {
   name: string;
@@ -27,6 +28,7 @@ export type InventoryItemGroup = {
   items: InventoryItem[];
   nextExpiry: Date | null;
   unit: Unit; 
+  isPrivate: boolean;
 }
 
 export type InventoryPackageGroup = {
