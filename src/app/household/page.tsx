@@ -6,14 +6,14 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Copy, Check, X, Loader2, GitMerge, Inbox, History, PackageCheck, PackageX } from "lucide-react";
+import { LogOut, Copy, Check, X, Loader2, GitMerge, Inbox, History, PackageCheck, PackageX, ChevronLeft, ChevronRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest, getClientStorageLocations } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest, getClientStorageLocations, getHouseholdByInviteCode } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
-import type { Household, InventoryItem, RequestedItem, LeaveRequest, StorageLocation, LocationMapping } from "@/lib/types";
+import type { Household, InventoryItem, RequestedItem, LeaveRequest, StorageLocation, ItemMigrationMapping } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import {
   Select,
@@ -43,74 +43,132 @@ const MapLocationsDialog = ({
     userInventory: InventoryItem[];
     userLocations: StorageLocation[];
     householdLocations: StorageLocation[];
-    onConfirm: (mapping: LocationMapping) => void;
+    onConfirm: (mapping: ItemMigrationMapping) => void;
 }) => {
-    const [mapping, setMapping] = React.useState<LocationMapping>({});
+    const [mapping, setMapping] = React.useState<ItemMigrationMapping>({});
+    const [currentPage, setCurrentPage] = React.useState(0);
+    const itemsPerPage = 10;
+
     const userLocationMap = new Map(userLocations.map(l => [l.id, l.name]));
 
     React.useEffect(() => {
-        // Pre-populate default mapping
-        const initialMapping: LocationMapping = {};
+        const initialMapping: ItemMigrationMapping = {};
         userInventory.forEach(item => {
             const currentLocName = userLocationMap.get(item.locationId);
             const defaultTarget = householdLocations.find(hl => hl.name === currentLocName);
-            if (defaultTarget) {
-                initialMapping[item.id] = defaultTarget.id;
-            }
+            initialMapping[item.id] = {
+                newLocationId: defaultTarget?.id || '',
+                keepPrivate: true, // Default to keeping items private
+            };
         });
         setMapping(initialMapping);
     }, [userInventory, userLocations, householdLocations, userLocationMap]);
 
-    const handleSelectChange = (itemId: string, newLocationId: string) => {
-        setMapping(prev => ({ ...prev, [itemId]: newLocationId }));
+    const handleMappingChange = (itemId: string, field: keyof ItemMigrationMapping[string], value: string | boolean) => {
+        setMapping(prev => ({
+            ...prev,
+            [itemId]: {
+                ...prev[itemId],
+                [field]: value
+            }
+        }));
     };
+
+    const totalPages = Math.ceil(userInventory.length / itemsPerPage);
+    const paginatedInventory = userInventory.slice(
+        currentPage * itemsPerPage,
+        (currentPage + 1) * itemsPerPage
+    );
 
     const handleConfirm = () => {
         // Validate that all items have been mapped
         for (const item of userInventory) {
-            if (!mapping[item.id]) {
-                // This can be replaced with a more user-friendly error message
-                alert(`Please map a new location for ${item.name}`);
+            if (!mapping[item.id] || !mapping[item.id].newLocationId) {
+                toast({
+                    variant: "destructive",
+                    title: "Incomplete Mapping",
+                    description: `Please map a new location for "${item.name}".`
+                });
+                // Switch to the page containing the unmapped item
+                const itemIndex = userInventory.findIndex(i => i.id === item.id);
+                const pageIndex = Math.floor(itemIndex / itemsPerPage);
+                setCurrentPage(pageIndex);
                 return;
             }
         }
         onConfirm(mapping);
     };
+    
+    const { toast } = useToast();
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Map Your Inventory to Household Locations</DialogTitle>
+                    <DialogTitle>Migrate Your Inventory</DialogTitle>
                     <DialogDescription>
-                        Your items need a new home! Please specify where each of your items should go in the new household's storage.
+                        Your items need a home in the new household. Map them to a new location and decide if they should be shared or kept private.
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="h-96 my-4 pr-4">
                     <div className="space-y-4">
-                        {userInventory.map(item => (
-                            <div key={item.id} className="grid grid-cols-2 gap-4 items-center p-3 border rounded-md">
-                                <div>
+                        {paginatedInventory.map(item => (
+                            <div key={item.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center p-3 border rounded-md">
+                                <div className="md:col-span-1">
                                     <p className="font-semibold">{item.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        From: {userLocationMap.get(item.locationId) || 'Unknown Location'}
+                                        From: {userLocationMap.get(item.locationId) || 'Unknown'}
                                     </p>
                                 </div>
-                                <Select value={mapping[item.id] || ''} onValueChange={value => handleSelectChange(item.id, value)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select new location..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {householdLocations.map(loc => (
-                                            <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.type})</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="md:col-span-1">
+                                    <Select 
+                                        value={mapping[item.id]?.newLocationId || ''} 
+                                        onValueChange={value => handleMappingChange(item.id, 'newLocationId', value)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select new location..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {householdLocations.map(loc => (
+                                                <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.type})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="md:col-span-1 flex items-center justify-end space-x-2">
+                                    <Checkbox
+                                        id={`private-${item.id}`}
+                                        checked={mapping[item.id]?.keepPrivate ?? true}
+                                        onCheckedChange={checked => handleMappingChange(item.id, 'keepPrivate', !!checked)}
+                                    />
+                                    <Label htmlFor={`private-${item.id}`} className="font-normal text-sm">
+                                        Keep Private
+                                    </Label>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </ScrollArea>
-                <DialogFooter>
+                <div className="flex justify-between items-center mt-4">
+                    <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                    >
+                       <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                        Page {currentPage + 1} of {totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage === totalPages - 1}
+                    >
+                        Next <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+                <DialogFooter className="mt-4">
                     <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                     <Button onClick={handleConfirm}>Confirm & Join</Button>
                 </DialogFooter>
@@ -303,8 +361,6 @@ export default function HouseholdPage() {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = React.useState(true);
     const [isCreateConfirmOpen, setIsCreateConfirmOpen] = React.useState(false);
-    const [isJoinConfirmOpen, setIsJoinConfirmOpen] = React.useState(false);
-    const [isJoinPrivateConfirmOpen, setIsJoinPrivateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isTakeItemsOpen, setIsTakeItemsOpen] = React.useState(false);
     const [isMapLocationsOpen, setIsMapLocationsOpen] = React.useState(false);
@@ -329,18 +385,17 @@ export default function HouseholdPage() {
             try {
                 const household = await getClientHousehold();
                 setCurrentHousehold(household);
+                const inventory = await getClientInventory();
+                const locations = await getClientStorageLocations();
+
                 if (household) {
-                    const inventory = await getClientInventory();
-                    // Inventory now contains both personal and shared items, correctly marked
                     setHouseholdInventory(inventory);
                 } else {
-                    const inventory = await getClientInventory();
                     setUserInventory(inventory);
-                    const locations = await getClientStorageLocations();
                     setUserLocations(locations);
                 }
             } catch(e) {
-                console.error("Failed to fetch household", e);
+                console.error("Failed to fetch household data", e);
                 toast({variant: "destructive", title: "Error", description: "Could not fetch household information."})
             } finally {
                 setIsLoading(false);
@@ -382,20 +437,19 @@ export default function HouseholdPage() {
         if (joinCode.length < 4) return;
         setIsJoining(true);
         try {
-            // Fetch household data first to get locations
-            const household = await getClientHousehold(); // This is a temporary action to get ANY household data
-            if(household) {
-                // In a real app this would be a dedicated `getHouseholdByInviteCode` action
-                 toast({ variant: "destructive", title: "Error", description: "This is a placeholder for fetching household locations. Joining may not work as expected." });
+            const household = await getHouseholdByInviteCode(joinCode);
+            if (!household) {
+                throw new Error("Could not find a household with that invite code.");
             }
-             // For now, let's assume a placeholder/mock flow
-            const mockHouseholdLocations: StorageLocation[] = [
-                {id: 'hh-fridge-1', name: 'Main Fridge', type: 'Fridge'},
-                {id: 'hh-pantry-1', name: 'Pantry', type: 'Pantry'}
-            ];
-            
-            setHouseholdToJoin({ ...currentHousehold, locations: mockHouseholdLocations } as any); // Mocking this
-            setIsJoinConfirmOpen(true);
+            setHouseholdToJoin(household);
+
+            if (userInventory.length === 0) {
+                // No inventory, join directly
+                await onJoinHousehold(false, {});
+            } else {
+                // User has inventory, open mapping dialog
+                setIsMapLocationsOpen(true);
+            }
         } catch (e) {
             toast({ variant: "destructive", title: "Failed to Join", description: e instanceof Error ? e.message : "Could not find household." });
         } finally {
@@ -404,20 +458,18 @@ export default function HouseholdPage() {
     }
 
 
-    const onJoinHousehold = async (mergeInventory: boolean, locationMapping: LocationMapping = {}) => {
+    const onJoinHousehold = async (mergeInventory: boolean, itemMigrationMapping: ItemMigrationMapping = {}) => {
         setIsJoining(true);
         setIsMapLocationsOpen(false);
-        const result = await handleJoinHousehold(joinCode.toUpperCase(), mergeInventory, locationMapping);
+        const result = await handleJoinHousehold(joinCode.toUpperCase(), mergeInventory, itemMigrationMapping);
         setIsJoining(false);
-        setIsJoinConfirmOpen(false);
-        setIsJoinPrivateConfirmOpen(false);
 
         if (result.success) {
             toast({
                 title: "Request Sent!",
                 description: `Your request to join household ${joinCode.toUpperCase()} has been sent for approval.`,
             });
-                setJoinCode("");
+            setJoinCode("");
         } else {
             toast({
                 variant: "destructive",
@@ -439,6 +491,7 @@ export default function HouseholdPage() {
                 title: "You have left the household."
             });
             setCurrentHousehold(null);
+            fetchHouseholdData(); // Re-fetch data to get user's standalone state
         } else {
                 toast({
                 variant: "destructive",
@@ -775,27 +828,6 @@ export default function HouseholdPage() {
             </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={isJoinConfirmOpen} onOpenChange={setIsJoinConfirmOpen}>
-             <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Combine Inventories?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Would you like to combine your current inventory with this household? If you choose yes, your non-private items will be transferred to the household owner upon approval. You can keep your items separate if you prefer.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); onJoinHousehold(false); }}>
-                        No, Keep Separate
-                    </AlertDialogAction>
-                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); setIsMapLocationsOpen(true); }}>
-                        Yes, Combine
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
     </MainLayout>
     );
 }
-
-      

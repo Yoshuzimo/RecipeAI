@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, LocationMapping } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
@@ -153,7 +153,7 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
     return { ...newHousehold, id: householdRef.id, ownerName: userName, locations: userLocations };
 }
 
-export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string, mergeInventory: boolean, locationMapping: LocationMapping): Promise<Household> {
+export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string, mergeInventory: boolean, itemMigrationMapping: ItemMigrationMapping): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const q = db.collection('households').where('inviteCode', '==', inviteCode).limit(1);
         const snapshot = await transaction.get(q);
@@ -170,7 +170,7 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
             throw new Error("You are already a member or have a pending request for this household.");
         }
 
-        const newPendingMember = { userId, userName, wantsToMergeInventory: mergeInventory, locationMapping };
+        const newPendingMember = { userId, userName, wantsToMergeInventory: mergeInventory, itemMigrationMapping };
         transaction.update(householdRef, { pendingMembers: arrayUnion(newPendingMember) });
         
         const ownerName = (await getSettings(db, householdData.ownerId)).displayName || "Owner";
@@ -300,7 +300,7 @@ export async function approvePendingMember(db: Firestore, arrayUnion: any, array
         const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
         if (!pendingMember) throw new Error("This user is not pending approval.");
 
-        const { wantsToMergeInventory, locationMapping, ...activeMember } = pendingMember;
+        const { wantsToMergeInventory, itemMigrationMapping, ...activeMember } = pendingMember;
 
         transaction.update(householdRef, {
             pendingMembers: arrayRemove(pendingMember),
@@ -331,23 +331,34 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
 
         const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
         if (!pendingMember) throw new Error("This user is not pending approval.");
-        if (!pendingMember.locationMapping) throw new Error("Location mapping is missing for inventory merge.");
+        if (!pendingMember.itemMigrationMapping) throw new Error("Item migration mapping is missing for inventory merge.");
 
         const memberInventorySnapshot = await transaction.get(memberUserRef.collection('inventory'));
         const householdInventoryCollection = householdRef.collection('inventory');
 
-        memberInventorySnapshot.docs.forEach(doc => {
-            const itemData = doc.data() as Omit<InventoryItem, 'id'>;
-            const newLocationId = pendingMember.locationMapping![doc.id];
-            if (!newLocationId) {
-                console.warn(`No location mapping found for item ${itemData.name} (${doc.id}). Skipping.`);
-                return;
+        for (const doc of memberInventorySnapshot.docs) {
+            const itemData = doc.data() as Omit<InventoryItem, 'id' | 'ownerName'>;
+            const migrationInfo = pendingMember.itemMigrationMapping![doc.id];
+            
+            if (!migrationInfo) {
+                console.warn(`No migration mapping found for item ${itemData.name} (${doc.id}). Skipping.`);
+                continue;
             }
-            transaction.set(householdInventoryCollection.doc(), { ...itemData, locationId: newLocationId });
-            transaction.delete(doc.ref);
-        });
 
-        const { wantsToMergeInventory, locationMapping, ...activeMember } = pendingMember;
+            const { newLocationId, keepPrivate } = migrationInfo;
+            const updatedItemData = { ...itemData, locationId: newLocationId };
+
+            if (keepPrivate) {
+                // Item stays in user's collection, just update its locationId
+                transaction.update(doc.ref, { locationId: newLocationId });
+            } else {
+                // Item moves to household collection
+                transaction.set(householdInventoryCollection.doc(), updatedItemData);
+                transaction.delete(doc.ref);
+            }
+        }
+        
+        const { wantsToMergeInventory, itemMigrationMapping, ...activeMember } = pendingMember;
 
         transaction.update(householdRef, {
             pendingMembers: arrayRemove(pendingMember),
@@ -763,5 +774,3 @@ export async function removeCheckedShoppingListItems(db: Firestore, userId: stri
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
 }
-
-      

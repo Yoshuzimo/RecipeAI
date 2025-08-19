@@ -24,9 +24,9 @@ const nextConfig = {
   webpack(config, { isServer }) {
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
     
-    // Exclude firebase-admin from client-side bundles
+    // Exclude firebase-admin from client-side bundles.
     if (!isServer) {
-      config.externals.push('firebase-admin');
+      // This is the most robust way to prevent the client from trying to bundle a server-only package.
       config.resolve.alias['firebase-admin'] = false;
     }
 

@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, LocationMapping } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -393,6 +393,27 @@ export async function getClientHousehold(): Promise<Household | null> {
     }
 }
 
+// This is a new action to get a household by its invite code
+// It's needed for the join flow before the user is actually a member.
+export async function getHouseholdByInviteCode(inviteCode: string): Promise<Household | null> {
+    const { getAdmin } = require("@/lib/firebase-admin");
+    const { db } = getAdmin();
+    const q = db.collection('households').where('inviteCode', '==', inviteCode.toUpperCase()).limit(1);
+    const snapshot = await q.get();
+    if (snapshot.empty) {
+        return null;
+    }
+    const doc = snapshot.docs[0];
+    const data = doc.data() as Household;
+
+    // We also need to fetch locations for the mapping dialog
+    const locationsSnapshot = await doc.ref.collection('storage-locations').get();
+    const locations = locationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
+    
+    return { ...data, id: doc.id, locations };
+}
+
+
 export async function handleCreateHousehold() {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
@@ -409,14 +430,14 @@ export async function handleCreateHousehold() {
     }
 }
 
-export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean, locationMapping: LocationMapping) {
+export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean, itemMigrationMapping: ItemMigrationMapping) {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     const userSettings = await dataGetSettings(db, userId);
     const userName = userSettings.displayName || "New Member";
      try {
-        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase(), mergeInventory, locationMapping);
+        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase(), mergeInventory, itemMigrationMapping);
         return { success: true, household, pending: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -483,7 +504,3 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
-
-    
-
-      
