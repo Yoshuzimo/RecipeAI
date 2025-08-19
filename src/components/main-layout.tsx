@@ -1,9 +1,9 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark, Gem, Users } from "lucide-react";
+import { Home, Settings, Warehouse, LayoutDashboard, BarChart, FileText, ShoppingCart, Bookmark, Gem, Users, LogOut } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -12,10 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarFooter,
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
+import { getAuth, signOut } from "firebase/auth";
+import { app } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
@@ -32,6 +37,27 @@ const menuItems = [
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    const auth = getAuth(app);
+    try {
+      await signOut(auth);
+      // The onAuthStateChanged listener in AuthProvider will handle clearing the session cookie.
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+      router.push("/login");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Logout Failed",
+        description: "An error occurred while logging out. Please try again.",
+      });
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -70,6 +96,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               ))}
             </SidebarMenu>
           </SidebarContent>
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem asChild>
+                <SidebarMenuButton onClick={handleLogout}
+                    tooltip={{
+                      children: "Log Out",
+                      className: "font-body",
+                    }}
+                >
+                    <LogOut className="h-5 w-5" />
+                    <span className="group-data-[state=collapsed]:hidden">Log Out</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex-1 bg-background">{children}</SidebarInset>
       </div>
