@@ -488,3 +488,5 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
+
+    
