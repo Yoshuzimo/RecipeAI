@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -141,9 +140,13 @@ export function ViewInventoryItemDialog({
       toast({ title: "Privacy Updated", description: `${group.name} has been moved.` });
       onUpdateComplete(result.newInventory);
       setIsPrivacyChanged(false); // Reset changed state
-      // The dialog will close if the group no longer exists.
-      // If it still exists (e.g. some packages moved), its props will update.
-      const newGroupExists = result.newInventory.some(item => item.name === group.name && item.unit === group.unit && item.isPrivate === isPrivateStaged);
+      
+      const newGroupExists = result.newInventory.some(item => 
+        item.name === group.name && 
+        item.unit === group.unit && 
+        item.isPrivate === isPrivateStaged
+      );
+
       if (!newGroupExists) {
         setIsOpen(false);
       }
@@ -224,7 +227,7 @@ export function ViewInventoryItemDialog({
                         <div className="space-y-0.5">
                             <Label htmlFor="privacy-toggle" className="text-base flex items-center gap-2">
                                 {isPrivateStaged ? <User className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-                                {isPrivateStaged ? "Item is Private" : "Item is Shared"}
+                                {isPrivateStaged ? "Make this Shared" : "Make this Private"}
                             </Label>
                             <p className="text-sm text-muted-foreground">
                                 {isPrivateStaged ? "This item is only visible to you." : "This item is visible to your household."}
@@ -234,8 +237,8 @@ export function ViewInventoryItemDialog({
                            {isPrivacyChanged && <Button size="sm" type="button" onClick={handleSavePrivacyChange} disabled={isPending}><Save className="h-4 w-4 mr-2"/>Save Privacy</Button>}
                             <Switch
                                 id="privacy-toggle"
-                                checked={isPrivateStaged}
-                                onCheckedChange={handlePrivacySwitchChange}
+                                checked={!isPrivateStaged}
+                                onCheckedChange={(checked) => handlePrivacySwitchChange(!checked)}
                                 disabled={isPending}
                             />
                         </div>

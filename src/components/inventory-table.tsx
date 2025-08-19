@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import type { InventoryItemGroup } from "@/lib/types";
@@ -15,9 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Users, Star } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
-
 
 function getItemStatus(expiryDate: Date | null): {
   label: "Expired" | "Expiring Soon" | "Fresh" | "N/A";
@@ -66,17 +62,7 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
               const status = getItemStatus(group.nextExpiry);
               return (
                 <TableRow key={`${group.name}-${group.unit}-${group.isPrivate}`} onClick={() => onRowClick(group)} className="cursor-pointer">
-                  <TableCell className="font-medium flex items-center gap-2">
-                     <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger>
-                                {group.isPrivate ? <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> : <Users className="h-4 w-4 text-muted-foreground" />}
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{group.isPrivate ? 'Private' : 'Shared'}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                  <TableCell className="font-medium">
                     {group.name}
                   </TableCell>
                   <TableCell>

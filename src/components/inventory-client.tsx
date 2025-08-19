@@ -1,18 +1,15 @@
 
-
 "use client";
 
 import { useState } from "react";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users } from "lucide-react";
+import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
 
 const locationIcons = {
   Fridge: <Refrigerator className="h-6 w-6" />,
@@ -20,16 +17,53 @@ const locationIcons = {
   Pantry: <Warehouse className="h-6 w-6" />,
 };
 
+const locationOrder: Array<keyof GroupedByLocation> = ['Fridge', 'Freezer', 'Pantry'];
+
+
+const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: string, icon: React.ReactNode, groupedData: GroupedByLocation, onRowClick: (group: InventoryItemGroup) => void }) => {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-2 text-2xl font-bold">
+                {icon}
+                <h2>{title}</h2>
+            </div>
+            <Accordion type="multiple" defaultValue={['Fridge', 'Freezer', 'Pantry']} className="w-full space-y-4">
+                {locationOrder.map(locationType => (
+                    <AccordionItem value={locationType} key={locationType} className="border-none">
+                        <Card>
+                            <AccordionTrigger className="p-0 hover:no-underline">
+                                <CardHeader className="flex-row items-center justify-between w-full p-4">
+                                   <div className="flex items-center gap-4">
+                                     {locationIcons[locationType]}
+                                    <CardTitle className="text-2xl">{locationType}</CardTitle>
+                                   </div>
+                                </CardHeader>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-2 sm:px-4 pb-4">
+                               <InventoryTable data={groupedData[locationType]} onRowClick={onRowClick} />
+                            </AccordionContent>
+                        </Card>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+        </div>
+    );
+};
+
+
 export default function InventoryClient({
-  initialData,
+  initialPrivateData,
+  initialSharedData,
   allItems,
   storageLocations,
 }: {
-  initialData: GroupedByLocation;
+  initialPrivateData: GroupedByLocation;
+  initialSharedData: GroupedByLocation;
   allItems: InventoryItem[];
   storageLocations: StorageLocation[];
 }) {
-  const [groupedInventory, setGroupedInventory] = useState<GroupedByLocation>(initialData);
+  const [groupedPrivate, setGroupedPrivate] = useState<GroupedByLocation>(initialPrivateData);
+  const [groupedShared, setGroupedShared] = useState<GroupedByLocation>(initialSharedData);
   const [flatInventory, setFlatInventory] = useState<InventoryItem[]>(allItems);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -38,19 +72,20 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name, unit, and isPrivate status.
-        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit, isPrivate: boolean }>>((acc, item) => {
-          const key = `${item.name}-${item.unit}-${item.isPrivate}`;
+        // Group by item name and unit.
+        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
+          const key = `${item.name}-${item.unit}`;
           if (!acc[key]) {
-            acc[key] = { items: [], unit: item.unit, isPrivate: item.isPrivate };
+            acc[key] = { items: [], unit: item.unit };
           }
           acc[key].items.push(item);
           return acc;
         }, {});
 
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
-          const { items, unit, isPrivate } = groupData;
+          const { items, unit } = groupData;
           const name = items[0].name;
+          const isPrivate = items[0].isPrivate;
 
           let packageInfo = '';
 
@@ -126,18 +161,30 @@ export default function InventoryClient({
       };
 
       const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
-      const newGroupedByLocation: GroupedByLocation = {
-        Fridge: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-        Freezer: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-        Pantry: groupItems(newFlatInventory.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+      
+      const privateItems = newFlatInventory.filter(i => i.isPrivate);
+      const sharedItems = newFlatInventory.filter(i => !i.isPrivate);
+
+      const newGroupedPrivate: GroupedByLocation = {
+        Fridge: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+        Freezer: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+        Pantry: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+      };
+
+      const newGroupedShared: GroupedByLocation = {
+        Fridge: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+        Freezer: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+        Pantry: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
       };
 
       setFlatInventory(newFlatInventory);
-      setGroupedInventory(newGroupedByLocation);
+      setGroupedPrivate(newGroupedPrivate);
+      setGroupedShared(newGroupedShared);
 
       if (selectedGroup) {
-        const allGroups = [...newGroupedByLocation.Fridge, ...newGroupedByLocation.Freezer, ...newGroupedByLocation.Pantry];
+        const allGroups = [...newGroupedPrivate.Fridge, ...newGroupedPrivate.Freezer, ...newGroupedPrivate.Pantry, ...newGroupedShared.Fridge, ...newGroupedShared.Freezer, ...newGroupedShared.Pantry];
         const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit && g.isPrivate === selectedGroup.isPrivate);
+        
         if (updatedGroup) {
             setSelectedGroup(updatedGroup);
         } else {
@@ -162,7 +209,6 @@ export default function InventoryClient({
     setIsViewDialogOpen(true);
   };
   
-  const locationOrder: Array<keyof GroupedByLocation> = ['Fridge', 'Freezer', 'Pantry'];
 
   return (
     <>
@@ -170,7 +216,7 @@ export default function InventoryClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
           <p className="text-muted-foreground">
-            Manage your kitchen ingredients and leftovers. (You can add or remove storage locations in Settings).
+            Manage your kitchen ingredients and leftovers. Add or remove storage locations in Settings.
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -181,25 +227,10 @@ export default function InventoryClient({
         </div>
       </div>
       
-      <Accordion type="multiple" defaultValue={['Fridge', 'Freezer', 'Pantry']} className="w-full space-y-4">
-        {locationOrder.map(locationType => (
-            <AccordionItem value={locationType} key={locationType} className="border-none">
-                <Card>
-                    <AccordionTrigger className="p-0 hover:no-underline">
-                        <CardHeader className="flex-row items-center justify-between w-full p-4">
-                           <div className="flex items-center gap-4">
-                             {locationIcons[locationType]}
-                            <CardTitle className="text-2xl">{locationType}</CardTitle>
-                           </div>
-                        </CardHeader>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2 sm:px-4 pb-4">
-                       <InventoryTable data={groupedInventory[locationType]} onRowClick={handleRowClick} />
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-        ))}
-      </Accordion>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} />
+        <InventoryColumn title="Private Inventory" icon={<Lock />} groupedData={groupedPrivate} onRowClick={handleRowClick} />
+      </div>
 
 
       <AddInventoryItemDialog

@@ -11,7 +11,7 @@ export default async function InventoryPage() {
   const storageLocations = await getClientStorageLocations();
 
   const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-    // First, group by item name and unit.
+    // Group by item name and unit.
     const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
       const key = `${item.name}-${item.unit}`;
       if (!acc[key]) {
@@ -25,12 +25,13 @@ export default async function InventoryPage() {
     const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
       const { items, unit } = groupData;
       const name = items[0].name;
+      const isPrivate = items[0].isPrivate;
 
       let packageInfo = '';
 
       if (unit === 'pcs') {
           const totalPieces = items.reduce((sum, item) => sum + item.totalQuantity, 0);
-          const packageSize = items[0]?.originalQuantity || 1; // Assume at least one item to get package size
+          const packageSize = items[0]?.originalQuantity || 1; 
           
           if (packageSize > 1) {
             const fullPackages = Math.floor(totalPieces / packageSize);
@@ -45,12 +46,10 @@ export default async function InventoryPage() {
             }
             packageInfo = parts.join(' + ');
           } else {
-            // If package size is 1, just show total pieces
             packageInfo = `${totalPieces.toFixed(0)} ${unit}`;
           }
 
       } else {
-        // Original logic for non-'pcs' items
         const packageCounts = items.reduce<Record<string, { count: number, items: InventoryItem[] }>>((acc, item) => {
           const packageKey = item.originalQuantity.toString();
           if (!acc[packageKey]) {
@@ -91,6 +90,7 @@ export default async function InventoryPage() {
         items: sortedItems,
         packageInfo,
         nextExpiry,
+        isPrivate,
       };
     });
 
@@ -103,16 +103,31 @@ export default async function InventoryPage() {
 
   const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
 
-  const groupedByLocation: GroupedByLocation = {
-    Fridge: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-    Freezer: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-    Pantry: groupItems(inventoryData.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+  const privateItems = inventoryData.filter(item => item.isPrivate);
+  const sharedItems = inventoryData.filter(item => !item.isPrivate);
+
+  const groupedPrivateInventory: GroupedByLocation = {
+    Fridge: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+    Freezer: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+    Pantry: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
   };
+
+  const groupedSharedInventory: GroupedByLocation = {
+    Fridge: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+    Freezer: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+    Pantry: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+  };
+
 
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <InventoryClient initialData={groupedByLocation} allItems={inventoryData} storageLocations={storageLocations} />
+        <InventoryClient 
+            initialPrivateData={groupedPrivateInventory}
+            initialSharedData={groupedSharedInventory}
+            allItems={inventoryData} 
+            storageLocations={storageLocations} 
+        />
       </div>
     </MainLayout>
   );
