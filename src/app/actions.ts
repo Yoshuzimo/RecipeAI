@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, LocationMapping } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -104,7 +104,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
             if (newFullCount > currentFullCount) {
                 const toAdd = newFullCount - currentFullCount;
                 for (let i = 0; i < toAdd; i++) {
-                    updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: size, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1' }));
+                    updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: size, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.ownerName !== 'Shared' }));
                 }
             } else if (newFullCount < currentFullCount) {
                 const toRemove = currentFullCount - newFullCount;
@@ -122,7 +122,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
                     updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage));
                 }
             } else if (newPartialQty > 0) {
-                 updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1' }));
+                 updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.ownerName !== 'Shared' }));
             }
         }
         await Promise.all(updates);
@@ -196,7 +196,7 @@ export async function handleMoveInventoryItems(request: MoveRequest, destination
             }
             if (partialAmountToMove > 0 && source.partialPackage) {
                 updates.push(dataUpdateInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: source.partialPackage.totalQuantity - partialAmountToMove }));
-                updates.push(dataAddInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: partialAmountToMove, locationId: destinationId }));
+                updates.push(dataAddInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: partialAmountToMove, locationId: destinationId, isPrivate: source.partialPackage.ownerName !== 'Shared' }));
             }
         }
         await Promise.all(updates);
@@ -401,21 +401,22 @@ export async function handleCreateHousehold() {
     const ownerName = userSettings.displayName || "Owner";
     const inviteCode = generateInviteCode();
     try {
-        const household = await dataCreateHousehold(db, userId, ownerName, inviteCode);
+        const userLocations = await getStorageLocations(db, userId);
+        const household = await dataCreateHousehold(db, userId, ownerName, inviteCode, userLocations);
         return { success: true, household };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
 
-export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean) {
+export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean, locationMapping: LocationMapping) {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     const userSettings = await dataGetSettings(db, userId);
     const userName = userSettings.displayName || "New Member";
      try {
-        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase(), mergeInventory);
+        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase(), mergeInventory, locationMapping);
         return { success: true, household, pending: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -484,3 +485,5 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
 }
 
     
+
+      

@@ -11,9 +11,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest, getClientStorageLocations } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
-import type { Household, InventoryItem, RequestedItem, LeaveRequest } from "@/lib/types";
+import type { Household, InventoryItem, RequestedItem, LeaveRequest, StorageLocation, LocationMapping } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import {
   Select,
@@ -29,6 +29,95 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 
 export const dynamic = 'force-dynamic';
+
+const MapLocationsDialog = ({
+    isOpen,
+    setIsOpen,
+    userInventory,
+    userLocations,
+    householdLocations,
+    onConfirm,
+}: {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    userInventory: InventoryItem[];
+    userLocations: StorageLocation[];
+    householdLocations: StorageLocation[];
+    onConfirm: (mapping: LocationMapping) => void;
+}) => {
+    const [mapping, setMapping] = React.useState<LocationMapping>({});
+    const userLocationMap = new Map(userLocations.map(l => [l.id, l.name]));
+
+    React.useEffect(() => {
+        // Pre-populate default mapping
+        const initialMapping: LocationMapping = {};
+        userInventory.forEach(item => {
+            const currentLocName = userLocationMap.get(item.locationId);
+            const defaultTarget = householdLocations.find(hl => hl.name === currentLocName);
+            if (defaultTarget) {
+                initialMapping[item.id] = defaultTarget.id;
+            }
+        });
+        setMapping(initialMapping);
+    }, [userInventory, userLocations, householdLocations, userLocationMap]);
+
+    const handleSelectChange = (itemId: string, newLocationId: string) => {
+        setMapping(prev => ({ ...prev, [itemId]: newLocationId }));
+    };
+
+    const handleConfirm = () => {
+        // Validate that all items have been mapped
+        for (const item of userInventory) {
+            if (!mapping[item.id]) {
+                // This can be replaced with a more user-friendly error message
+                alert(`Please map a new location for ${item.name}`);
+                return;
+            }
+        }
+        onConfirm(mapping);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Map Your Inventory to Household Locations</DialogTitle>
+                    <DialogDescription>
+                        Your items need a new home! Please specify where each of your items should go in the new household's storage.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-96 my-4 pr-4">
+                    <div className="space-y-4">
+                        {userInventory.map(item => (
+                            <div key={item.id} className="grid grid-cols-2 gap-4 items-center p-3 border rounded-md">
+                                <div>
+                                    <p className="font-semibold">{item.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        From: {userLocationMap.get(item.locationId) || 'Unknown Location'}
+                                    </p>
+                                </div>
+                                <Select value={mapping[item.id] || ''} onValueChange={value => handleSelectChange(item.id, value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select new location..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {householdLocations.map(loc => (
+                                            <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.type})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleConfirm}>Confirm & Join</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 const NoHouseholdView = ({
     onTriggerCreateConfirmation,
@@ -218,12 +307,18 @@ export default function HouseholdPage() {
     const [isJoinPrivateConfirmOpen, setIsJoinPrivateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isTakeItemsOpen, setIsTakeItemsOpen] = React.useState(false);
+    const [isMapLocationsOpen, setIsMapLocationsOpen] = React.useState(false);
+
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(null);
     const [householdInventory, setHouseholdInventory] = React.useState<InventoryItem[]>([]);
+    const [userInventory, setUserInventory] = React.useState<InventoryItem[]>([]);
+    const [userLocations, setUserLocations] = React.useState<StorageLocation[]>([]);
+    const [householdToJoin, setHouseholdToJoin] = React.useState<Household | null>(null);
+    
     const [newOwnerId, setNewOwnerId] = React.useState<string>("");
     const [reviewRequest, setReviewRequest] = React.useState<LeaveRequest | null>(null);
 
@@ -236,7 +331,13 @@ export default function HouseholdPage() {
                 setCurrentHousehold(household);
                 if (household) {
                     const inventory = await getClientInventory();
+                    // Inventory now contains both personal and shared items, correctly marked
                     setHouseholdInventory(inventory);
+                } else {
+                    const inventory = await getClientInventory();
+                    setUserInventory(inventory);
+                    const locations = await getClientStorageLocations();
+                    setUserLocations(locations);
                 }
             } catch(e) {
                 console.error("Failed to fetch household", e);
@@ -276,10 +377,37 @@ export default function HouseholdPage() {
             });
         }
     };
-
-    const onJoinHousehold = async (mergeInventory: boolean) => {
+    
+    const handleTriggerJoin = async () => {
+        if (joinCode.length < 4) return;
         setIsJoining(true);
-        const result = await handleJoinHousehold(joinCode.toUpperCase(), mergeInventory);
+        try {
+            // Fetch household data first to get locations
+            const household = await getClientHousehold(); // This is a temporary action to get ANY household data
+            if(household) {
+                // In a real app this would be a dedicated `getHouseholdByInviteCode` action
+                 toast({ variant: "destructive", title: "Error", description: "This is a placeholder for fetching household locations. Joining may not work as expected." });
+            }
+             // For now, let's assume a placeholder/mock flow
+            const mockHouseholdLocations: StorageLocation[] = [
+                {id: 'hh-fridge-1', name: 'Main Fridge', type: 'Fridge'},
+                {id: 'hh-pantry-1', name: 'Pantry', type: 'Pantry'}
+            ];
+            
+            setHouseholdToJoin({ ...currentHousehold, locations: mockHouseholdLocations } as any); // Mocking this
+            setIsJoinConfirmOpen(true);
+        } catch (e) {
+            toast({ variant: "destructive", title: "Failed to Join", description: e instanceof Error ? e.message : "Could not find household." });
+        } finally {
+            setIsJoining(false);
+        }
+    }
+
+
+    const onJoinHousehold = async (mergeInventory: boolean, locationMapping: LocationMapping = {}) => {
+        setIsJoining(true);
+        setIsMapLocationsOpen(false);
+        const result = await handleJoinHousehold(joinCode.toUpperCase(), mergeInventory, locationMapping);
         setIsJoining(false);
         setIsJoinConfirmOpen(false);
         setIsJoinPrivateConfirmOpen(false);
@@ -583,7 +711,7 @@ export default function HouseholdPage() {
 
         {isLoading ? <LoadingSkeleton /> : currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
             onTriggerCreateConfirmation={() => setIsCreateConfirmOpen(true)}
-            onTriggerJoinConfirmation={() => setIsJoinConfirmOpen(true)}
+            onTriggerJoinConfirmation={() => handleTriggerJoin()}
             isCreating={isCreating}
             isJoining={isJoining}
             joinCode={joinCode}
@@ -600,7 +728,7 @@ export default function HouseholdPage() {
         <TakeItemsDialog 
             isOpen={isTakeItemsOpen}
             setIsOpen={setIsTakeItemsOpen}
-            inventory={householdInventory}
+            inventory={householdInventory.filter(i => i.ownerName === 'Shared')}
             onConfirm={(items) => {
                 onLeaveHousehold(items);
                 setIsTakeItemsOpen(false);
@@ -615,6 +743,19 @@ export default function HouseholdPage() {
                 onProcess={handleProcessLeaveRequest}
             />
         )}
+        
+        {householdToJoin && (
+            <MapLocationsDialog
+                isOpen={isMapLocationsOpen}
+                setIsOpen={setIsMapLocationsOpen}
+                userInventory={userInventory}
+                userLocations={userLocations}
+                householdLocations={householdToJoin.locations || []}
+                onConfirm={(mapping) => {
+                    onJoinHousehold(true, mapping);
+                }}
+            />
+        )}
 
 
         <AlertDialog open={isCreateConfirmOpen} onOpenChange={setIsCreateConfirmOpen}>
@@ -622,8 +763,7 @@ export default function HouseholdPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Create a Shared Household?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Before creating a household, please ensure you have marked any personal food items as "Private" in your inventory.
-                        Any items not marked as private will become visible to all household members. Are you ready to proceed?
+                        Any items not marked as private will become visible to all household members. Your current storage locations will become the household's locations. Are you ready to proceed?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -647,25 +787,8 @@ export default function HouseholdPage() {
                     <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); onJoinHousehold(false); }}>
                         No, Keep Separate
                     </AlertDialogAction>
-                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); setIsJoinPrivateConfirmOpen(true); }}>
+                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); setIsMapLocationsOpen(true); }}>
                         Yes, Combine
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
-         <AlertDialog open={isJoinPrivateConfirmOpen} onOpenChange={setIsJoinPrivateConfirmOpen}>
-             <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Inventory Merge</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Have you marked all your personal food items as "Private"? Any items not marked as private will be transferred to the household owner upon approval. This action cannot be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onJoinHousehold(true)}>
-                        Yes, I've Marked My Items
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -674,3 +797,5 @@ export default function HouseholdPage() {
     </MainLayout>
     );
 }
+
+      

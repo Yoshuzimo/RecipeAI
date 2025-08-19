@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, LocationMapping } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
@@ -76,6 +76,9 @@ export async function getHousehold(db: Firestore, userId: string): Promise<House
     
     const householdData = householdDoc.data() as Household;
 
+    const locationsSnapshot = await db.collection(`households/${householdId}/storage-locations`).get();
+    const locations = locationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
+
     const fetchMemberName = async (memberId: string): Promise<string> => {
         const settings = await getSettings(db, memberId);
         return settings.displayName || "Unknown Member";
@@ -111,17 +114,18 @@ export async function getHousehold(db: Firestore, userId: string): Promise<House
         pendingMembers: updatedPendingMembers,
         leaveRequests: updatedLeaveRequests,
         ownerName: ownerName,
+        locations: locations,
     };
 }
 
 
-export async function createHousehold(db: Firestore, userId: string, userName: string, inviteCode: string): Promise<Household> {
+export async function createHousehold(db: Firestore, userId: string, userName: string, inviteCode: string, userLocations: StorageLocation[]): Promise<Household> {
     const batch = db.batch();
     
     const householdRef = db.collection('households').doc();
     const userRef = db.collection('users').doc(userId);
 
-    const newHousehold: Omit<Household, 'id' | 'ownerName'> = {
+    const newHousehold: Omit<Household, 'id' | 'ownerName' | 'locations'> = {
         inviteCode,
         ownerId: userId,
         activeMembers: [{ userId, userName }],
@@ -129,22 +133,27 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
         leaveRequests: [],
     };
     
-    // Create the household doc and an empty inventory subcollection
     batch.set(householdRef, newHousehold);
+
+    const householdLocationsCollection = householdRef.collection('storage-locations');
+    userLocations.forEach(loc => {
+        const newLocRef = householdLocationsCollection.doc();
+        batch.set(newLocRef, { name: loc.name, type: loc.type });
+    });
+
     const inventoryRef = householdRef.collection('inventory').doc(); // Create one dummy doc to ensure collection exists
     batch.set(inventoryRef, { initialized: true });
     const shoppingListRef = householdRef.collection('shopping-list').doc();
     batch.set(shoppingListRef, { initialized: true });
 
-
     batch.update(userRef, { householdId: householdRef.id });
 
     await batch.commit();
 
-    return { ...newHousehold, id: householdRef.id, ownerName: userName };
+    return { ...newHousehold, id: householdRef.id, ownerName: userName, locations: userLocations };
 }
 
-export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string, mergeInventory: boolean): Promise<Household> {
+export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string, mergeInventory: boolean, locationMapping: LocationMapping): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const q = db.collection('households').where('inviteCode', '==', inviteCode).limit(1);
         const snapshot = await transaction.get(q);
@@ -161,7 +170,7 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
             throw new Error("You are already a member or have a pending request for this household.");
         }
 
-        const newPendingMember = { userId, userName, wantsToMergeInventory: mergeInventory };
+        const newPendingMember = { userId, userName, wantsToMergeInventory: mergeInventory, locationMapping };
         transaction.update(householdRef, { pendingMembers: arrayUnion(newPendingMember) });
         
         const ownerName = (await getSettings(db, householdData.ownerId)).displayName || "Owner";
@@ -227,6 +236,9 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
                     throw new Error("A new owner must be selected before the current owner can leave.");
                 }
             } else {
+                // Last person leaving, delete household locations too
+                const locationsSnapshot = await transaction.get(householdRef.collection('storage-locations'));
+                locationsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
                 transaction.delete(householdRef);
             }
         }
@@ -288,7 +300,7 @@ export async function approvePendingMember(db: Firestore, arrayUnion: any, array
         const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
         if (!pendingMember) throw new Error("This user is not pending approval.");
 
-        const { wantsToMergeInventory, ...activeMember } = pendingMember;
+        const { wantsToMergeInventory, locationMapping, ...activeMember } = pendingMember;
 
         transaction.update(householdRef, {
             pendingMembers: arrayRemove(pendingMember),
@@ -319,17 +331,23 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
 
         const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
         if (!pendingMember) throw new Error("This user is not pending approval.");
+        if (!pendingMember.locationMapping) throw new Error("Location mapping is missing for inventory merge.");
 
         const memberInventorySnapshot = await transaction.get(memberUserRef.collection('inventory'));
         const householdInventoryCollection = householdRef.collection('inventory');
 
         memberInventorySnapshot.docs.forEach(doc => {
-            const itemData = doc.data();
-            transaction.set(householdInventoryCollection.doc(), itemData);
+            const itemData = doc.data() as Omit<InventoryItem, 'id'>;
+            const newLocationId = pendingMember.locationMapping![doc.id];
+            if (!newLocationId) {
+                console.warn(`No location mapping found for item ${itemData.name} (${doc.id}). Skipping.`);
+                return;
+            }
+            transaction.set(householdInventoryCollection.doc(), { ...itemData, locationId: newLocationId });
             transaction.delete(doc.ref);
         });
 
-        const { wantsToMergeInventory, ...activeMember } = pendingMember;
+        const { wantsToMergeInventory, locationMapping, ...activeMember } = pendingMember;
 
         transaction.update(householdRef, {
             pendingMembers: arrayRemove(pendingMember),
@@ -376,29 +394,57 @@ export async function rejectPendingMember(db: Firestore, arrayRemove: any, curre
 
 // Storage Locations
 export async function getStorageLocations(db: Firestore, userId: string): Promise<StorageLocation[]> {
-    const q = db.collection(`users/${userId}/storage-locations`);
+    const household = await getHousehold(db, userId);
+    const collectionPath = household 
+        ? `households/${household.id}/storage-locations` 
+        : `users/${userId}/storage-locations`;
+        
+    const q = db.collection(collectionPath);
     const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorageLocation));
 }
 
 export async function addStorageLocation(db: Firestore, userId: string, location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
-    const docRef = await db.collection(`users/${userId}/storage-locations`).add(location);
+    const household = await getHousehold(db, userId);
+    const collectionPath = household 
+        ? `households/${household.id}/storage-locations` 
+        : `users/${userId}/storage-locations`;
+    const docRef = await db.collection(collectionPath).add(location);
     return { ...location, id: docRef.id };
 }
 
 export async function updateStorageLocation(db: Firestore, userId: string, location: StorageLocation): Promise<StorageLocation> {
+    const household = await getHousehold(db, userId);
+    const collectionPath = household 
+        ? `households/${household.id}/storage-locations` 
+        : `users/${userId}/storage-locations`;
     const { id, ...data } = location;
-    await db.collection(`users/${userId}/storage-locations`).doc(id).update(data);
+    await db.collection(collectionPath).doc(id).update(data);
     return location;
 }
 
 export async function removeStorageLocation(db: Firestore, userId: string, locationId: string): Promise<{id: string}> {
-    const itemsInLocationQuery = db.collectionGroup('inventory').where("locationId", "==", locationId);
-    const itemsSnapshot = await itemsInLocationQuery.get();
-    if (!itemsSnapshot.empty) {
-        throw new Error("Cannot remove a location that contains inventory items.");
+    const household = await getHousehold(db, userId);
+    const collectionPath = household 
+        ? `households/${household.id}/storage-locations` 
+        : `users/${userId}/storage-locations`;
+
+    // Check both user and household inventories for items in this location before deleting
+    const userItemsQuery = db.collection(`users/${userId}/inventory`).where("locationId", "==", locationId);
+    const userItemsSnapshot = await userItemsQuery.get();
+    if (!userItemsSnapshot.empty) {
+        throw new Error("Cannot remove a location that contains personal inventory items.");
     }
-    await db.collection(`users/${userId}/storage-locations`).doc(locationId).delete();
+    
+    if (household) {
+        const householdItemsQuery = db.collection(`households/${household.id}/inventory`).where("locationId", "==", locationId);
+        const householdItemsSnapshot = await householdItemsQuery.get();
+        if (!householdItemsSnapshot.empty) {
+            throw new Error("Cannot remove a location that contains household inventory items.");
+        }
+    }
+
+    await db.collection(collectionPath).doc(locationId).delete();
     return { id: locationId };
 }
 
@@ -443,21 +489,23 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
 }
 
 
-export async function addInventoryItem(db: Firestore, userId: string, item: NewInventoryItem): Promise<NewInventoryItem & { id: string }> {
+export async function addInventoryItem(db: Firestore, userId: string, item: NewInventoryItem): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
     
-    // If user is not in a household, or if the item is marked as private, add to the user's personal inventory.
-    // Otherwise, add to the shared household inventory.
-    const isPrivate = !household || item.isPrivate;
-    
-    const collectionPath = isPrivate 
-        ? `users/${userId}/inventory`
-        : `households/${household!.id}/inventory`;
+    const collectionPath = (household && !item.isPrivate)
+        ? `households/${household!.id}/inventory`
+        : `users/${userId}/inventory`;
 
-    const { isPrivate: _, ...itemToAdd } = item; // Don't store the isPrivate flag in the database
+    const { isPrivate, ...itemToAdd } = item; // Don't store the isPrivate flag in the database
 
     const docRef = await db.collection(collectionPath).add(itemToAdd);
-    return { ...item, id: docRef.id };
+    const userSettings = await getSettings(db, userId);
+
+    return { 
+        ...itemToAdd, 
+        id: docRef.id,
+        ownerName: (household && !isPrivate) ? 'Shared' : userSettings.displayName || 'You'
+    };
 }
 
 export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
@@ -715,3 +763,5 @@ export async function removeCheckedShoppingListItems(db: Firestore, userId: stri
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
 }
+
+      

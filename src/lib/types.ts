@@ -131,11 +131,17 @@ export type SpoilageRequest = {
     }
 }
 
+// For mapping user's items to new household locations
+export type LocationMapping = {
+  [itemId: string]: string; // Key is user's inventory item ID, value is new household location ID
+};
+
 // Represents a household member for UI purposes
 export type HouseholdMember = {
   userId: string;
   userName: string;
   wantsToMergeInventory?: boolean;
+  locationMapping?: LocationMapping;
 };
 
 
@@ -162,6 +168,7 @@ export type Household = {
     activeMembers: HouseholdMember[]; 
     pendingMembers: HouseholdMember[];
     leaveRequests?: LeaveRequest[];
+    locations: StorageLocation[];
 };
 
 
@@ -184,3 +191,5 @@ export type ShoppingListItem = {
     checked: boolean;
     addedAt: Date;
 };
+
+      
