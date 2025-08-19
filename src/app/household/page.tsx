@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -81,7 +82,6 @@ const MapLocationsDialog = ({
     );
 
     const handleConfirm = () => {
-        // Validate that all items have been mapped
         for (const item of userInventory) {
             if (!mapping[item.id] || !mapping[item.id].newLocationId) {
                 toast({
@@ -89,7 +89,6 @@ const MapLocationsDialog = ({
                     title: "Incomplete Mapping",
                     description: `Please map a new location for "${item.name}".`
                 });
-                // Switch to the page containing the unmapped item
                 const itemIndex = userInventory.findIndex(i => i.id === item.id);
                 const pageIndex = Math.floor(itemIndex / itemsPerPage);
                 setCurrentPage(pageIndex);
@@ -385,15 +384,14 @@ export default function HouseholdPage() {
             try {
                 const household = await getClientHousehold();
                 setCurrentHousehold(household);
-                const inventory = await getClientInventory();
+                const { privateItems, sharedItems } = await getClientInventory();
                 const locations = await getClientStorageLocations();
 
                 if (household) {
-                    setHouseholdInventory(inventory);
-                } else {
-                    setUserInventory(inventory);
-                    setUserLocations(locations);
+                    setHouseholdInventory(sharedItems);
                 }
+                setUserInventory(privateItems);
+                setUserLocations(locations);
             } catch(e) {
                 console.error("Failed to fetch household data", e);
                 toast({variant: "destructive", title: "Error", description: "Could not fetch household information."})
@@ -444,10 +442,8 @@ export default function HouseholdPage() {
             setHouseholdToJoin(household);
 
             if (userInventory.length === 0) {
-                // No inventory, join directly
                 await onJoinHousehold(false, {});
             } else {
-                // User has inventory, open mapping dialog
                 setIsMapLocationsOpen(true);
             }
         } catch (e) {
@@ -781,7 +777,7 @@ export default function HouseholdPage() {
         <TakeItemsDialog 
             isOpen={isTakeItemsOpen}
             setIsOpen={setIsTakeItemsOpen}
-            inventory={householdInventory.filter(i => !i.isPrivate)}
+            inventory={householdInventory}
             onConfirm={(items) => {
                 onLeaveHousehold(items);
                 setIsTakeItemsOpen(false);
@@ -816,7 +812,7 @@ export default function HouseholdPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Create a Shared Household?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Any items not marked as private will become visible to all household members. Your current storage locations will become the household's locations. Are you ready to proceed?
+                        Your current inventory items will remain private. Your current storage locations will become the household's locations. Are you ready to proceed?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

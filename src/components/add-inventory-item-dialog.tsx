@@ -39,7 +39,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import type { Unit, StorageLocation, NewInventoryItem } from "@/lib/types";
+import type { Unit, StorageLocation, NewInventoryItem, InventoryItem } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 
 const formSchema = z.object({
@@ -88,10 +88,9 @@ export function AddInventoryItemDialog({
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onItemAdded: (item: any) => void;
+  onItemAdded: (item: InventoryItem, isPrivate: boolean) => void;
 }) {
   const { toast } = useToast();
-  // Assume 'us' as default or fetch from a non-server-action source like a settings context
   const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us'); 
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
@@ -110,7 +109,6 @@ export function AddInventoryItemDialog({
   const doesNotExpire = form.watch("doesNotExpire");
 
   useEffect(() => {
-    // This logic could be moved to a client-side settings context in the future
     const system: 'us' | 'metric' = 'us'; 
     setUnitSystem(system);
     setAvailableUnits(system === 'us' ? usUnits : metricUnits);
@@ -129,7 +127,7 @@ export function AddInventoryItemDialog({
             expiryDate: addDays(new Date(), 7),
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
-            isPrivate: false,
+            isPrivate: !household, // Default to private if not in a household
         });
       }
     }
@@ -147,19 +145,22 @@ export function AddInventoryItemDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const newItem = await addClientInventoryItem({
+      const newItemData: NewInventoryItem = {
         name: values.name,
-        totalQuantity: values.quantity, // When adding, total and original are the same
+        totalQuantity: values.quantity,
         originalQuantity: values.quantity,
         unit: values.unit,
         expiryDate: values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
         isPrivate: values.isPrivate,
-      });
-      onItemAdded(newItem);
+      };
+
+      const newItem = await addClientInventoryItem(newItemData);
+      
+      onItemAdded(newItem, values.isPrivate);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added to your ${newItem.isPrivate ? 'private' : 'household'} inventory.`,
+        description: `${newItem.name} has been added to your ${values.isPrivate ? 'private' : 'household'} inventory.`,
       });
       setIsOpen(false);
     } catch (error) {

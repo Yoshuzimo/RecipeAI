@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -18,7 +19,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
 import { Loader2, Trash2, Move, Biohazard, Share2, User, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup, handleToggleItemPrivacy, getClientHousehold } from "@/app/actions";
+import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup, handleToggleItemPrivacy, getClientHousehold, getClientInventory } from "@/app/actions";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Slider } from "./ui/slider";
@@ -46,19 +47,20 @@ const formSchema = z.record(z.string(), z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-// List of keywords for items that are typically not divisible when measured in 'pcs'
 const nonDivisibleKeywords = ['egg', 'eggs'];
 
 export function ViewInventoryItemDialog({
   isOpen,
   setIsOpen,
   group,
+  isPrivate,
   onUpdateComplete,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   group: InventoryItemGroup;
-  onUpdateComplete: (newInventory: InventoryItem[]) => void;
+  isPrivate: boolean;
+  onUpdateComplete: (privateItems: InventoryItem[], sharedItems: InventoryItem[]) => void;
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
@@ -66,11 +68,7 @@ export function ViewInventoryItemDialog({
   const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
-  const [isMarkPrivateDialogOpen, setIsMarkPrivateDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
-  const [isPrivateStaged, setIsPrivateStaged] = useState(group.isPrivate);
-  const [isPrivacyChanged, setIsPrivacyChanged] = useState(false);
-
 
   const packageGroups = useMemo(() => {
     return group.items.reduce((acc, item) => {
@@ -87,7 +85,6 @@ export function ViewInventoryItemDialog({
         if (item.totalQuantity === item.originalQuantity) {
             acc[size].fullPackages.push(item);
         } else {
-            // Assuming only one partial container per size for simplicity in this UI model
             acc[size].partialPackage = item;
         }
         return acc;
@@ -110,11 +107,7 @@ export function ViewInventoryItemDialog({
   });
   
   useEffect(() => {
-    // Reset form and privacy state when a new group is passed in
     reset(defaultValues);
-    setIsPrivateStaged(group.isPrivate);
-    setIsPrivacyChanged(false);
-
     async function checkHousehold() {
       const household = await getClientHousehold();
       setIsInHousehold(!!household);
@@ -125,31 +118,18 @@ export function ViewInventoryItemDialog({
 
   const watchedValues = watch();
 
-  const handlePrivacySwitchChange = (checked: boolean) => {
-      setIsPrivateStaged(checked);
-      // Compare to the original state to see if there's a change
-      setIsPrivacyChanged(checked !== group.isPrivate);
-  }
-
-  const handleSavePrivacyChange = async () => {
+  const handleTogglePrivacy = async () => {
+    if (!isInHousehold) return;
+    
     setIsPending(true);
-    const result = await handleToggleItemPrivacy(group.items, isPrivateStaged);
+    const result = await handleToggleItemPrivacy(group.items, !isPrivate);
     setIsPending(false);
 
-    if (result.success && result.newInventory) {
+    if (result.success) {
       toast({ title: "Privacy Updated", description: `${group.name} has been moved.` });
-      onUpdateComplete(result.newInventory);
-      setIsPrivacyChanged(false); // Reset changed state
-      
-      const newGroupExists = result.newInventory.some(item => 
-        item.name === group.name && 
-        item.unit === group.unit && 
-        item.isPrivate === isPrivateStaged
-      );
-
-      if (!newGroupExists) {
-        setIsOpen(false);
-      }
+      const { privateItems, sharedItems } = await getClientInventory();
+      onUpdateComplete(privateItems, sharedItems);
+      setIsOpen(false);
     } else {
       toast({ variant: "destructive", title: "Update Failed", description: result.error });
     }
@@ -158,12 +138,13 @@ export function ViewInventoryItemDialog({
 
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
-    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit);
+    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit, isPrivate);
     setIsPending(false);
 
-    if (result.success && result.newInventory) {
+    if (result.success) {
         toast({ title: "Inventory Updated", description: `${group.name} has been updated successfully.` });
-        onUpdateComplete(result.newInventory);
+        const { privateItems, sharedItems } = await getClientInventory();
+        onUpdateComplete(privateItems, sharedItems);
         setIsOpen(false);
     } else {
         toast({ variant: "destructive", title: "Update Failed", description: result.error });
@@ -180,13 +161,14 @@ export function ViewInventoryItemDialog({
     
     setIsPending(true);
     const itemsToRemove = packageGroups[groupToDelete].items;
-    const result = await handleRemoveInventoryPackageGroup(itemsToRemove);
+    const result = await handleRemoveInventoryPackageGroup(itemsToRemove, isPrivate);
     setIsPending(false);
     setIsConfirmDeleteOpen(false);
 
-    if (result.success && result.newInventory) {
+    if (result.success) {
       toast({ title: "Package Size Removed", description: `All ${groupToDelete}${group.unit} containers of ${group.name} have been removed.` });
-      onUpdateComplete(result.newInventory);
+      const { privateItems, sharedItems } = await getClientInventory();
+      onUpdateComplete(privateItems, sharedItems);
     } else {
       toast({ variant: "destructive", title: "Removal Failed", description: result.error });
     }
@@ -216,34 +198,12 @@ export function ViewInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>Manage {group.name}</DialogTitle>
           <DialogDescription>
-            Adjust quantities, move items, or change privacy settings.
+            Adjust quantities or move items between inventories.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
             <ScrollArea className="h-96 pr-6 my-4">
                 <div className="space-y-8">
-                 {isInHousehold && (
-                    <div className={cn("flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border p-4 gap-4 transition-all", isPrivacyChanged && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900")}>
-                        <div className="space-y-0.5">
-                            <Label htmlFor="privacy-toggle" className="text-base flex items-center gap-2">
-                                {isPrivateStaged ? <User className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-                                {isPrivateStaged ? "Make this Shared" : "Make this Private"}
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                                {isPrivateStaged ? "This item is only visible to you." : "This item is visible to your household."}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           {isPrivacyChanged && <Button size="sm" type="button" onClick={handleSavePrivacyChange} disabled={isPending}><Save className="h-4 w-4 mr-2"/>Save Privacy</Button>}
-                            <Switch
-                                id="privacy-toggle"
-                                checked={!isPrivateStaged}
-                                onCheckedChange={(checked) => handlePrivacySwitchChange(!checked)}
-                                disabled={isPending}
-                            />
-                        </div>
-                    </div>
-                 )}
                 {Object.keys(packageGroups).length > 0 ? (
                     Object.values(packageGroups).map(({ size }) => (
                         <div key={size} className="space-y-4 p-4 border rounded-lg">
@@ -322,8 +282,14 @@ export function ViewInventoryItemDialog({
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
                 <div className="flex gap-2">
+                   {isInHousehold && (
+                     <Button type="button" variant="outline" onClick={handleTogglePrivacy} disabled={isPending}>
+                        {isPrivate ? <Share2 className="mr-2 h-4 w-4" /> : <User className="mr-2 h-4 w-4" />}
+                        {isPrivate ? "Move to Shared" : "Move to Private"}
+                    </Button>
+                   )}
                   <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
-                      <Move className="mr-2 h-4 w-4" /> Move
+                      <Move className="mr-2 h-4 w-4" /> Move To...
                   </Button>
                    <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
                       <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
@@ -345,9 +311,11 @@ export function ViewInventoryItemDialog({
             isOpen={isMoveDialogOpen}
             setIsOpen={setIsMoveDialogOpen}
             group={group}
+            isPrivate={isPrivate}
             packageGroups={packageGroups}
-            onUpdateComplete={(newInventory) => {
-                onUpdateComplete(newInventory);
+            onUpdateComplete={async () => {
+                const { privateItems, sharedItems } = await getClientInventory();
+                onUpdateComplete(privateItems, sharedItems);
                 setIsOpen(false);
             }}
         />
@@ -358,9 +326,11 @@ export function ViewInventoryItemDialog({
             isOpen={isSpoilageDialogOpen}
             setIsOpen={setIsSpoilageDialogOpen}
             group={group}
+            isPrivate={isPrivate}
             packageGroups={packageGroups}
-            onUpdateComplete={(newInventory) => {
-                onUpdateComplete(newInventory);
+            onUpdateComplete={async () => {
+                const { privateItems, sharedItems } = await getClientInventory();
+                onUpdateComplete(privateItems, sharedItems);
                 setIsOpen(false);
             }}
         />

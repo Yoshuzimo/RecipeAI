@@ -1,17 +1,16 @@
 
 import MainLayout from "@/components/main-layout";
 import InventoryClient from "@/components/inventory-client";
-import { getClientInventory, getClientStorageLocations } from "@/app/actions";
+import { getInventory as getServerInventory, getClientStorageLocations } from "@/app/actions";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
-  const inventoryData = await getClientInventory();
+  const { privateItems, sharedItems } = await getServerInventory();
   const storageLocations = await getClientStorageLocations();
 
   const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-    // Group by item name and unit.
     const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
       const key = `${item.name}-${item.unit}`;
       if (!acc[key]) {
@@ -21,11 +20,9 @@ export default async function InventoryPage() {
       return acc;
     }, {});
 
-    // Now, map over the grouped items to create the final structure.
     const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
       const { items, unit } = groupData;
       const name = items[0].name;
-      const isPrivate = items[0].isPrivate;
 
       let packageInfo = '';
 
@@ -90,7 +87,6 @@ export default async function InventoryPage() {
         items: sortedItems,
         packageInfo,
         nextExpiry,
-        isPrivate,
       };
     });
 
@@ -102,9 +98,6 @@ export default async function InventoryPage() {
   };
 
   const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
-
-  const privateItems = inventoryData.filter(item => item.isPrivate);
-  const sharedItems = inventoryData.filter(item => !item.isPrivate);
 
   const groupedPrivateInventory: GroupedByLocation = {
     Fridge: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
@@ -118,14 +111,14 @@ export default async function InventoryPage() {
     Pantry: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
   };
 
-
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <InventoryClient 
             initialPrivateData={groupedPrivateInventory}
             initialSharedData={groupedSharedInventory}
-            allItems={inventoryData} 
+            initialAllPrivateItems={privateItems}
+            initialAllSharedItems={sharedItems}
             storageLocations={storageLocations} 
         />
       </div>

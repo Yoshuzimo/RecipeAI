@@ -209,7 +209,6 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
                     ...originalItemData,
                     totalQuantity: item.quantity,
                     originalQuantity: item.quantity,
-                    isPrivate: true,
                  };
                 transaction.set(userInventoryCollection.doc(), newItemForLeaver);
             }
@@ -338,7 +337,7 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
         const householdInventoryCollection = householdRef.collection('inventory');
 
         for (const doc of memberInventorySnapshot.docs) {
-            const itemData = doc.data() as Omit<InventoryItem, 'id' | 'isPrivate'>;
+            const itemData = doc.data() as Omit<InventoryItem, 'id'>;
             const migrationInfo = pendingMember.itemMigrationMapping![doc.id];
             
             if (!migrationInfo) {
@@ -347,7 +346,7 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
             }
 
             const { newLocationId, keepPrivate } = migrationInfo;
-            const updatedItemData = { ...itemData, locationId: newLocationId, isPrivate: keepPrivate };
+            const updatedItemData = { ...itemData, locationId: newLocationId };
 
             if (keepPrivate) {
                 // Item stays in user's collection, just update its locationId
@@ -462,66 +461,61 @@ export async function removeStorageLocation(db: Firestore, userId: string, locat
 
 
 // Inventory
-export async function getInventory(db: Firestore, userId: string): Promise<InventoryItem[]> {
+export async function getInventory(db: Firestore, userId: string): Promise<{ privateItems: InventoryItem[]; sharedItems: InventoryItem[] }> {
     const household = await getHousehold(db, userId);
 
-    // Fetch the current user's personal inventory
     const userInventorySnapshot = await db.collection(`users/${userId}/inventory`).get();
-    const userItems = userInventorySnapshot.docs.map(doc => {
+    const privateItems = userInventorySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
             ...data,
-            isPrivate: data.isPrivate ?? true, // Default to true for items in user's collection
             expiryDate: data.expiryDate?.toDate() ?? null,
         } as InventoryItem;
     });
-  
-    if (!household) {
-      // User is not in a household, return only their own items
-      return userItems;
-    }
-  
-    // If in a household, fetch the shared household inventory
-    const householdInventorySnapshot = await db.collection(`households/${household.id}/inventory`).get();
-    const householdItems = householdInventorySnapshot.docs.map(doc => {
-        const data = doc.data();
-         if (data.initialized) return null; // Skip dummy doc
-        return {
-            id: doc.id,
-            ...data,
-            isPrivate: data.isPrivate ?? false, // Default to false for items in household collection
-            expiryDate: data.expiryDate?.toDate() ?? null,
-        } as InventoryItem;
-    }).filter((item): item is InventoryItem => item !== null);
 
-    // Combine and return both lists
-    return [...userItems, ...householdItems];
+    if (!household) {
+        return { privateItems, sharedItems: [] };
+    }
+
+    const householdInventorySnapshot = await db.collection(`households/${household.id}/inventory`).get();
+    const sharedItems = householdInventorySnapshot.docs
+        .map(doc => {
+            const data = doc.data();
+            if (data.initialized) return null;
+            return {
+                id: doc.id,
+                ...data,
+                expiryDate: data.expiryDate?.toDate() ?? null,
+            } as InventoryItem;
+        })
+        .filter((item): item is InventoryItem => item !== null);
+
+    return { privateItems, sharedItems };
 }
 
 
 export async function addInventoryItem(db: Firestore, userId: string, item: NewInventoryItem): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
+    const { isPrivate, ...itemData } = item;
     
-    const collectionPath = (household && !item.isPrivate)
+    const collectionPath = (household && !isPrivate)
         ? `households/${household!.id}/inventory`
         : `users/${userId}/inventory`;
 
-    const itemToAdd = { ...item };
-
-    const docRef = await db.collection(collectionPath).add(itemToAdd);
+    const docRef = await db.collection(collectionPath).add(itemData);
 
     return { 
-        ...item, 
+        ...itemData, 
         id: docRef.id,
     };
 }
 
-export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
+export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem, isPrivate: boolean): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
     const { id, ...data } = updatedItem;
 
-    const collectionPath = (household && !data.isPrivate)
+    const collectionPath = (household && !isPrivate)
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
     
@@ -536,9 +530,9 @@ export async function updateInventoryItem(db: Firestore, userId: string, updated
     }
 }
 
-export async function removeInventoryItem(db: Firestore, userId: string, item: InventoryItem): Promise<{ id: string }> {
+export async function removeInventoryItem(db: Firestore, userId: string, item: InventoryItem, isPrivate: boolean): Promise<{ id: string }> {
     const household = await getHousehold(db, userId);
-    const collectionPath = (household && !item.isPrivate)
+    const collectionPath = (household && !isPrivate)
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
 
@@ -546,16 +540,16 @@ export async function removeInventoryItem(db: Firestore, userId: string, item: I
     return { id: item.id };
 }
 
-export async function removeInventoryItems(db: Firestore, userId: string, items: InventoryItem[]): Promise<void> {
+export async function removeInventoryItems(db: Firestore, userId: string, items: InventoryItem[], isPrivate: boolean): Promise<void> {
     if (items.length === 0) return;
     const household = await getHousehold(db, userId);
     const batch = db.batch();
 
-    items.forEach(item => {
-        const collectionPath = (household && !item.isPrivate)
-            ? `households/${household.id}/inventory`
-            : `users/${userId}/inventory`;
+    const collectionPath = (household && !isPrivate)
+        ? `households/${household.id}/inventory`
+        : `users/${userId}/inventory`;
 
+    items.forEach(item => {
         const docRef = db.collection(collectionPath).doc(item.id);
         batch.delete(docRef);
     });
@@ -566,17 +560,17 @@ export async function removeInventoryItems(db: Firestore, userId: string, items:
 export async function toggleItemPrivacy(db: Firestore, userId: string, householdId: string, items: InventoryItem[], makePrivate: boolean): Promise<void> {
     return db.runTransaction(async (transaction) => {
         for (const item of items) {
-            const isCurrentlyPrivate = item.isPrivate;
+            const isCurrentlyPrivate = !item.locationId.startsWith('households/');
 
             if (isCurrentlyPrivate === makePrivate) {
                 continue; 
             }
 
-            const sourceCollectionPath = isCurrentlyPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
+            const sourceCollectionPath = isPrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             const destCollectionPath = makePrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             
             const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-            const destDocRef = db.collection(destCollectionPath).doc(item.id); // Use same ID for simplicity
+            const destDocRef = db.collection(destCollectionPath).doc(); // Create new doc with new ID
 
             const itemDoc = await transaction.get(sourceDocRef);
             if (!itemDoc.exists) {
@@ -584,10 +578,9 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
                 continue;
             }
 
-            const itemData = itemDoc.data()!;
-            const newItemData = { ...itemData, isPrivate: makePrivate };
+            const { id, ...itemData } = item;
             
-            transaction.set(destDocRef, newItemData);
+            transaction.set(destDocRef, itemData);
             transaction.delete(sourceDocRef);
         }
     });

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -20,7 +21,8 @@ const locationIcons = {
 const locationOrder: Array<keyof GroupedByLocation> = ['Fridge', 'Freezer', 'Pantry'];
 
 
-const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: string, icon: React.ReactNode, groupedData: GroupedByLocation, onRowClick: (group: InventoryItemGroup) => void }) => {
+const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: string, icon: React.ReactNode, groupedData: GroupedByLocation, onRowClick: (group: InventoryItemGroup, isPrivate: boolean) => void }) => {
+    const isPrivate = title === "Private Inventory";
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2 text-2xl font-bold">
@@ -40,7 +42,7 @@ const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: stri
                                 </CardHeader>
                             </AccordionTrigger>
                             <AccordionContent className="px-2 sm:px-4 pb-4">
-                               <InventoryTable data={groupedData[locationType]} onRowClick={onRowClick} />
+                               <InventoryTable data={groupedData[locationType]} onRowClick={(group) => onRowClick(group, isPrivate)} />
                             </AccordionContent>
                         </Card>
                     </AccordionItem>
@@ -54,25 +56,27 @@ const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: stri
 export default function InventoryClient({
   initialPrivateData,
   initialSharedData,
-  allItems,
+  initialAllPrivateItems,
+  initialAllSharedItems,
   storageLocations,
 }: {
   initialPrivateData: GroupedByLocation;
   initialSharedData: GroupedByLocation;
-  allItems: InventoryItem[];
+  initialAllPrivateItems: InventoryItem[];
+  initialAllSharedItems: InventoryItem[];
   storageLocations: StorageLocation[];
 }) {
   const [groupedPrivate, setGroupedPrivate] = useState<GroupedByLocation>(initialPrivateData);
   const [groupedShared, setGroupedShared] = useState<GroupedByLocation>(initialSharedData);
-  const [flatInventory, setFlatInventory] = useState<InventoryItem[]>(allItems);
+  const [allPrivateItems, setAllPrivateItems] = useState<InventoryItem[]>(initialAllPrivateItems);
+  const [allSharedItems, setAllSharedItems] = useState<InventoryItem[]>(initialAllSharedItems);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<InventoryItemGroup | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<{group: InventoryItemGroup, isPrivate: boolean} | null>(null);
 
-  const updateState = (newFlatInventory: InventoryItem[]) => {
+  const updateState = (newPrivateItems: InventoryItem[], newSharedItems: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name and unit.
         const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
           const key = `${item.name}-${item.unit}`;
           if (!acc[key]) {
@@ -85,7 +89,6 @@ export default function InventoryClient({
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
           const { items, unit } = groupData;
           const name = items[0].name;
-          const isPrivate = items[0].isPrivate;
 
           let packageInfo = '';
 
@@ -149,7 +152,6 @@ export default function InventoryClient({
             items: sortedItems,
             packageInfo,
             nextExpiry,
-            isPrivate: isPrivate,
           };
         });
 
@@ -161,32 +163,33 @@ export default function InventoryClient({
       };
 
       const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
-      
-      const privateItems = newFlatInventory.filter(i => i.isPrivate);
-      const sharedItems = newFlatInventory.filter(i => !i.isPrivate);
 
       const newGroupedPrivate: GroupedByLocation = {
-        Fridge: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-        Freezer: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-        Pantry: groupItems(privateItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+        Fridge: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+        Freezer: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+        Pantry: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
       };
 
       const newGroupedShared: GroupedByLocation = {
-        Fridge: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-        Freezer: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-        Pantry: groupItems(sharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
+        Fridge: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
+        Freezer: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
+        Pantry: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
       };
 
-      setFlatInventory(newFlatInventory);
+      setAllPrivateItems(newPrivateItems);
+      setAllSharedItems(newSharedItems);
       setGroupedPrivate(newGroupedPrivate);
       setGroupedShared(newGroupedShared);
 
       if (selectedGroup) {
-        const allGroups = [...newGroupedPrivate.Fridge, ...newGroupedPrivate.Freezer, ...newGroupedPrivate.Pantry, ...newGroupedShared.Fridge, ...newGroupedShared.Freezer, ...newGroupedShared.Pantry];
-        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit && g.isPrivate === selectedGroup.isPrivate);
+        const allGroups = selectedGroup.isPrivate ? 
+            [...newGroupedPrivate.Fridge, ...newGroupedPrivate.Freezer, ...newGroupedPrivate.Pantry] :
+            [...newGroupedShared.Fridge, ...newGroupedShared.Freezer, ...newGroupedShared.Pantry];
+        
+        const updatedGroup = allGroups.find(g => g.name === selectedGroup.group.name && g.unit === selectedGroup.group.unit);
         
         if (updatedGroup) {
-            setSelectedGroup(updatedGroup);
+            setSelectedGroup({ group: updatedGroup, isPrivate: selectedGroup.isPrivate });
         } else {
             setIsViewDialogOpen(false);
             setSelectedGroup(null);
@@ -195,20 +198,26 @@ export default function InventoryClient({
   }
 
 
-  const handleItemAdded = (newItem: InventoryItem) => {
-    updateState([...flatInventory, newItem]);
+  const handleItemAdded = (newItem: InventoryItem, isPrivate: boolean) => {
+    if (isPrivate) {
+        updateState([...allPrivateItems, newItem], allSharedItems);
+    } else {
+        updateState(allPrivateItems, [...allSharedItems, newItem]);
+    }
   };
   
-  const handleUpdateComplete = (newInventory: InventoryItem[]) => {
-      updateState(newInventory);
+  const handleUpdateComplete = (newPrivate: InventoryItem[], newShared: InventoryItem[]) => {
+      updateState(newPrivate, newShared);
   };
 
 
-  const handleRowClick = (group: InventoryItemGroup) => {
-    setSelectedGroup(group);
+  const handleRowClick = (group: InventoryItemGroup, isPrivate: boolean) => {
+    setSelectedGroup({group, isPrivate});
     setIsViewDialogOpen(true);
   };
   
+  const hasHousehold = allSharedItems.length > 0 || (initialAllSharedItems && initialAllSharedItems.length > 0) || (groupedShared.Fridge.length + groupedShared.Freezer.length + groupedShared.Pantry.length > 0) || (initialSharedData.Fridge.length + initialSharedData.Freezer.length + initialSharedData.Pantry.length > 0) ;
+
 
   return (
     <>
@@ -228,7 +237,7 @@ export default function InventoryClient({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} />
+        {hasHousehold && <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} />}
         <InventoryColumn title="Private Inventory" icon={<Lock />} groupedData={groupedPrivate} onRowClick={handleRowClick} />
       </div>
 
@@ -243,7 +252,8 @@ export default function InventoryClient({
         <ViewInventoryItemDialog
           isOpen={isViewDialogOpen}
           setIsOpen={setIsViewDialogOpen}
-          group={selectedGroup}
+          group={selectedGroup.group}
+          isPrivate={selectedGroup.isPrivate}
           onUpdateComplete={handleUpdateComplete}
         />
       )}
