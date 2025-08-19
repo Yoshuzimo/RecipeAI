@@ -31,17 +31,7 @@ import {
     getHousehold as dataGetHousehold
 } from "@/lib/data";
 import { addDays } from "date-fns";
-
-// This is a placeholder function for getting the admin instance.
-// The actual implementation is at the bottom of the file, wrapped in a
-// server-only condition to prevent it from being bundled into the client.
-function getAdmin(): any {
-  if ((global as any).adminInstance) {
-    return (global as any).adminInstance;
-  }
-  // This will be overridden by the server-only implementation below
-  throw new Error("Firebase Admin has not been initialized. This function should only be called on the server.");
-}
+import { getAdmin } from "@/lib/firebase-admin";
 
 
 // --- Server Actions ---
@@ -377,47 +367,4 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
-}
-
-
-// --- Firebase Admin Initialization (SERVER-ONLY) ---
-
-// This block of code will only be included in the server-side bundle,
-// preventing the 'firebase-admin' package from being sent to the client.
-if (typeof window === 'undefined') {
-  // Redefine the getAdmin function for server-side execution.
-  // This will overwrite the placeholder function defined at the top of the file.
-  (global as any).getAdmin = () => {
-    // Use a global variable to store the admin instance to avoid re-initialization
-    // in development with hot-reloading.
-    if ((global as any).adminInstance) {
-        return (global as any).adminInstance;
-    }
-
-    // Dynamic requires to prevent webpack from bundling them on the client
-    const admin = require('firebase-admin');
-    const { getAuth } = require('firebase-admin/auth');
-    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-
-    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in environment variables.');
-    }
-    
-    const serviceAccount = JSON.parse(serviceAccountKey);
-
-    if (admin.apps.length === 0) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-    }
-
-    (global as any).adminInstance = {
-      auth: getAuth(),
-      db: getFirestore(),
-      FieldValue,
-    };
-    
-    return (global as any).adminInstance;
-  };
 }

@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
-import { addClientInventoryItem, getUnitSystem, getClientStorageLocations } from "@/app/actions";
+import { addClientInventoryItem, getClientStorageLocations } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -96,6 +97,7 @@ export function BuyItemsDialog({
   onComplete: () => void;
 }) {
   const { toast } = useToast();
+  // Assume 'us' as default or fetch from a non-server-action source like a settings context
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
 
@@ -107,15 +109,16 @@ export function BuyItemsDialog({
   });
   
   useEffect(() => {
-    async function fetchUnitSystem() {
-      // In a real app, this would be a server action
-      const system: 'us' | 'metric' = 'us'; // Assume 'us' for now
-      setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+    // This logic could be moved to a client-side settings context in the future
+    const system: 'us' | 'metric' = 'us';
+    setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+    
+    async function fetchLocations() {
       const locations = await getClientStorageLocations();
       setStorageLocations(locations);
     }
     if (isOpen) {
-      fetchUnitSystem();
+      fetchLocations();
     }
   }, [isOpen]);
 

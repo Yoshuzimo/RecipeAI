@@ -1,31 +1,12 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import * as admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
+import { initFirebaseAdmin } from '@/lib/firebase-admin';
 
 // This is a Next.js specific instruction to run this middleware in the Node.js environment,
 // which is required for the Firebase Admin SDK to work.
 export const runtime = 'nodejs';
-
-function initFirebaseAdmin() {
-    if (admin.apps.length > 0) {
-        return;
-    }
-    
-    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-        // This will likely fail during build if the key is not set,
-        // but it's a good practice to have a runtime check as well.
-        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set for middleware.');
-    }
-    
-    const serviceAccount = JSON.parse(serviceAccountKey);
-
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-}
-
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -51,7 +32,6 @@ export async function middleware(request: NextRequest) {
   // Verify the session cookie for protected paths.
   try {
     initFirebaseAdmin();
-    const { getAuth } = await import('firebase-admin/auth');
     await getAuth().verifySessionCookie(sessionCookie, true);
     console.log(`MIDDLEWARE: Session cookie verified successfully for path '${pathname}'.`);
     return NextResponse.next();
