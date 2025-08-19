@@ -7,7 +7,7 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Copy, Check, X, Loader2, GitMerge, Inbox, History, PackageCheck, PackageX, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Copy, Check, X, Loader2, GitMerge, Inbox, History, PackageCheck, PackageX, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 
 export const dynamic = 'force-dynamic';
@@ -261,7 +262,12 @@ const LoadingSkeleton = () => (
     </Card>
 );
 
-const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
+const TakeItemsDialog = ({ 
+    isOpen, 
+    setIsOpen, 
+    inventory, 
+    onConfirm,
+}: {
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
     inventory: InventoryItem[];
@@ -270,15 +276,17 @@ const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
     const [selectedItems, setSelectedItems] = React.useState<Record<string, number>>({});
 
     const handleConfirm = () => {
-        const itemsToTake: RequestedItem[] = Object.entries(selectedItems).map(([id, quantity]) => {
-            const item = inventory.find(i => i.id === id)!;
-            return {
-                originalItemId: id,
-                name: item.name,
-                quantity: quantity,
-                unit: item.unit
-            };
-        });
+        const itemsToTake: RequestedItem[] = Object.entries(selectedItems)
+            .filter(([, quantity]) => quantity > 0)
+            .map(([id, quantity]) => {
+                const item = inventory.find(i => i.id === id)!;
+                return {
+                    originalItemId: id,
+                    name: item.name,
+                    quantity: quantity,
+                    unit: item.unit
+                };
+            });
         onConfirm(itemsToTake);
     };
 
@@ -287,11 +295,11 @@ const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Take Items With You</DialogTitle>
-                    <DialogDescription>Select any items and quantities you wish to take from the household inventory. These will be copied to your personal inventory.</DialogDescription>
+                    <DialogDescription>Select any shared items and quantities you wish to take from the household inventory. These will be added to your personal inventory.</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="h-96 pr-4 my-4">
                     <div className="space-y-4">
-                        {inventory.map(item => (
+                        {inventory.length > 0 ? inventory.map(item => (
                             <div key={item.id} className="p-3 border rounded-md">
                                 <div className="flex justify-between items-center">
                                     <Label htmlFor={`item-${item.id}`}>{item.name}</Label>
@@ -303,7 +311,8 @@ const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
                                     min={0}
                                     max={item.totalQuantity}
                                     step="any"
-                                    value={selectedItems[item.id] || 0}
+                                    value={selectedItems[item.id] || ''}
+                                    placeholder="0"
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
                                         setSelectedItems(prev => ({ ...prev, [item.id]: isNaN(val) ? 0 : Math.max(0, Math.min(val, item.totalQuantity)) }))
@@ -311,17 +320,184 @@ const TakeItemsDialog = ({ isOpen, setIsOpen, inventory, onConfirm }: {
                                     className="mt-2"
                                 />
                             </div>
-                        ))}
+                        )) : (
+                            <p className="text-center text-muted-foreground py-8">There are no shared items to take.</p>
+                        )}
                     </div>
                 </ScrollArea>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button onClick={handleConfirm}>Confirm & Leave</Button>
+                    <Button onClick={handleConfirm}>Continue</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
+
+const RemapLeavingItemsDialog = ({
+    isOpen,
+    setIsOpen,
+    itemsToRemap, // This includes user's private items + items they're taking
+    personalLocations,
+    onConfirm,
+}: {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    itemsToRemap: InventoryItem[];
+    personalLocations: StorageLocation[];
+    onConfirm: (mapping: Record<string, string>) => void;
+}) => {
+    const [mapping, setMapping] = React.useState<Record<string, string>>({});
+    const { toast } = useToast();
+
+    React.useEffect(() => {
+        // Pre-fill mapping based on type if possible
+        const initialMapping: Record<string, string> = {};
+        const locationMap = new Map(personalLocations.map(l => [l.type, l.id]));
+        itemsToRemap.forEach(item => {
+            // Find a location of the same type (Fridge, etc.) in the personal locations
+            // This is a bit of a guess and might need more robust logic
+            const targetLocation = personalLocations.find(l => l.name.includes(item.locationId)) || personalLocations[0];
+            if (targetLocation) {
+                initialMapping[item.id] = targetLocation.id;
+            }
+        });
+        setMapping(initialMapping);
+    }, [itemsToRemap, personalLocations]);
+
+    const handleConfirm = () => {
+        for (const item of itemsToRemap) {
+            if (!mapping[item.id]) {
+                toast({
+                    variant: "destructive",
+                    title: "Incomplete Mapping",
+                    description: `Please map a new location for "${item.name}".`
+                });
+                return;
+            }
+        }
+        onConfirm(mapping);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Organize Your Inventory</DialogTitle>
+                    <DialogDescription>You're leaving the household. Please assign your items to your personal storage locations.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-96 my-4 pr-4">
+                    <div className="space-y-4">
+                        {itemsToRemap.map(item => (
+                            <div key={item.id} className="grid grid-cols-2 gap-4 items-center p-3 border rounded-md">
+                                <p className="font-semibold">{item.name}</p>
+                                <Select 
+                                    value={mapping[item.id] || ''} 
+                                    onValueChange={value => setMapping(prev => ({ ...prev, [item.id]: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select new location..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {personalLocations.map(loc => (
+                                            <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.type})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleConfirm}>Confirm & Leave Household</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const ApproveMergeDialog = ({
+    isOpen,
+    setIsOpen,
+    itemsToMerge,
+    onConfirm,
+}: {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    itemsToMerge: InventoryItem[];
+    onConfirm: (approvedItemIds: string[]) => void;
+}) => {
+    const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>({});
+    const [areAllSelected, setAreAllSelected] = React.useState(true);
+
+    React.useEffect(() => {
+        // Initially, all items are selected
+        const initialSelection: Record<string, boolean> = {};
+        itemsToMerge.forEach(item => {
+            initialSelection[item.id] = true;
+        });
+        setSelectedIds(initialSelection);
+        setAreAllSelected(true);
+    }, [itemsToMerge]);
+
+    const handleToggleAll = (checked: boolean) => {
+        setAreAllSelected(checked);
+        const newSelection: Record<string, boolean> = {};
+        itemsToMerge.forEach(item => {
+            newSelection[item.id] = checked;
+        });
+        setSelectedIds(newSelection);
+    };
+
+    const handleItemToggle = (itemId: string, checked: boolean) => {
+        const newSelection = { ...selectedIds, [itemId]: checked };
+        setSelectedIds(newSelection);
+        setAreAllSelected(Object.values(newSelection).every(v => v));
+    };
+
+    const handleConfirm = () => {
+        const approvedIds = Object.entries(selectedIds)
+            .filter(([, isSelected]) => isSelected)
+            .map(([id]) => id);
+        onConfirm(approvedIds);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Review Items to Merge</DialogTitle>
+                    <DialogDescription>Select the items you want to add to the household inventory. Unchecked items will remain in the user's private inventory.</DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center space-x-2 my-4">
+                    <Switch id="toggle-all" checked={areAllSelected} onCheckedChange={handleToggleAll} />
+                    <Label htmlFor="toggle-all">Toggle All Items</Label>
+                </div>
+                <ScrollArea className="h-96 pr-4">
+                    <div className="space-y-2">
+                        {itemsToMerge.map(item => (
+                            <div key={item.id} className="flex items-center space-x-3 rounded-md border p-4">
+                                <Checkbox
+                                    id={`merge-${item.id}`}
+                                    checked={selectedIds[item.id] ?? false}
+                                    onCheckedChange={(checked) => handleItemToggle(item.id, !!checked)}
+                                />
+                                <Label htmlFor={`merge-${item.id}`} className="font-normal flex-1">
+                                    {item.name} <span className="text-muted-foreground">({item.totalQuantity} {item.unit})</span>
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleConfirm}><GitMerge className="mr-2 h-4 w-4" />Approve & Merge Selected</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 const ReviewLeaveRequestDialog = ({ isOpen, setIsOpen, request, onProcess }: {
     isOpen: boolean;
@@ -361,17 +537,26 @@ export default function HouseholdPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isCreateConfirmOpen, setIsCreateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
-    const [isTakeItemsOpen, setIsTakeItemsOpen] = React.useState(false);
-    const [isMapLocationsOpen, setIsMapLocationsOpen] = React.useState(false);
+    
+    // --- New State for Multi-step Dialogs ---
+    const [leaveStep, setLeaveStep] = React.useState<'initial' | 'take_items' | 'remap_items'>('initial');
+    const [itemsToTake, setItemsToTake] = React.useState<RequestedItem[]>([]);
+    const [itemsToRemap, setItemsToRemap] = React.useState<InventoryItem[]>([]);
+
+    const [approveMergeStep, setApproveMergeStep] = React.useState<'initial' | 'confirm_merge'>('initial');
+    const [memberToMerge, setMemberToMerge] = React.useState<{id: string, name: string} | null>(null);
+    const [inventoryToMerge, setInventoryToMerge] = React.useState<InventoryItem[]>([]);
+    // --- End New State ---
 
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
     const [isProcessingRequest, setIsProcessingRequest] = React.useState<string | null>(null);
     const [joinCode, setJoinCode] = React.useState("");
     const [currentHousehold, setCurrentHousehold] = React.useState<Household | null>(null);
-    const [allInventory, setAllInventory] = React.useState<InventoryItem[]>([]);
+    const [allInventory, setAllInventory] = React.useState<{privateItems: InventoryItem[], sharedItems: InventoryItem[]}>({privateItems: [], sharedItems: []});
     const [userLocations, setUserLocations] = React.useState<StorageLocation[]>([]);
     const [householdToJoin, setHouseholdToJoin] = React.useState<Household | null>(null);
+    const [isMapLocationsOpen, setIsMapLocationsOpen] = React.useState(false);
     
     const [newOwnerId, setNewOwnerId] = React.useState<string>("");
     const [reviewRequest, setReviewRequest] = React.useState<LeaveRequest | null>(null);
@@ -383,8 +568,8 @@ export default function HouseholdPage() {
             try {
                 const household = await getClientHousehold();
                 setCurrentHousehold(household);
-                const inventoryItems = await getClientInventory();
-                setAllInventory([...inventoryItems.privateItems, ...inventoryItems.sharedItems]);
+                const inventoryData = await getClientInventory();
+                setAllInventory(inventoryData);
                 const locations = await getClientStorageLocations();
                 setUserLocations(locations);
             } catch(e) {
@@ -403,9 +588,6 @@ export default function HouseholdPage() {
 
     const isOwner = user?.uid === currentHousehold?.ownerId;
     const otherMembers = currentHousehold?.activeMembers.filter(m => m.userId !== user?.uid) || [];
-
-    const userInventory = React.useMemo(() => allInventory.filter(i => i.isPrivate), [allInventory]);
-    const householdInventory = React.useMemo(() => allInventory.filter(i => !i.isPrivate), [allInventory]);
 
     const onCreateHousehold = async () => {
         setIsCreateConfirmOpen(false);
@@ -438,7 +620,7 @@ export default function HouseholdPage() {
             }
             setHouseholdToJoin(household);
 
-            if (userInventory.length === 0) {
+            if (allInventory.privateItems.length === 0) {
                 await onJoinHousehold(false, {});
             } else {
                 setIsMapLocationsOpen(true);
@@ -472,27 +654,52 @@ export default function HouseholdPage() {
         }
     };
     
-    const onLeaveHousehold = async (itemsToTake: RequestedItem[]) => {
+    // --- MODIFIED LEAVING LOGIC ---
+    const handleBeginLeave = () => {
+      setIsLeaveAlertOpen(false); // Close the first confirmation
+      if (currentHousehold?.sharedInventory && currentHousehold.sharedInventory.length > 0) {
+        setLeaveStep('take_items');
+      } else {
+        handleItemsToTakeConfirmed([]);
+      }
+    };
+
+    const handleItemsToTakeConfirmed = (takenItems: RequestedItem[]) => {
+      setItemsToTake(takenItems);
+      const userPrivateItems = allInventory.privateItems;
+      const allItemsToRemap = [...userPrivateItems]; // We need to remap private items as well
+
+      const takenItemsAsInventory: InventoryItem[] = takenItems.map(item => {
+        const original = allInventory.sharedItems.find(i => i.id === item.originalItemId)!;
+        return { ...original, totalQuantity: item.quantity, originalQuantity: item.quantity };
+      });
+      allItemsToRemap.push(...takenItemsAsInventory);
+
+      setItemsToRemap(allItemsToRemap);
+      setLeaveStep('remap_items');
+    };
+
+    const onLeaveHousehold = async (locationMapping: Record<string, string>) => {
         if (isOwner && otherMembers.length > 0 && !newOwnerId) {
             toast({ variant: "destructive", title: "New Owner Required", description: "You must select a new owner before leaving."});
             return;
         }
 
-        const result = await handleLeaveHousehold(itemsToTake, newOwnerId || undefined);
+        const result = await handleLeaveHousehold(itemsToTake, newOwnerId || undefined, locationMapping);
         if (result.success) {
             toast({
                 title: "You have left the household."
             });
             setCurrentHousehold(null);
+            setLeaveStep('initial');
             fetchHouseholdData(); // Re-fetch data to get user's standalone state
         } else {
-                toast({
+            toast({
                 variant: "destructive",
                 title: "Failed to Leave",
                 description: result.error,
             });
         }
-        setIsLeaveAlertOpen(false);
         setNewOwnerId("");
     }
     
@@ -503,6 +710,44 @@ export default function HouseholdPage() {
         }
     }
 
+    // --- MODIFIED APPROVE & MERGE LOGIC ---
+    const handleBeginApproveAndMerge = async (memberId: string, memberName: string) => {
+        setIsProcessingRequest(memberId);
+        try {
+            // A new action might be needed to just FETCH the member's private inventory
+            // For now, let's assume we can get it. This is a simplification.
+            // In a real scenario, this might need another action: `getPendingMemberInventory(memberId)`
+            // which has security rules to only allow household owner to see it.
+            // For this example, we'll use a placeholder.
+            const memberInventory: InventoryItem[] = []; // Placeholder. This needs a real implementation.
+            
+            setInventoryToMerge(memberInventory);
+            setMemberToMerge({ id: memberId, name: memberName });
+            setApproveMergeStep('confirm_merge');
+
+        } catch (e) {
+             toast({ variant: "destructive", title: "Error", description: "Could not fetch member's inventory for merging." });
+        } finally {
+            setIsProcessingRequest(null);
+        }
+    };
+    
+    const onApproveAndMerge = async (approvedItemIds: string[]) => {
+        if (!currentHousehold || !memberToMerge) return;
+        setIsProcessingRequest(memberToMerge.id);
+        setApproveMergeStep('initial');
+        
+        const result = await handleApproveAndMerge(currentHousehold.id, memberToMerge.id, approvedItemIds);
+        if (result.success && result.household) {
+            setCurrentHousehold(result.household);
+            toast({ title: "Member Approved & Inventory Merged!" });
+        } else {
+            toast({ variant: "destructive", title: "Action Failed", description: result.error });
+        }
+        setIsProcessingRequest(null);
+        setMemberToMerge(null);
+    }
+    
     const onApprove = async (memberId: string) => {
         if (!currentHousehold) return;
         setIsProcessingRequest(memberId);
@@ -512,19 +757,6 @@ export default function HouseholdPage() {
             toast({ title: "Member Approved!" });
         } else {
             toast({ variant: "destructive", title: "Approval Failed", description: result.error });
-        }
-        setIsProcessingRequest(null);
-    }
-    
-    const onApproveAndMerge = async (memberId: string) => {
-        if (!currentHousehold) return;
-        setIsProcessingRequest(memberId);
-        const result = await handleApproveAndMerge(currentHousehold.id, memberId);
-        if (result.success && result.household) {
-            setCurrentHousehold(result.household);
-            toast({ title: "Member Approved & Inventory Merged!" });
-        } else {
-            toast({ variant: "destructive", title: "Action Failed", description: result.error });
         }
         setIsProcessingRequest(null);
     }
@@ -619,7 +851,7 @@ export default function HouseholdPage() {
                             <div className="flex gap-2 self-end sm:self-center">
                                 {member.wantsToMergeInventory ? (
                                     <>
-                                     <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApproveAndMerge(member.userId)} disabled={!!isProcessingRequest}>
+                                     <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => handleBeginApproveAndMerge(member.userId, member.userName)} disabled={!!isProcessingRequest}>
                                         {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <><GitMerge className="h-4 w-4 mr-2" />Approve & Merge</>}
                                     </Button>
                                     <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
@@ -696,7 +928,7 @@ export default function HouseholdPage() {
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} disabled={!newOwnerId} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        <AlertDialogAction onClick={handleBeginLeave} disabled={!newOwnerId} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                             Next
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -714,7 +946,7 @@ export default function HouseholdPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        <AlertDialogAction onClick={handleBeginLeave} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                             Yes, Leave and Dissolve
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -728,12 +960,12 @@ export default function HouseholdPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Leaving the household means you will lose access to all shared items and recipes. Any items you own will be un-shared. This action cannot be undone.
+                        Leaving the household means you will lose access to all shared items and recipes. This action cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => { setIsLeaveAlertOpen(false); setIsTakeItemsOpen(true); }} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                    <AlertDialogAction onClick={handleBeginLeave} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                         Yes, Leave Household
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -765,6 +997,9 @@ export default function HouseholdPage() {
         />}
 
         </div>
+        
+        {/* === DIALOGS === */}
+
         <AlertDialog open={isLeaveAlertOpen} onOpenChange={setIsLeaveAlertOpen}>
             <AlertDialogContent>
                 <LeaveHouseholdDialogContent />
@@ -772,13 +1007,25 @@ export default function HouseholdPage() {
         </AlertDialog>
 
         <TakeItemsDialog 
-            isOpen={isTakeItemsOpen}
-            setIsOpen={setIsTakeItemsOpen}
-            inventory={householdInventory}
-            onConfirm={(items) => {
-                onLeaveHousehold(items);
-                setIsTakeItemsOpen(false);
-            }}
+            isOpen={leaveStep === 'take_items'}
+            setIsOpen={(isOpen) => !isOpen && setLeaveStep('initial')}
+            inventory={allInventory.sharedItems}
+            onConfirm={handleItemsToTakeConfirmed}
+        />
+
+        <RemapLeavingItemsDialog
+            isOpen={leaveStep === 'remap_items'}
+            setIsOpen={(isOpen) => !isOpen && setLeaveStep('initial')}
+            itemsToRemap={itemsToRemap}
+            personalLocations={userLocations}
+            onConfirm={onLeaveHousehold}
+        />
+
+        <ApproveMergeDialog
+            isOpen={approveMergeStep === 'confirm_merge'}
+            setIsOpen={(isOpen) => !isOpen && setApproveMergeStep('initial')}
+            itemsToMerge={inventoryToMerge}
+            onConfirm={onApproveAndMerge}
         />
 
         {reviewRequest && (
@@ -794,7 +1041,7 @@ export default function HouseholdPage() {
             <MapLocationsDialog
                 isOpen={isMapLocationsOpen}
                 setIsOpen={setIsMapLocationsOpen}
-                userInventory={userInventory}
+                userInventory={allInventory.privateItems}
                 userLocations={userLocations}
                 householdLocations={householdToJoin.locations || []}
                 onConfirm={(mapping) => {

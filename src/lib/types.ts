@@ -29,6 +29,8 @@ export type InventoryItemGroup = {
   nextExpiry: Date | null;
   unit: Unit; 
   isPrivate: boolean;
+  locationId: string;
+  locationName: string;
 }
 
 export type InventoryPackageGroup = {
@@ -171,6 +173,7 @@ export type Household = {
     pendingMembers: HouseholdMember[];
     leaveRequests?: LeaveRequest[];
     locations: StorageLocation[];
+    sharedInventory?: InventoryItem[]; // Adding for easier access in UI
 };
 
 

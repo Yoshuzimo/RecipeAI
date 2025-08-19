@@ -38,6 +38,7 @@ import {
     removeShoppingListItem,
     removeCheckedShoppingListItems,
     toggleItemPrivacy as dataToggleItemPrivacy,
+    getPendingMemberInventory,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 
@@ -127,7 +128,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
         }
         await Promise.all(updates);
         const newInventory = await getInventory(db, userId);
-        return { success: true, error: null, newInventory };
+        return { success: true, error: null, newInventory: {privateItems: newInventory.privateItems, sharedItems: newInventory.sharedItems} };
     } catch (e) {
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         return { success: false, error };
@@ -169,7 +170,7 @@ export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boole
     }
 }
 
-export async function handleRemoveInventoryPackageGroup(itemsToRemove: InventoryItem[]): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleRemoveInventoryPackageGroup(itemsToRemove: InventoryItem[]): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -182,7 +183,7 @@ export async function handleRemoveInventoryPackageGroup(itemsToRemove: Inventory
     }
 }
 
-export async function handleMoveInventoryItems(request: MoveRequest, destinationId: string): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleMoveInventoryItems(request: MoveRequest, destinationId: string): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -207,7 +208,7 @@ export async function handleMoveInventoryItems(request: MoveRequest, destination
     }
 }
 
-export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -231,7 +232,7 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
     }
 }
 
-export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivate: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivate: boolean): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -386,7 +387,10 @@ export async function getClientHousehold(): Promise<Household | null> {
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
-        return await dataGetHousehold(db, userId);
+        const household = await dataGetHousehold(db, userId);
+        if (!household) return null;
+        const { sharedItems } = await getInventory(db, userId);
+        return { ...household, sharedInventory: sharedItems };
     } catch (error) {
         console.error("Error fetching client household:", error);
         return null;
@@ -444,12 +448,12 @@ export async function handleJoinHousehold(inviteCode: string, mergeInventory: bo
     }
 }
 
-export async function handleLeaveHousehold(itemsToTake: RequestedItem[], newOwnerId?: string) {
+export async function handleLeaveHousehold(itemsToTake: RequestedItem[], newOwnerId: string | undefined, locationMapping: Record<string, string>) {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
-        await dataLeaveHousehold(db, FieldValue.arrayRemove, FieldValue.arrayUnion, userId, newOwnerId, itemsToTake);
+        await dataLeaveHousehold(db, FieldValue.arrayRemove, FieldValue.arrayUnion, userId, newOwnerId, itemsToTake, locationMapping);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -481,12 +485,12 @@ export async function handleApproveMember(householdId: string, memberIdToApprove
     }
 }
 
-export async function handleApproveAndMerge(householdId: string, memberIdToApprove: string) {
+export async function handleApproveAndMerge(householdId: string, memberIdToApprove: string, approvedItemIds: string[]) {
     const currentUserId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
-        const updatedHousehold = await dataApproveAndMergeMember(db, FieldValue.arrayUnion, FieldValue.arrayRemove, currentUserId, householdId, memberIdToApprove);
+        const updatedHousehold = await dataApproveAndMergeMember(db, FieldValue.arrayUnion, FieldValue.arrayRemove, currentUserId, householdId, memberIdToApprove, approvedItemIds);
         return { success: true, household: updatedHousehold };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -503,4 +507,11 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
+}
+
+export async function getClientPendingMemberInventory(memberId: string): Promise<InventoryItem[]> {
+    const currentUserId = await getCurrentUserId();
+    const { getAdmin } = require("@/lib/firebase-admin");
+    const { db } = getAdmin();
+    return getPendingMemberInventory(db, currentUserId, memberId);
 }

@@ -5,12 +5,14 @@
 import { useState } from "react";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock } from "lucide-react";
+import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+
 
 const locationIcons = {
   Fridge: <Refrigerator className="h-6 w-6" />,
@@ -21,8 +23,15 @@ const locationIcons = {
 const locationOrder: Array<keyof GroupedByLocation> = ['Fridge', 'Freezer', 'Pantry'];
 
 
-const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: string, icon: React.ReactNode, groupedData: GroupedByLocation, onRowClick: (group: InventoryItemGroup, isPrivate: boolean) => void }) => {
+const InventoryColumn = ({ title, icon, groupedData, onRowClick, storageLocations }: { 
+    title: string, 
+    icon: React.ReactNode, 
+    groupedData: Record<string, InventoryItemGroup[]>, 
+    onRowClick: (group: InventoryItemGroup, isPrivate: boolean) => void,
+    storageLocations: StorageLocation[] 
+}) => {
     const isPrivate = title === "Private Inventory";
+    
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2 text-2xl font-bold">
@@ -30,23 +39,41 @@ const InventoryColumn = ({ title, icon, groupedData, onRowClick }: { title: stri
                 <h2>{title}</h2>
             </div>
             <Accordion type="multiple" defaultValue={['Fridge', 'Freezer', 'Pantry']} className="w-full space-y-4">
-                {locationOrder.map(locationType => (
-                    <AccordionItem value={locationType} key={locationType} className="border-none">
-                        <Card>
-                            <AccordionTrigger className="p-0 hover:no-underline">
-                                <CardHeader className="flex-row items-center justify-between w-full p-4">
-                                   <div className="flex items-center gap-4">
-                                     {locationIcons[locationType]}
-                                    <CardTitle className="text-2xl">{locationType}</CardTitle>
-                                   </div>
-                                </CardHeader>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-2 sm:px-4 pb-4">
-                               <InventoryTable data={groupedData[locationType]} onRowClick={(group) => onRowClick(group, isPrivate)} />
-                            </AccordionContent>
-                        </Card>
-                    </AccordionItem>
-                ))}
+                {locationOrder.map(locationType => {
+                    const locationsOfType = storageLocations.filter(l => l.type === locationType);
+                    const itemsForType = groupedData[locationType] || [];
+
+                    return (
+                        <AccordionItem value={locationType} key={locationType} className="border-none">
+                            <Card>
+                                <AccordionTrigger className="p-0 hover:no-underline">
+                                    <CardHeader className="flex-row items-center justify-between w-full p-4">
+                                    <div className="flex items-center gap-4">
+                                        {locationIcons[locationType]}
+                                        <CardTitle className="text-2xl">{locationType}</CardTitle>
+                                    </div>
+                                    </CardHeader>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-2 sm:px-4 pb-4 space-y-4">
+                                    {locationsOfType.map(location => {
+                                        const itemsInLocation = itemsForType.filter(i => i.locationId === location.id);
+                                        return (
+                                            <Collapsible key={location.id} defaultOpen>
+                                                <CollapsibleTrigger className="w-full flex justify-between items-center font-semibold text-lg p-2 rounded-md hover:bg-muted">
+                                                    {location.name}
+                                                    <ChevronDown className="h-5 w-5 transition-transform duration-200 [&[data-state=open]>svg]:-rotate-180" />
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent>
+                                                    <InventoryTable data={itemsInLocation} onRowClick={(group) => onRowClick(group, isPrivate)} />
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )
+                                    })}
+                                </AccordionContent>
+                            </Card>
+                        </AccordionItem>
+                    )
+                })}
             </Accordion>
         </div>
     );
@@ -60,14 +87,14 @@ export default function InventoryClient({
   initialAllSharedItems,
   storageLocations,
 }: {
-  initialPrivateData: GroupedByLocation;
-  initialSharedData: GroupedByLocation;
+  initialPrivateData: Record<string, InventoryItemGroup[]>;
+  initialSharedData: Record<string, InventoryItemGroup[]>;
   initialAllPrivateItems: InventoryItem[];
   initialAllSharedItems: InventoryItem[];
   storageLocations: StorageLocation[];
 }) {
-  const [groupedPrivate, setGroupedPrivate] = useState<GroupedByLocation>(initialPrivateData);
-  const [groupedShared, setGroupedShared] = useState<GroupedByLocation>(initialSharedData);
+  const [groupedPrivate, setGroupedPrivate] = useState(initialPrivateData);
+  const [groupedShared, setGroupedShared] = useState(initialSharedData);
   const [allPrivateItems, setAllPrivateItems] = useState<InventoryItem[]>(initialAllPrivateItems);
   const [allSharedItems, setAllSharedItems] = useState<InventoryItem[]>(initialAllSharedItems);
 
@@ -76,105 +103,115 @@ export default function InventoryClient({
   const [selectedGroup, setSelectedGroup] = useState<{group: InventoryItemGroup, isPrivate: boolean} | null>(null);
 
   const updateState = (newPrivateItems: InventoryItem[], newSharedItems: InventoryItem[]) => {
-      const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
-          const key = `${item.name}-${item.unit}`;
-          if (!acc[key]) {
-            acc[key] = { items: [], unit: item.unit };
-          }
-          acc[key].items.push(item);
-          return acc;
-        }, {});
-
-        const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
-          const { items, unit } = groupData;
-          const name = items[0].name;
-
-          let packageInfo = '';
-
-          if (unit === 'pcs') {
-              const totalPieces = items.reduce((sum, item) => sum + item.totalQuantity, 0);
-              const packageSize = items[0]?.originalQuantity || 1;
-              
-              if (packageSize > 1) {
-                const fullPackages = Math.floor(totalPieces / packageSize);
-                const remainingPieces = totalPieces % packageSize;
-                
-                let parts = [];
-                if (fullPackages > 0) {
-                    parts.push(`${fullPackages} x ${packageSize}${unit}`);
-                }
-                if (remainingPieces > 0) {
-                    parts.push(`${remainingPieces.toFixed(0)} ${unit}`);
-                }
-                packageInfo = parts.join(' + ');
-              } else {
-                 packageInfo = `${totalPieces.toFixed(0)} ${unit}`;
-              }
-
-          } else {
-            const packageCounts = items.reduce<Record<string, { count: number, items: InventoryItem[] }>>((acc, item) => {
-              const packageKey = item.originalQuantity.toString();
-              if (!acc[packageKey]) {
-                acc[packageKey] = { count: 0, items: [] };
-              }
-              acc[packageKey].count++;
-              acc[packageKey].items.push(item);
-              return acc;
+      const groupItems = (items: InventoryItem[], allLocations: StorageLocation[]): Record<string, InventoryItemGroup[]> => {
+            const groupedByLocation = items.reduce<Record<string, InventoryItem[]>>((acc, item) => {
+            if (!acc[item.locationId]) {
+                acc[item.locationId] = [];
+            }
+            acc[item.locationId].push(item);
+            return acc;
             }, {});
-            
-            packageInfo = Object.entries(packageCounts).map(([size, data]) => {
-                const fullPackages = data.items.filter(i => i.totalQuantity === i.originalQuantity).length;
-                const partialPackages = data.items.filter(i => i.totalQuantity < i.originalQuantity);
+
+            const result: Record<string, InventoryItemGroup[]> = {};
+
+            for (const locationId in groupedByLocation) {
+                const locationItems = groupedByLocation[locationId];
+                const locationInfo = allLocations.find(l => l.id === locationId);
+                if (!locationInfo) continue;
+
+                const groupedByName = locationItems.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
+                    const key = `${item.name}-${item.unit}`;
+                    if (!acc[key]) {
+                        acc[key] = { items: [], unit: item.unit };
+                    }
+                    acc[key].items.push(item);
+                    return acc;
+                }, {});
                 
-                let infoParts = [];
-                if (fullPackages > 0) {
-                    infoParts.push(`${fullPackages} x ${size}${unit}`);
-                }
-                partialPackages.forEach(p => {
-                    const percentage = ((p.totalQuantity / p.originalQuantity) * 100).toFixed(0);
-                    infoParts.push(`1 x ${size}${unit} (${percentage}% full)`);
+                const finalGroups = Object.values(groupedByName).map(groupData => {
+                    const { items, unit } = groupData;
+                    const name = items[0].name;
+
+                    let packageInfo = '';
+
+                    if (unit === 'pcs') {
+                        const totalPieces = items.reduce((sum, item) => sum + item.totalQuantity, 0);
+                        const packageSize = items[0]?.originalQuantity || 1; 
+                        
+                        if (packageSize > 1) {
+                            const fullPackages = Math.floor(totalPieces / packageSize);
+                            const remainingPieces = totalPieces % packageSize;
+                            
+                            let parts = [];
+                            if (fullPackages > 0) {
+                                parts.push(`${fullPackages} x ${packageSize}${unit}`);
+                            }
+                            if (remainingPieces > 0) {
+                                parts.push(`${remainingPieces.toFixed(0)} ${unit}`);
+                            }
+                            packageInfo = parts.join(' + ');
+                        } else {
+                            packageInfo = `${totalPieces.toFixed(0)} ${unit}`;
+                        }
+                    } else {
+                        const packageCounts = items.reduce<Record<string, { count: number, items: InventoryItem[] }>>((acc, item) => {
+                            const packageKey = item.originalQuantity.toString();
+                            if (!acc[packageKey]) {
+                                acc[packageKey] = { count: 0, items: [] };
+                            }
+                            acc[packageKey].count++;
+                            acc[packageKey].items.push(item);
+                            return acc;
+                        }, {});
+                        
+                        packageInfo = Object.entries(packageCounts).map(([size, data]) => {
+                            const fullPackages = data.items.filter(i => i.totalQuantity === i.originalQuantity).length;
+                            const partialPackages = data.items.filter(i => i.totalQuantity < i.originalQuantity);
+                            
+                            let infoParts = [];
+                            if (fullPackages > 0) {
+                                infoParts.push(`${fullPackages} x ${size}${unit}`);
+                            }
+                            partialPackages.forEach(p => {
+                                const percentage = ((p.totalQuantity / p.originalQuantity) * 100).toFixed(0);
+                                infoParts.push(`1 x ${size}${unit} (${percentage}% full)`);
+                            });
+                            return infoParts.join(', ');
+                        }).join('; ');
+                    }
+
+                    const sortedItems = items.sort((a, b) => {
+                        if (a.expiryDate === null) return 1;
+                        if (b.expiryDate === null) return -1;
+                        return a.expiryDate.getTime() - b.expiryDate.getTime();
+                    });
+
+                    const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
+
+                    return {
+                        name,
+                        unit,
+                        items: sortedItems,
+                        packageInfo,
+                        nextExpiry,
+                        isPrivate: items[0].isPrivate,
+                    };
+                }).sort((a, b) => {
+                    if (a.nextExpiry === null) return 1;
+                    if (b.nextExpiry === null) return -1;
+                    return a.nextExpiry.getTime() - b.nextExpiry.getTime();
                 });
-                return infoParts.join(', ');
-            }).join('; ');
-          }
 
-          const sortedItems = items.sort((a, b) => {
-            if (a.expiryDate === null) return 1;
-            if (b.expiryDate === null) return -1;
-            return a.expiryDate.getTime() - b.expiryDate.getTime();
-          });
-          const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
+                if (!result[locationInfo.type]) {
+                    result[locationInfo.type] = [];
+                }
+                result[locationInfo.type].push(...finalGroups.map(group => ({ ...group, locationName: locationInfo.name, locationId: locationInfo.id })));
+            }
+            return result;
+        };
 
-          return {
-            name,
-            unit,
-            items: sortedItems,
-            packageInfo,
-            nextExpiry,
-          };
-        });
-
-        return finalGroups.sort((a, b) => {
-          if (a.nextExpiry === null) return 1;
-          if (b.nextExpiry === null) return -1;
-          return a.nextExpiry.getTime() - b.nextExpiry.getTime();
-        });
-      };
-
-      const locationMap = new Map(storageLocations.map(loc => [loc.id, loc.type]));
-
-      const newGroupedPrivate: GroupedByLocation = {
-        Fridge: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-        Freezer: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-        Pantry: groupItems(newPrivateItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
-      };
-
-      const newGroupedShared: GroupedByLocation = {
-        Fridge: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Fridge')),
-        Freezer: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Freezer')),
-        Pantry: groupItems(newSharedItems.filter(item => locationMap.get(item.locationId) === 'Pantry')),
-      };
+      const newGroupedPrivate = groupItems(newPrivateItems, storageLocations);
+      const newGroupedShared = groupItems(newSharedItems, storageLocations);
 
       setAllPrivateItems(newPrivateItems);
       setAllSharedItems(newSharedItems);
@@ -183,8 +220,8 @@ export default function InventoryClient({
 
       if (selectedGroup) {
         const allGroups = selectedGroup.isPrivate ? 
-            [...newGroupedPrivate.Fridge, ...newGroupedPrivate.Freezer, ...newGroupedPrivate.Pantry] :
-            [...newGroupedShared.Fridge, ...newGroupedShared.Freezer, ...newGroupedShared.Pantry];
+            Object.values(newGroupedPrivate).flat() :
+            Object.values(newGroupedShared).flat();
         
         const updatedGroup = allGroups.find(g => g.name === selectedGroup.group.name && g.unit === selectedGroup.group.unit);
         
@@ -216,7 +253,7 @@ export default function InventoryClient({
     setIsViewDialogOpen(true);
   };
   
-  const hasHousehold = allSharedItems.length > 0 || (initialAllSharedItems && initialAllSharedItems.length > 0) || (groupedShared.Fridge.length + groupedShared.Freezer.length + groupedShared.Pantry.length > 0) || (initialSharedData.Fridge.length + initialSharedData.Freezer.length + initialSharedData.Pantry.length > 0) ;
+  const hasHousehold = allSharedItems.length > 0 || (initialAllSharedItems && initialAllSharedItems.length > 0) || (Object.values(groupedShared).flat().length > 0) || (Object.values(initialSharedData).flat().length > 0);
 
 
   return (
@@ -237,8 +274,8 @@ export default function InventoryClient({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {hasHousehold && <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} />}
-        <InventoryColumn title="Private Inventory" icon={<Lock />} groupedData={groupedPrivate} onRowClick={handleRowClick} />
+        {hasHousehold && <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} storageLocations={storageLocations} />}
+        <InventoryColumn title="Private Inventory" icon={<Lock />} groupedData={groupedPrivate} onRowClick={handleRowClick} storageLocations={storageLocations} />
       </div>
 
 

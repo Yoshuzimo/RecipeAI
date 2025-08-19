@@ -54,9 +54,13 @@ export async function DELETE(request: NextRequest) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
-        const { itemsToTake, newOwnerId } = await request.json();
+        const { itemsToTake, newOwnerId, locationMapping } = await request.json();
 
-        const result = await handleLeaveHousehold(itemsToTake || [], newOwnerId);
+        if (!locationMapping) {
+            return new NextResponse(JSON.stringify({ error: "Missing location mapping for leaving user's items." }), { status: 400 });
+        }
+
+        const result = await handleLeaveHousehold(itemsToTake || [], newOwnerId, locationMapping);
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 500 });
