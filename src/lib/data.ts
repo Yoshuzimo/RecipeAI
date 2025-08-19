@@ -326,7 +326,7 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
 
         memberInventorySnapshot.docs.forEach(doc => {
             const itemData = doc.data();
-            if (!itemData.ownerId) { // Only merge non-private items
+            if (!itemData.isPrivate) { // Only merge non-private items
                 transaction.set(householdInventoryCollection.doc(), itemData);
                 transaction.delete(doc.ref);
             }
@@ -409,15 +409,16 @@ export async function removeStorageLocation(db: Firestore, userId: string, locat
 // Inventory
 export async function getInventory(db: Firestore, userId: string): Promise<InventoryItem[]> {
     const household = await getHousehold(db, userId);
+    const userSettings = await getSettings(db, userId);
 
-    // 1. Always fetch the user's own private inventory
+    // Fetch the current user's personal inventory
     const userInventorySnapshot = await db.collection(`users/${userId}/inventory`).get();
     const userItems = userInventorySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
             ...data,
-            ownerName: "You", // Mark items from user's collection as theirs
+            ownerName: userSettings.displayName || 'You', // Mark items from user's collection as theirs
             expiryDate: data.expiryDate?.toDate() ?? null,
         } as InventoryItem;
     });
@@ -427,7 +428,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
       return userItems;
     }
   
-    // 2. If in a household, fetch the shared household inventory
+    // If in a household, fetch the shared household inventory
     const householdInventorySnapshot = await db.collection(`households/${household.id}/inventory`).get();
     const householdItems = householdInventorySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -440,7 +441,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
         } as InventoryItem;
     }).filter((item): item is InventoryItem => item !== null);
 
-    // 3. Combine and return both lists
+    // Combine and return both lists
     return [...userItems, ...householdItems];
 }
 
@@ -451,12 +452,19 @@ export async function addInventoryItem(db: Firestore, userId: string, item: AddI
     const household = await getHousehold(db, userId);
     // If user is in a household and item is not private, add to the household inventory.
     // Otherwise, add to the user's personal inventory.
-    const collectionPath = (household && !item.ownerId) 
+    const collectionPath = (household && !item.isPrivate) 
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
 
-    const docRef = await db.collection(collectionPath).add(item);
-    return { ...item, id: docRef.id };
+    // When adding to personal inventory, explicitly set the ownerId.
+    const itemToAdd = { ...item };
+    if (!(household && !item.isPrivate)) {
+        itemToAdd.ownerId = userId;
+    }
+
+
+    const docRef = await db.collection(collectionPath).add(itemToAdd);
+    return { ...itemToAdd, id: docRef.id };
 }
 
 export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {

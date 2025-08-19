@@ -116,7 +116,7 @@ export default function InventoryClient({
             items: sortedItems,
             packageInfo,
             nextExpiry,
-            ownerName: ownerName,
+            ownerName: ownerName || 'Shared',
           };
         });
 
@@ -221,4 +221,3 @@ export default function InventoryClient({
     </>
   );
 }
-
