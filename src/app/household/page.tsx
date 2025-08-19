@@ -27,14 +27,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const dynamic = 'force-dynamic';
 
 const NoHouseholdView = ({
-    onCreateHousehold,
+    onTriggerCreateConfirmation,
     onJoinHousehold,
     isCreating,
     isJoining,
     joinCode,
     setJoinCode
 }: {
-    onCreateHousehold: () => void;
+    onTriggerCreateConfirmation: () => void;
     onJoinHousehold: (e: React.FormEvent) => void;
     isCreating: boolean;
     isJoining: boolean;
@@ -48,7 +48,7 @@ const NoHouseholdView = ({
                 <CardDescription>Start a new household and invite your family or roommates to join.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={onCreateHousehold} disabled={isCreating} className="w-full">
+                <Button onClick={onTriggerCreateConfirmation} disabled={isCreating} className="w-full">
                     {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Household
                 </Button>
@@ -115,6 +115,7 @@ const LoadingSkeleton = () => (
 export default function HouseholdPage() {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = React.useState(true);
+    const [isCreateConfirmOpen, setIsCreateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
@@ -147,6 +148,7 @@ export default function HouseholdPage() {
 
 
     const onCreateHousehold = async () => {
+        setIsCreateConfirmOpen(false);
         setIsCreating(true);
         const result = await handleCreateHousehold();
         setIsCreating(false);
@@ -404,7 +406,7 @@ export default function HouseholdPage() {
         </div>
 
         {isLoading ? <LoadingSkeleton /> : currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
-            onCreateHousehold={onCreateHousehold}
+            onTriggerCreateConfirmation={() => setIsCreateConfirmOpen(true)}
             onJoinHousehold={onJoinHousehold}
             isCreating={isCreating}
             isJoining={isJoining}
@@ -418,6 +420,26 @@ export default function HouseholdPage() {
                 <LeaveHouseholdDialogContent />
             </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={isCreateConfirmOpen} onOpenChange={setIsCreateConfirmOpen}>
+             <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Create a Shared Household?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Before creating a household, please ensure you have marked any personal food items as "Private" in your inventory.
+                        Any items not marked as private will become visible to all household members. Are you ready to proceed?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onCreateHousehold}>
+                        Create Household
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </MainLayout>
     );
 }
+
+    
