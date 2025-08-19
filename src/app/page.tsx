@@ -1,4 +1,5 @@
 
+
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory } from "@/app/actions";
@@ -9,7 +10,8 @@ import { TodaysMacros } from "@/components/todays-macros";
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
-  const inventory = await getClientInventory();
+  const { privateItems, sharedItems } = await getClientInventory();
+  const inventory = [...privateItems, ...sharedItems];
 
   const now = new Date();
   const expiringSoon = inventory.filter(item => {
@@ -27,6 +29,9 @@ export default async function OverviewPage() {
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <TodaysMacros />
+        <p className="text-sm text-muted-foreground pt-2">
+            Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
+        </p>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

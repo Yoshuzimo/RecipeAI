@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -255,21 +256,26 @@ export function ShoppingList({ initialInventory, personalDetails, initialShoppin
                     <CardTitle>AI Shopping Guide</CardTitle>
                     <CardDescription>Get smart recommendations for your next shopping trip. Click to add them to your list.</CardDescription>
                 </div>
-                 <Button onClick={handleGenerate} disabled={isPending || isRateLimited}>
-                    {isPending ? (
-                        <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                        </>
-                    ) : isRateLimited ? (
-                       `Please wait (${timeToWait}s)`
-                    ) : (
-                        <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Generate AI Shopping List
-                        </>
-                    )}
-                </Button>
+                <div className="flex flex-col items-end gap-2">
+                     <Button onClick={handleGenerate} disabled={isPending || isRateLimited}>
+                        {isPending ? (
+                            <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                            </>
+                        ) : isRateLimited ? (
+                           `Please wait (${timeToWait}s)`
+                        ) : (
+                            <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Generate AI Shopping List
+                            </>
+                        )}
+                    </Button>
+                     <p className="text-xs text-muted-foreground text-right">
+                        AI can make mistakes. This is based on your inventory, personal details, and consumption habits.
+                    </p>
+                </div>
             </div>
         </CardHeader>
         <CardContent>

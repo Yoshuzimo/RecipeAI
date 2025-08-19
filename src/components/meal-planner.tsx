@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -305,21 +306,26 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                 disabled={isPending || isRateLimited}
               />
             </div>
-            <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : isRateLimited ? (
-                `Please wait (${timeToWait}s)`
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Suggestions
-                </>
-              )}
-            </Button>
+            <div className="space-y-2">
+                <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : isRateLimited ? (
+                    `Please wait (${timeToWait}s)`
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate Suggestions
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                    AI can make mistakes. The results are based on the information you provide, not a healthcare professional. Always follow your doctor's advice.
+                </p>
+            </div>
             {error?.form && (
                 <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
             )}
