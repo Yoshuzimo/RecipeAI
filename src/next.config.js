@@ -24,10 +24,10 @@ const nextConfig = {
   webpack(config, { isServer }) {
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
     
-    // Exclude firebase-admin from client-side bundles.
     if (!isServer) {
       config.resolve.fallback = {
         "firebase-admin": false,
+        "async_hooks": false,
       }
     }
 
