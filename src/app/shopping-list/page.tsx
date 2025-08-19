@@ -1,6 +1,9 @@
+
 import MainLayout from "@/components/main-layout";
 import { ShoppingList } from "@/components/shopping-list";
 import { getClientInventory, getClientPersonalDetails } from "@/app/actions";
+
+export const dynamic = 'force-dynamic';
 
 export default async function ShoppingListPage() {
   const inventory = await getClientInventory();

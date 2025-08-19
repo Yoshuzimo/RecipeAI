@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import type { DailyMacros } from "@/lib/types";
 
+export const dynamic = 'force-dynamic';
+
 // Weekly and monthly data would come from a more complex query in a real app
 const MOCK_WEEKLY_DATA: any[] = [];
 const MOCK_MONTHLY_DATA: any[] = [];

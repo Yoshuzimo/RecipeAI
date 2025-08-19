@@ -1,6 +1,9 @@
+
 import MainLayout from "@/components/main-layout";
 import { SettingsForm } from "@/components/settings-form";
 import { Separator } from "@/components/ui/separator";
+
+export const dynamic = 'force-dynamic';
 
 export default function SettingsPage() {
   return (

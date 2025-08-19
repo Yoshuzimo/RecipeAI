@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
+export const dynamic = 'force-dynamic';
 
 const NoHouseholdView = ({
     onCreateHousehold,

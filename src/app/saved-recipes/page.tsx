@@ -1,6 +1,9 @@
+
 import MainLayout from "@/components/main-layout";
 import { SavedRecipes } from "@/components/saved-recipes";
 import { getClientSavedRecipes } from "@/app/actions";
+
+export const dynamic = 'force-dynamic';
 
 export default async function SavedRecipesPage() {
   const savedRecipes = await getClientSavedRecipes();

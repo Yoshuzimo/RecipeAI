@@ -1,9 +1,12 @@
+
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory } from "@/app/actions";
 import { differenceInDays } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
+
+export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
   const inventory = await getClientInventory();

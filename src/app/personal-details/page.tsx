@@ -1,6 +1,9 @@
+
 import MainLayout from "@/components/main-layout";
 import { PersonalDetailsForm } from "@/components/personal-details-form";
 import { Separator } from "@/components/ui/separator";
+
+export const dynamic = 'force-dynamic';
 
 export default function PersonalDetailsPage() {
   return (
