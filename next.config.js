@@ -21,8 +21,14 @@ const nextConfig = {
       },
     ],
   },
-  webpack(config) {
+  webpack(config, { isServer }) {
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
+    
+    // Exclude firebase-admin from client-side bundles
+    if (!isServer) {
+      config.resolve.alias['firebase-admin'] = false;
+    }
+
     return config;
   },
 };

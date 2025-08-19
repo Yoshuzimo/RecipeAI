@@ -2,8 +2,14 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import type { InventoryItem } from "@/lib/types";
-import { handleGenerateShoppingList } from "@/app/actions";
+import type { InventoryItem, PersonalDetails, ShoppingListItem } from "@/lib/types";
+import { 
+    handleGenerateShoppingList,
+    addClientShoppingListItem,
+    updateClientShoppingListItem,
+    removeClientShoppingListItem,
+    removeClientCheckedShoppingListItems
+} from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,14 +23,8 @@ import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "./ui/dropdown-menu";
 import { BuyItemsDialog } from "./buy-items-dialog";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
+import { useToast } from "@/hooks/use-toast";
 
-export type ShoppingListItem = {
-    id: string;
-    item: string;
-    quantity: string;
-    reason?: string;
-    checked?: boolean;
-};
 
 type AIListItem = {
     item: string;
@@ -49,13 +49,21 @@ const initialSections: Section[] = [
 ];
 
 
-export function ShoppingList({ inventory, personalDetails }: { inventory: InventoryItem[], personalDetails: any }) {
+export function ShoppingList({ initialInventory, personalDetails, initialShoppingList }: { 
+    initialInventory: InventoryItem[], 
+    personalDetails: PersonalDetails,
+    initialShoppingList: ShoppingListItem[]
+}) {
   const [isPending, startTransition] = useTransition();
   const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
+  const { toast } = useToast();
+
+  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const [aiShoppingList, setAiShoppingList] = useState<AIListItem[] | null>(null);
-  const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>([]);
+  const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>(initialShoppingList);
   const [error, setError] = useState<string | null>(null);
-  const [itemToAdd, setItemToAdd] = useState<Omit<ShoppingListItem, 'id' | 'checked'> | null>(null);
+  
+  const [itemToAdd, setItemToAdd] = useState<Omit<ShoppingListItem, 'id' | 'addedAt' | 'checked'> | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<ShoppingListItem | null>(null);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
@@ -63,11 +71,6 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
   const [sections, setSections] = useState<Section[]>(initialSections);
 
   useEffect(() => {
-    // In a real app, you'd fetch this from a DB or local storage
-    const savedList = localStorage.getItem('myShoppingList');
-    if (savedList) {
-      setMyShoppingList(JSON.parse(savedList));
-    }
     const savedSections = localStorage.getItem('shoppingListSections');
      if (savedSections) {
       const parsedSections = JSON.parse(savedSections);
@@ -100,13 +103,15 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     });
   };
 
-  const onAddItem: SubmitHandler<AddItemForm> = (data) => {
+  const onAddItem: SubmitHandler<AddItemForm> = async (data) => {
     if (data.item.trim() === "") return;
-    const newItem = { id: `manual-${crypto.randomUUID()}`, item: data.item, quantity: "1", checked: false };
-    const newList = [...myShoppingList, newItem];
-    setMyShoppingList(newList);
-    localStorage.setItem('myShoppingList', JSON.stringify(newList));
-    reset();
+    const newItem = { item: data.item, quantity: "1", checked: false, reason: "Manually added" };
+    
+    startTransition(async () => {
+        const addedItem = await addClientShoppingListItem(newItem);
+        setMyShoppingList(prev => [...prev, addedItem]);
+        reset();
+    });
   };
   
   const handleRemoveClick = (item: ShoppingListItem) => {
@@ -114,34 +119,36 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     setIsRemoveConfirmOpen(true);
   };
   
-  const handleConfirmRemove = () => {
+  const handleConfirmRemove = async () => {
     if (itemToRemove) {
-      const newList = myShoppingList.filter(item => item.id !== itemToRemove.id);
-      setMyShoppingList(newList);
-      localStorage.setItem('myShoppingList', JSON.stringify(newList));
+      await removeClientShoppingListItem(itemToRemove.id);
+      setMyShoppingList(prev => prev.filter(item => item.id !== itemToRemove!.id));
     }
     setIsRemoveConfirmOpen(false);
     setItemToRemove(null);
   }
 
-  const handleToggleCheck = (id: string) => {
-    const newList = myShoppingList.map(item => item.id === id ? {...item, checked: !item.checked } : item);
-    setMyShoppingList(newList);
-    localStorage.setItem('myShoppingList', JSON.stringify(newList));
+  const handleToggleCheck = async (id: string) => {
+    const itemToToggle = myShoppingList.find(item => item.id === id);
+    if (!itemToToggle) return;
+
+    const updatedItem = { ...itemToToggle, checked: !itemToToggle.checked };
+    setMyShoppingList(prev => prev.map(item => item.id === id ? updatedItem : item));
+    
+    await updateClientShoppingListItem(updatedItem);
   };
 
-  const handleConfirmAdd = () => {
+  const handleConfirmAdd = async () => {
     if (itemToAdd) {
-        const newItem = { ...itemToAdd, id: `sugg-${crypto.randomUUID()}`, checked: false };
-        const newList = [...myShoppingList, newItem];
-        setMyShoppingList(newList);
-        localStorage.setItem('myShoppingList', JSON.stringify(newList));
+        const newItem = { ...itemToAdd, checked: false };
+        const addedItem = await addClientShoppingListItem(newItem);
+        setMyShoppingList(prev => [...prev, addedItem]);
     }
     setIsConfirmOpen(false);
     setItemToAdd(null);
   }
 
-  const handleSuggestionClick = (item: Omit<ShoppingListItem, 'id' | 'checked'>) => {
+  const handleSuggestionClick = (item: Omit<ShoppingListItem, 'id' | 'addedAt' | 'checked'>) => {
     setItemToAdd(item);
     setIsConfirmOpen(true);
   }
@@ -158,11 +165,11 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     updateSections(newSections);
   };
 
-  const handlePurchaseComplete = () => {
-    const newList = myShoppingList.filter(item => !item.checked);
-    setMyShoppingList(newList);
-    localStorage.setItem('myShoppingList', JSON.stringify(newList));
+  const handlePurchaseComplete = async () => {
+    await removeClientCheckedShoppingListItems();
+    setMyShoppingList(prev => prev.filter(item => !item.checked));
     setIsBuyModalOpen(false);
+    toast({ title: "Purchase Complete", description: "Checked items have been removed from your list."})
   }
 
   const moveSection = (index: number, direction: 'up' | 'down') => {
@@ -179,12 +186,12 @@ export function ShoppingList({ inventory, personalDetails }: { inventory: Invent
     <Card>
         <CardHeader>
             <CardTitle>My Shopping List</CardTitle>
-            <CardDescription>Add items you need to buy.</CardDescription>
+            <CardDescription>Add items you need to buy. This list is synced with your household.</CardDescription>
         </CardHeader>
         <CardContent>
             <form onSubmit={handleSubmit(onAddItem)} className="flex items-center gap-2 mb-4">
                 <Input {...register("item")} placeholder="e.g., Olive Oil" autoComplete="off" />
-                <Button type="submit" size="icon" aria-label="Add item">
+                <Button type="submit" size="icon" aria-label="Add item" disabled={isPending}>
                     <PlusCircle className="h-4 w-4" />
                 </Button>
             </form>

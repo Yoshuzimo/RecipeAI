@@ -172,3 +172,12 @@ export type MarkPrivateRequest = {
     amount?: number; // Only for partial packages, the amount to make private
   }[];
 }
+
+export type ShoppingListItem = {
+    id: string;
+    item: string;
+    quantity: string;
+    reason?: string;
+    checked: boolean;
+    addedAt: Date;
+};

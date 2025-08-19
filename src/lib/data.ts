@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
@@ -133,6 +133,8 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
     batch.set(householdRef, newHousehold);
     const inventoryRef = householdRef.collection('inventory').doc(); // Create one dummy doc to ensure collection exists
     batch.set(inventoryRef, { initialized: true });
+    const shoppingListRef = householdRef.collection('shopping-list').doc();
+    batch.set(shoppingListRef, { initialized: true });
 
 
     batch.update(userRef, { householdId: householdRef.id });
@@ -620,4 +622,59 @@ export async function saveRecipe(db: Firestore, userId: string, recipe: Recipe):
     const docRef = db.collection(`users/${userId}/saved-recipes`).doc(docId);
     await docRef.set(recipeForDb, { merge: true });
     return recipe;
+}
+
+
+// --- Shopping List ---
+async function getShoppingListCollection(db: Firestore, userId: string) {
+    const household = await getHousehold(db, userId);
+    return household 
+        ? db.collection(`households/${household.id}/shopping-list`)
+        : db.collection(`users/${userId}/shopping-list`);
+}
+
+export async function getShoppingList(db: Firestore, userId: string): Promise<ShoppingListItem[]> {
+    const collectionRef = await getShoppingListCollection(db, userId);
+    const snapshot = await collectionRef.orderBy('addedAt', 'asc').get();
+    return snapshot.docs
+        .map(doc => {
+            const data = doc.data();
+            if (data.initialized) return null; // Skip dummy doc
+            return {
+                id: doc.id,
+                ...data,
+                addedAt: data.addedAt?.toDate(),
+            } as ShoppingListItem
+        })
+        .filter((item): item is ShoppingListItem => item !== null);
+}
+
+export async function addShoppingListItem(db: Firestore, userId: string, item: Omit<ShoppingListItem, 'id' | 'addedAt' >): Promise<ShoppingListItem> {
+    const collectionRef = await getShoppingListCollection(db, userId);
+    const newItem = { ...item, addedAt: new Date() };
+    const docRef = await collectionRef.add(newItem);
+    return { ...newItem, id: docRef.id };
+}
+
+export async function updateShoppingListItem(db: Firestore, userId: string, item: ShoppingListItem): Promise<ShoppingListItem> {
+    const collectionRef = await getShoppingListCollection(db, userId);
+    const { id, ...data } = item;
+    await collectionRef.doc(id).update(data);
+    return item;
+}
+
+export async function removeShoppingListItem(db: Firestore, userId: string, itemId: string): Promise<{id: string}> {
+    const collectionRef = await getShoppingListCollection(db, userId);
+    await collectionRef.doc(itemId).delete();
+    return { id: itemId };
+}
+
+export async function removeCheckedShoppingListItems(db: Firestore, userId: string): Promise<void> {
+    const collectionRef = await getShoppingListCollection(db, userId);
+    const snapshot = await collectionRef.where('checked', '==', true).get();
+    if (snapshot.empty) return;
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
 }

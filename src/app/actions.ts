@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -32,6 +32,11 @@ import {
     rejectPendingMember as dataRejectPendingMember,
     getHousehold as dataGetHousehold,
     processLeaveRequest as dataProcessLeaveRequest,
+    getShoppingList,
+    addShoppingListItem,
+    updateShoppingListItem,
+    removeShoppingListItem,
+    removeCheckedShoppingListItems,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { getAdmin } from "@/lib/firebase-admin";
@@ -294,6 +299,38 @@ export async function saveSettings(settings: Settings) {
     const { db } = getAdmin();
     return dataSaveSettings(db, userId, settings);
 }
+
+// --- Shopping List Actions ---
+export async function getClientShoppingList(): Promise<ShoppingListItem[]> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    return getShoppingList(db, userId);
+}
+
+export async function addClientShoppingListItem(item: Omit<ShoppingListItem, 'id' | 'addedAt'>): Promise<ShoppingListItem> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    return addShoppingListItem(db, userId, item);
+}
+
+export async function updateClientShoppingListItem(item: ShoppingListItem): Promise<ShoppingListItem> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    return updateShoppingListItem(db, userId, item);
+}
+
+export async function removeClientShoppingListItem(itemId: string): Promise<{ id: string }> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    return removeShoppingListItem(db, userId, itemId);
+}
+
+export async function removeClientCheckedShoppingListItems(): Promise<void> {
+    const userId = await getCurrentUserId();
+    const { db } = getAdmin();
+    return removeCheckedShoppingListItems(db, userId);
+}
+
 
 // --- Household Actions ---
 
