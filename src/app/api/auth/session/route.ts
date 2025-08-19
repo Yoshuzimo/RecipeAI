@@ -1,10 +1,10 @@
+
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { initFirebaseAdmin } from "@/lib/firebase-admin";
+import { getAdmin } from "@/lib/firebase-admin";
 
 export async function POST(request: NextRequest) {
-  initFirebaseAdmin();
-  const { getAuth } = require('firebase-admin/auth');
+  const { auth } = getAdmin();
   const { idToken } = await request.json();
 
   if (!idToken) {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
 
   try {
-    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
     
     const response = new NextResponse(JSON.stringify({ success: true }), { status: 200 });
     response.cookies.set({
@@ -44,5 +44,3 @@ export async function DELETE(request: NextRequest) {
   });
   return response;
 }
-
-    
