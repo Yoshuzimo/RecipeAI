@@ -108,7 +108,6 @@ export function ViewInventoryItemDialog({
   
   const { control, handleSubmit, watch, formState: {isDirty}, reset } = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues,
   });
   
   useEffect(() => {
@@ -145,7 +144,7 @@ export function ViewInventoryItemDialog({
       setIsPrivacyChanged(false); // Reset changed state
       // The dialog will close if the group no longer exists.
       // If it still exists (e.g. some packages moved), its props will update.
-      const newGroupExists = result.newInventory.some(item => item.name === group.name && item.unit === group.unit);
+      const newGroupExists = result.newInventory.some(item => item.name === group.name && item.unit === group.unit && (isPrivateStaged ? item.ownerName !== 'Shared' : item.ownerName === 'Shared'));
       if (!newGroupExists) {
         setIsOpen(false);
       }
@@ -208,8 +207,6 @@ export function ViewInventoryItemDialog({
     return nonDivisibleKeywords.some(keyword => itemName.toLowerCase().includes(keyword));
   };
   
-  const isPrivate = group.ownerName !== 'Shared';
-
   return (
     <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -386,5 +383,3 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
-
-    

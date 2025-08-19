@@ -38,22 +38,20 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name and unit. Also separate private items from shared items.
-        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
-          const isPrivate = item.ownerName !== 'Shared';
-          const key = `${item.name}-${item.unit}-${isPrivate}`;
+        // Group by item name, unit, and owner.
+        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit, ownerName: string }>>((acc, item) => {
+          const ownerName = item.ownerName || 'Shared'; // Default to shared if undefined
+          const key = `${item.name}-${item.unit}-${ownerName}`;
           if (!acc[key]) {
-            acc[key] = { items: [], unit: item.unit };
+            acc[key] = { items: [], unit: item.unit, ownerName: ownerName };
           }
           acc[key].items.push(item);
           return acc;
         }, {});
 
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
-          const { items, unit } = groupData;
-          const representativeItem = items[0];
-          const name = representativeItem.name;
-          const ownerName = representativeItem.ownerName;
+          const { items, unit, ownerName } = groupData;
+          const name = items[0].name;
 
           let packageInfo = '';
 
@@ -117,7 +115,7 @@ export default function InventoryClient({
             items: sortedItems,
             packageInfo,
             nextExpiry,
-            ownerName: ownerName || 'Shared',
+            ownerName: ownerName,
           };
         });
 
