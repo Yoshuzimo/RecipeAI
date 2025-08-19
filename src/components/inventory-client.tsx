@@ -38,19 +38,18 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name, unit, and owner.
-        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit, ownerName: string }>>((acc, item) => {
-          const ownerName = item.ownerName || 'Shared'; // Default to shared if undefined
-          const key = `${item.name}-${item.unit}-${ownerName}`;
+        // Group by item name, unit, and isPrivate status.
+        const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit, isPrivate: boolean }>>((acc, item) => {
+          const key = `${item.name}-${item.unit}-${item.isPrivate}`;
           if (!acc[key]) {
-            acc[key] = { items: [], unit: item.unit, ownerName: ownerName };
+            acc[key] = { items: [], unit: item.unit, isPrivate: item.isPrivate };
           }
           acc[key].items.push(item);
           return acc;
         }, {});
 
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
-          const { items, unit, ownerName } = groupData;
+          const { items, unit, isPrivate } = groupData;
           const name = items[0].name;
 
           let packageInfo = '';
@@ -115,7 +114,7 @@ export default function InventoryClient({
             items: sortedItems,
             packageInfo,
             nextExpiry,
-            ownerName: ownerName,
+            isPrivate: isPrivate,
           };
         });
 
@@ -138,7 +137,7 @@ export default function InventoryClient({
 
       if (selectedGroup) {
         const allGroups = [...newGroupedByLocation.Fridge, ...newGroupedByLocation.Freezer, ...newGroupedByLocation.Pantry];
-        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit && g.ownerName === selectedGroup.ownerName);
+        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit && g.isPrivate === selectedGroup.isPrivate);
         if (updatedGroup) {
             setSelectedGroup(updatedGroup);
         } else {

@@ -104,7 +104,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
             if (newFullCount > currentFullCount) {
                 const toAdd = newFullCount - currentFullCount;
                 for (let i = 0; i < toAdd; i++) {
-                    updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: size, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.ownerName !== 'Shared' }));
+                    updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: size, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.isPrivate }));
                 }
             } else if (newFullCount < currentFullCount) {
                 const toRemove = currentFullCount - newFullCount;
@@ -122,7 +122,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
                     updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage));
                 }
             } else if (newPartialQty > 0) {
-                 updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.ownerName !== 'Shared' }));
+                 updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.isPrivate }));
             }
         }
         await Promise.all(updates);
@@ -196,7 +196,7 @@ export async function handleMoveInventoryItems(request: MoveRequest, destination
             }
             if (partialAmountToMove > 0 && source.partialPackage) {
                 updates.push(dataUpdateInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: source.partialPackage.totalQuantity - partialAmountToMove }));
-                updates.push(dataAddInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: partialAmountToMove, locationId: destinationId, isPrivate: source.partialPackage.ownerName !== 'Shared' }));
+                updates.push(dataAddInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: partialAmountToMove, locationId: destinationId }));
             }
         }
         await Promise.all(updates);

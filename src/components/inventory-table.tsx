@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { User, Users, Star } from "lucide-react";
+import { Users, Star } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 
@@ -64,17 +64,16 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
           {data.length > 0 ? (
             data.map((group) => {
               const status = getItemStatus(group.nextExpiry);
-              const isPrivate = group.ownerName !== 'Shared';
               return (
-                <TableRow key={`${group.name}-${group.unit}-${group.ownerName}`} onClick={() => onRowClick(group)} className="cursor-pointer">
+                <TableRow key={`${group.name}-${group.unit}-${group.isPrivate}`} onClick={() => onRowClick(group)} className="cursor-pointer">
                   <TableCell className="font-medium flex items-center gap-2">
                      <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger>
-                                {isPrivate ? <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> : <Users className="h-4 w-4 text-muted-foreground" />}
+                                {group.isPrivate ? <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> : <Users className="h-4 w-4 text-muted-foreground" />}
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{isPrivate ? `Private (${group.ownerName})` : 'Shared'}</p>
+                                <p>{group.isPrivate ? 'Private' : 'Shared'}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>

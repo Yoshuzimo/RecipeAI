@@ -162,19 +162,11 @@ export function BuyItemsDialog({
         unit: item.unit,
         expiryDate: item.doesNotExpire ? null : item.expiryDate!,
         locationId: item.locationId,
-        // The isPrivate flag is now passed here
+        isPrivate: item.isPrivate,
       }));
 
-      // Here you would have separate actions for adding private vs household items,
-      // or the `addClientInventoryItem` action would handle the logic.
-      // For now, we will simulate this by using `isPrivate` in a single action.
-      // NOTE: This part requires `addClientInventoryItem` to be updated to handle `isPrivate`.
-      
-      const promises = itemsToAdd.map((item, index) => {
-          const isPrivate = values.items[index].isPrivate;
-          // The server action `addClientInventoryItem` needs to know where to put the item.
-          // This example assumes it's updated to check for an `isPrivate` flag.
-          return addClientInventoryItem({ ...item });
+      const promises = itemsToAdd.map((item) => {
+          return addClientInventoryItem(item);
       });
 
       await Promise.all(promises);

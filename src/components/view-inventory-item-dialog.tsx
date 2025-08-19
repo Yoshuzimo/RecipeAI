@@ -69,7 +69,7 @@ export function ViewInventoryItemDialog({
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
   const [isMarkPrivateDialogOpen, setIsMarkPrivateDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
-  const [isPrivateStaged, setIsPrivateStaged] = useState(group.ownerName !== 'Shared');
+  const [isPrivateStaged, setIsPrivateStaged] = useState(group.isPrivate);
   const [isPrivacyChanged, setIsPrivacyChanged] = useState(false);
 
 
@@ -113,8 +113,7 @@ export function ViewInventoryItemDialog({
   useEffect(() => {
     // Reset form and privacy state when a new group is passed in
     reset(defaultValues);
-    const newIsPrivate = group.ownerName !== 'Shared';
-    setIsPrivateStaged(newIsPrivate);
+    setIsPrivateStaged(group.isPrivate);
     setIsPrivacyChanged(false);
 
     async function checkHousehold() {
@@ -130,7 +129,7 @@ export function ViewInventoryItemDialog({
   const handlePrivacySwitchChange = (checked: boolean) => {
       setIsPrivateStaged(checked);
       // Compare to the original state to see if there's a change
-      setIsPrivacyChanged(checked !== (group.ownerName !== 'Shared'));
+      setIsPrivacyChanged(checked !== group.isPrivate);
   }
 
   const handleSavePrivacyChange = async () => {
@@ -144,7 +143,7 @@ export function ViewInventoryItemDialog({
       setIsPrivacyChanged(false); // Reset changed state
       // The dialog will close if the group no longer exists.
       // If it still exists (e.g. some packages moved), its props will update.
-      const newGroupExists = result.newInventory.some(item => item.name === group.name && item.unit === group.unit && (isPrivateStaged ? item.ownerName !== 'Shared' : item.ownerName === 'Shared'));
+      const newGroupExists = result.newInventory.some(item => item.name === group.name && item.unit === group.unit && item.isPrivate === isPrivateStaged);
       if (!newGroupExists) {
         setIsOpen(false);
       }

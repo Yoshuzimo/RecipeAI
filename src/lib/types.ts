@@ -16,13 +16,11 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
-  ownerName?: "You" | "Shared" | string; // Display name for UI. Set on the client based on source.
+  isPrivate: boolean; // True if item is in user's private collection, false if in household
 };
 
 // Type for adding a new item, with an optional flag for privacy
-export type NewInventoryItem = Omit<InventoryItem, 'id' | 'ownerName'> & {
-  isPrivate?: boolean;
-};
+export type NewInventoryItem = Omit<InventoryItem, 'id'>;
 
 export type InventoryItemGroup = {
   name: string;
@@ -30,7 +28,7 @@ export type InventoryItemGroup = {
   items: InventoryItem[];
   nextExpiry: Date | null;
   unit: Unit; 
-  ownerName?: "You" | "Shared" | string;
+  isPrivate: boolean;
 }
 
 export type InventoryPackageGroup = {
