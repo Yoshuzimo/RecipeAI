@@ -14,8 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { getSettings, saveSettings, getClientStorageLocations } from "@/app/actions";
-import type { Settings, StorageLocation } from "@/lib/types";
+import { getSettings, saveSettings, getClientStorageLocations, getClientHousehold } from "@/app/actions";
+import type { Settings, StorageLocation, Household } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { PlusCircle, Pencil } from "lucide-react";
 import { AddStorageLocationDialog } from "./add-storage-location-dialog";
@@ -29,6 +29,7 @@ export function SettingsForm() {
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
   const [editLocation, setEditLocation] = useState<StorageLocation | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [household, setHousehold] = useState<Household | null>(null);
   
   useEffect(() => {
     async function loadData() {
@@ -36,6 +37,8 @@ export function SettingsForm() {
       setSettings(savedSettings);
       const locations = await getClientStorageLocations();
       setStorageLocations(locations);
+      const householdData = await getClientHousehold();
+      setHousehold(householdData);
     }
     loadData();
   }, []);
@@ -131,7 +134,9 @@ export function SettingsForm() {
         <Card>
             <CardHeader>
                  <CardTitle>Storage Locations</CardTitle>
-                <CardDescription>Manage your fridges, freezers, and pantries.</CardDescription>
+                <CardDescription>
+                    {household ? "Manage your household's fridges, freezers, and pantries." : "Manage your personal fridges, freezers, and pantries."}
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
