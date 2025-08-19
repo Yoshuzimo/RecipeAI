@@ -1,25 +1,18 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { initFirebaseAdmin } from './lib/firebase-admin';
 
 // This is a Next.js specific instruction to run this middleware in the Node.js environment,
 // which is required for the Firebase Admin SDK to work.
 export const runtime = 'nodejs';
 
 async function verifySessionCookie(sessionCookie: string) {
+    // Dynamically require 'firebase-admin' to prevent bundling on the client
     const admin = require('firebase-admin');
     const { getAuth } = require('firebase-admin/auth');
 
-    if (admin.apps.length === 0) {
-        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        if (!serviceAccountKey) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-        }
-        const serviceAccount = JSON.parse(serviceAccountKey);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-    }
+    initFirebaseAdmin();
     await getAuth().verifySessionCookie(sessionCookie, true);
 }
 

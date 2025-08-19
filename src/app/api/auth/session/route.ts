@@ -1,24 +1,7 @@
 
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-
-function initFirebaseAdmin() {
-    const admin = require('firebase-admin');
-    if (admin.apps.length > 0) {
-        return;
-    }
-    
-    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-    }
-    
-    const serviceAccount = JSON.parse(serviceAccountKey);
-
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-}
+import { initFirebaseAdmin, getAdmin } from "@/lib/firebase-admin";
 
 export async function POST(request: NextRequest) {
   initFirebaseAdmin();

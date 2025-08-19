@@ -6,12 +6,12 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Copy, Check, X, Loader2 } from "lucide-react";
+import { LogOut, Copy, Check, X, Loader2, GitMerge } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import type { Household } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
@@ -28,14 +28,14 @@ export const dynamic = 'force-dynamic';
 
 const NoHouseholdView = ({
     onTriggerCreateConfirmation,
-    onJoinHousehold,
+    onTriggerJoinConfirmation,
     isCreating,
     isJoining,
     joinCode,
     setJoinCode
 }: {
     onTriggerCreateConfirmation: () => void;
-    onJoinHousehold: (e: React.FormEvent) => void;
+    onTriggerJoinConfirmation: () => void;
     isCreating: boolean;
     isJoining: boolean;
     joinCode: string;
@@ -60,7 +60,7 @@ const NoHouseholdView = ({
                 <CardDescription>Enter an invite code from an existing household to join it.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={onJoinHousehold} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <Input 
                         value={joinCode}
                         onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
@@ -68,11 +68,11 @@ const NoHouseholdView = ({
                         maxLength={4}
                         className="uppercase tracking-widest font-mono"
                     />
-                    <Button type="submit" disabled={isJoining || joinCode.length < 4}>
+                    <Button onClick={onTriggerJoinConfirmation} disabled={isJoining || joinCode.length < 4}>
                         {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Join
                     </Button>
-                </form>
+                </div>
             </CardContent>
         </Card>
     </div>
@@ -116,6 +116,8 @@ export default function HouseholdPage() {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = React.useState(true);
     const [isCreateConfirmOpen, setIsCreateConfirmOpen] = React.useState(false);
+    const [isJoinConfirmOpen, setIsJoinConfirmOpen] = React.useState(false);
+    const [isJoinPrivateConfirmOpen, setIsJoinPrivateConfirmOpen] = React.useState(false);
     const [isLeaveAlertOpen, setIsLeaveAlertOpen] = React.useState(false);
     const [isCreating, setIsCreating] = React.useState(false);
     const [isJoining, setIsJoining] = React.useState(false);
@@ -168,11 +170,12 @@ export default function HouseholdPage() {
         }
     };
 
-    const onJoinHousehold = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const onJoinHousehold = async (mergeInventory: boolean) => {
         setIsJoining(true);
-        const result = await handleJoinHousehold(joinCode.toUpperCase());
+        const result = await handleJoinHousehold(joinCode.toUpperCase(), mergeInventory);
         setIsJoining(false);
+        setIsJoinConfirmOpen(false);
+        setIsJoinPrivateConfirmOpen(false);
 
         if (result.success) {
             toast({
@@ -231,6 +234,19 @@ export default function HouseholdPage() {
         }
         setIsProcessingRequest(null);
     }
+    
+    const onApproveAndMerge = async (memberId: string) => {
+        if (!currentHousehold) return;
+        setIsProcessingRequest(memberId);
+        const result = await handleApproveAndMerge(currentHousehold.id, memberId);
+        if (result.success && result.household) {
+            setCurrentHousehold(result.household);
+            toast({ title: "Member Approved & Inventory Merged!" });
+        } else {
+            toast({ variant: "destructive", title: "Action Failed", description: result.error });
+        }
+        setIsProcessingRequest(null);
+    }
 
     const onReject = async (memberId: string) => {
         if (!currentHousehold) return;
@@ -269,20 +285,39 @@ export default function HouseholdPage() {
                 <h3 className="text-lg font-semibold">Pending Requests</h3>
                 <div className="grid gap-4">
                     {currentHousehold.pendingMembers.map(member => (
-                        <div key={member.userId} className="flex items-center justify-between p-2 rounded-md border">
+                        <div key={member.userId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border gap-3">
                             <div className="flex items-center gap-4">
                                 <Avatar>
                                     <AvatarImage src={`https://placehold.co/100x100.png`} alt={member.userName} data-ai-hint="person" />
                                     <AvatarFallback>{member.userName.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <p className="font-medium">{member.userName}</p>
+                                <div>
+                                    <p className="font-medium">{member.userName}</p>
+                                    {member.wantsToMergeInventory && (
+                                        <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                                            <GitMerge className="h-4 w-4" />
+                                            Wants to merge inventory
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <Button size="icon" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
-                                    {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="h-4 w-4" />}
-                                </Button>
-                                    <Button size="icon" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onReject(member.userId)} disabled={!!isProcessingRequest}>
-                                        {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="h-4 w-4" />}
+                            <div className="flex gap-2 self-end sm:self-center">
+                                {member.wantsToMergeInventory ? (
+                                    <>
+                                     <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApproveAndMerge(member.userId)} disabled={!!isProcessingRequest}>
+                                        {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <><GitMerge className="h-4 w-4 mr-2" />Approve & Merge</>}
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
+                                        {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Check className="h-4 w-4 mr-2" />Approve Only</>}
+                                    </Button>
+                                    </>
+                                ) : (
+                                    <Button size="icon" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => onApprove(member.userId)} disabled={!!isProcessingRequest}>
+                                        {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="h-4 w-4" />}
+                                    </Button>
+                                )}
+                                <Button size="icon" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onReject(member.userId)} disabled={!!isProcessingRequest}>
+                                    {isProcessingRequest === member.userId ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="h-4 w-4" />}
                                 </Button>
                             </div>
                         </div>
@@ -407,7 +442,7 @@ export default function HouseholdPage() {
 
         {isLoading ? <LoadingSkeleton /> : currentHousehold ? <InHouseholdView /> : <NoHouseholdView 
             onTriggerCreateConfirmation={() => setIsCreateConfirmOpen(true)}
-            onJoinHousehold={onJoinHousehold}
+            onTriggerJoinConfirmation={() => setIsJoinConfirmOpen(true)}
             isCreating={isCreating}
             isJoining={isJoining}
             joinCode={joinCode}
@@ -438,8 +473,43 @@ export default function HouseholdPage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={isJoinConfirmOpen} onOpenChange={setIsJoinConfirmOpen}>
+             <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Combine Inventories?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Would you like to combine your current inventory with this household? If you choose yes, your non-private items will be transferred to the household owner upon approval. You can keep your items separate if you prefer.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); onJoinHousehold(false); }}>
+                        No, Keep Separate
+                    </AlertDialogAction>
+                    <AlertDialogAction onClick={() => { setIsJoinConfirmOpen(false); setIsJoinPrivateConfirmOpen(true); }}>
+                        Yes, Combine
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+         <AlertDialog open={isJoinPrivateConfirmOpen} onOpenChange={setIsJoinPrivateConfirmOpen}>
+             <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Inventory Merge</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Have you marked all your personal food items as "Private"? Any items not marked as private will be transferred to the household owner upon approval. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onJoinHousehold(true)}>
+                        Yes, I've Marked My Items
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
     </MainLayout>
     );
 }
-
-    

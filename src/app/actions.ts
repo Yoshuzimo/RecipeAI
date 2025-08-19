@@ -27,10 +27,12 @@ import {
     joinHousehold as dataJoinHousehold, 
     leaveHousehold as dataLeaveHousehold, 
     approvePendingMember as dataApprovePendingMember, 
+    approveAndMergeMember as dataApproveAndMergeMember,
     rejectPendingMember as dataRejectPendingMember,
     getHousehold as dataGetHousehold
 } from "@/lib/data";
 import { addDays } from "date-fns";
+import { getAdmin } from "@/lib/firebase-admin";
 
 // --- Server Actions ---
 
@@ -321,13 +323,13 @@ export async function handleCreateHousehold() {
     }
 }
 
-export async function handleJoinHousehold(inviteCode: string) {
+export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean) {
     const userId = await getCurrentUserId();
     const { db, FieldValue } = getAdmin();
     const userSettings = await dataGetSettings(db, userId);
     const userName = userSettings.displayName || "New Member";
      try {
-        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase());
+        const household = await dataJoinHousehold(db, FieldValue.arrayUnion, userId, userName, inviteCode.toUpperCase(), mergeInventory);
         return { success: true, household, pending: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -356,6 +358,17 @@ export async function handleApproveMember(householdId: string, memberIdToApprove
     }
 }
 
+export async function handleApproveAndMerge(householdId: string, memberIdToApprove: string) {
+    const currentUserId = await getCurrentUserId();
+    const { db, FieldValue } = getAdmin();
+    try {
+        const updatedHousehold = await dataApproveAndMergeMember(db, FieldValue.arrayUnion, FieldValue.arrayRemove, currentUserId, householdId, memberIdToApprove);
+        return { success: true, household: updatedHousehold };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
+    }
+}
+
 export async function handleRejectMember(householdId: string, memberIdToReject: string) {
      const currentUserId = await getCurrentUserId();
      const { db, FieldValue } = getAdmin();
@@ -365,38 +378,4 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
-}
-
-
-// This needs to be at the bottom of the file to avoid bundling issues.
-let adminInstance: any = null;
-
-function getAdmin() {
-    if (adminInstance) {
-        return adminInstance;
-    }
-
-    // Dynamically require 'firebase-admin' to prevent bundling on the client
-    const admin = require('firebase-admin');
-    const { getAuth } = require('firebase-admin/auth');
-    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-    
-    if (admin.apps.length === 0) {
-        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        if (!serviceAccountKey) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-        }
-        const serviceAccount = JSON.parse(serviceAccountKey);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-    }
-
-    adminInstance = {
-        auth: getAuth(),
-        db: getFirestore(),
-        FieldValue,
-    };
-    
-    return adminInstance;
 }

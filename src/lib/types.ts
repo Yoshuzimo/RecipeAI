@@ -140,6 +140,7 @@ export type SpoilageRequest = {
 export type HouseholdMember = {
   userId: string;
   userName: string;
+  wantsToMergeInventory?: boolean;
 };
 
 export type Household = {
