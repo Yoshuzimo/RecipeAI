@@ -1,11 +1,10 @@
 
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
-import { addClientInventoryItem, getClientStorageLocations } from "@/app/actions";
+import { addClientInventoryItem, getClientStorageLocations, getClientHousehold } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +17,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -54,6 +54,7 @@ const itemSchema = z.object({
   locationId: z.string({
       required_error: "A storage location is required."
   }),
+  isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
 }).refine(data => {
     if (data.doesNotExpire) return true;
@@ -100,6 +101,7 @@ export function BuyItemsDialog({
   // Assume 'us' as default or fetch from a non-server-action source like a settings context
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+  const [isInHousehold, setIsInHousehold] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -113,12 +115,14 @@ export function BuyItemsDialog({
     const system: 'us' | 'metric' = 'us';
     setAvailableUnits(system === 'us' ? usUnits : metricUnits);
     
-    async function fetchLocations() {
+    async function fetchData() {
       const locations = await getClientStorageLocations();
       setStorageLocations(locations);
+      const household = await getClientHousehold();
+      setIsInHousehold(!!household);
     }
     if (isOpen) {
-      fetchLocations();
+      fetchData();
     }
   }, [isOpen]);
 
@@ -134,6 +138,7 @@ export function BuyItemsDialog({
                     unit: 'pcs' as Unit,
                     expiryDate: doesNotExpire ? undefined : addDays(new Date(), 7),
                     locationId: pantryId,
+                    isPrivate: false,
                     doesNotExpire: doesNotExpire,
                 };
             })
@@ -156,7 +161,8 @@ export function BuyItemsDialog({
         originalQuantity: item.totalQuantity, // Assuming original quantity is the same as purchased quantity
         unit: item.unit,
         expiryDate: item.doesNotExpire ? null : item.expiryDate!,
-        locationId: item.locationId
+        locationId: item.locationId,
+        isPrivate: item.isPrivate
       })));
       
       toast({
@@ -311,6 +317,30 @@ export function BuyItemsDialog({
                             </FormItem>
                           )}
                         />
+                        {isInHousehold && (
+                             <FormField
+                              control={form.control}
+                              name={`items.${index}.isPrivate`}
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-lg border p-4">
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <div className="space-y-1 leading-none">
+                                    <FormLabel>
+                                      Keep this item Private
+                                    </FormLabel>
+                                    <FormDescription>
+                                       Private items are only visible to you and will not be added to the shared household inventory.
+                                    </FormDescription>
+                                  </div>
+                                </FormItem>
+                              )}
+                            />
+                        )}
                     </div>
                 )})}
                 </div>
