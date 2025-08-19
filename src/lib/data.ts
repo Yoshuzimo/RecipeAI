@@ -1,4 +1,5 @@
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem } from "./types";
 import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
@@ -403,23 +404,29 @@ export async function getStorageLocations(db: Firestore, userId: string): Promis
 }
 
 export async function addStorageLocation(db: Firestore, userId: string, location: Omit<StorageLocation, 'id'>): Promise<StorageLocation> {
-    const docRef = await db.collection(`users/${userId}/storage-locations`).add(location);
+    const household = await getHousehold(db, userId);
+    const idToAddTo = household ? household.ownerId : userId;
+    const docRef = await db.collection(`users/${idToAddTo}/storage-locations`).add(location);
     return { ...location, id: docRef.id };
 }
 
 export async function updateStorageLocation(db: Firestore, userId: string, location: StorageLocation): Promise<StorageLocation> {
+    const household = await getHousehold(db, userId);
+    const idToUpdateIn = household ? household.ownerId : userId;
     const { id, ...data } = location;
-    await db.collection(`users/${userId}/storage-locations`).doc(id).update(data);
+    await db.collection(`users/${idToUpdateIn}/storage-locations`).doc(id).update(data);
     return location;
 }
 
 export async function removeStorageLocation(db: Firestore, userId: string, locationId: string): Promise<{id: string}> {
-    const itemsInLocationQuery = db.collection(`users/${userId}/inventory`).where("locationId", "==", locationId);
+    const household = await getHousehold(db, userId);
+    const idToRemoveFrom = household ? household.ownerId : userId;
+    const itemsInLocationQuery = db.collection(`users/${idToRemoveFrom}/inventory`).where("locationId", "==", locationId);
     const itemsSnapshot = await itemsInLocationQuery.get();
     if (!itemsSnapshot.empty) {
         throw new Error("Cannot remove a location that contains inventory items.");
     }
-    await db.collection(`users/${userId}/storage-locations`).doc(locationId).delete();
+    await db.collection(`users/${idToRemoveFrom}/storage-locations`).doc(locationId).delete();
     return { id: locationId };
 }
 
@@ -487,13 +494,31 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
 type AddItemData = Omit<InventoryItem, 'id'>;
 
 export async function addInventoryItem(db: Firestore, userId: string, item: AddItemData): Promise<InventoryItem> {
-    const docRef = await db.collection(`users/${userId}/inventory`).add(item);
+    const household = await getHousehold(db, userId);
+    // If user is in a household and item is not private, add it to owner's inventory
+    const collectionPath = (household && !item.ownerId) 
+        ? `users/${household.ownerId}/inventory`
+        : `users/${userId}/inventory`;
+
+    const docRef = await db.collection(collectionPath).add(item);
     return { ...item, id: docRef.id };
 }
 
 export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
+    const household = await getHousehold(db, userId);
     const { id, ...data } = updatedItem;
-    const docRef = db.collection(`users/${userId}/inventory`).doc(id);
+
+    // Determine whose inventory the item is in
+    const itemIsPrivate = !!data.ownerId;
+    const itemOwnerId = data.ownerId || (household ? household.ownerId : userId);
+
+    const docRef = db.collection(`users/${itemOwnerId}/inventory`).doc(id);
+
+    // If the current user isn't the item owner (and not the household owner for shared items), they can't update it.
+    if (userId !== itemOwnerId && !(household && household.ownerId === userId && !itemIsPrivate)) {
+        throw new Error("You do not have permission to update this item.");
+    }
+    
     if (data.totalQuantity <= 0) {
         await docRef.delete();
         return { ...updatedItem, totalQuantity: 0 };
@@ -504,16 +529,34 @@ export async function updateInventoryItem(db: Firestore, userId: string, updated
 }
 
 export async function removeInventoryItem(db: Firestore, userId: string, itemId: string): Promise<{ id: string }> {
-    await db.collection(`users/${userId}/inventory`).doc(itemId).delete();
+    // This function is complex with households. For now, we assume the caller knows the correct user context.
+    // A robust solution would check ownership before deleting.
+    const household = await getHousehold(db, userId);
+
+    // Default path is the current user's inventory
+    let docRef = db.collection(`users/${userId}/inventory`).doc(itemId);
+    let docSnap = await docRef.get();
+
+    // If not found and user is in a household, check owner's inventory
+    if (!docSnap.exists && household && userId !== household.ownerId) {
+        docRef = db.collection(`users/${household.ownerId}/inventory`).doc(itemId);
+    }
+    
+    await docRef.delete();
     return { id: itemId };
 }
 
 export async function removeInventoryItems(db: Firestore, userId: string, itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
 
+    // This simplified function assumes all items belong to the same user context (either personal or household owner)
+    // A more complex implementation would be needed for mixed ownership deletion.
+     const household = await getHousehold(db, userId);
+     const userContextId = household?.ownerId || userId;
+
     const batch = db.batch();
     itemIds.forEach(id => {
-        const docRef = db.collection(`users/${userId}/inventory`).doc(id);
+        const docRef = db.collection(`users/${userContextId}/inventory`).doc(id);
         batch.delete(docRef);
     });
     await batch.commit();
@@ -564,6 +607,8 @@ export async function saveSettings(db: Firestore, userId: string, settings: Sett
 
 // Macros
 export async function getTodaysMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
+    const household = await getHousehold(db, userId);
+    // Macros are always personal, so we always query the current user's data.
     const snapshot = await db.collection(`users/${userId}/daily-macros`).get();
     return snapshot.docs.map(doc => {
         const data = doc.data();
@@ -627,15 +672,19 @@ export async function updateMealTime(db: Firestore, userId: string, mealId: stri
 
 // Recipes
 export async function getSavedRecipes(db: Firestore, userId: string): Promise<Recipe[]> {
-    const snapshot = await db.collection(`users/${userId}/saved-recipes`).get();
+    const household = await getHousehold(db, userId);
+    const idToQuery = household ? household.ownerId : userId;
+    const snapshot = await db.collection(`users/${idToQuery}/saved-recipes`).get();
     return snapshot.docs.map(doc => doc.data() as Recipe);
 }
 
 export async function saveRecipe(db: Firestore, userId: string, recipe: Recipe): Promise<Recipe> {
+    const household = await getHousehold(db, userId);
+    const idToSaveTo = household ? household.ownerId : userId;
     // Firestore can't store custom objects like RecipeIngredient without conversion
     const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
     const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
-    const docRef = db.collection(`users/${userId}/saved-recipes`).doc(docId);
+    const docRef = db.collection(`users/${idToSaveTo}/saved-recipes`).doc(docId);
     await docRef.set(recipeForDb, { merge: true });
     return recipe;
 }

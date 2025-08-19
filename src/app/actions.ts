@@ -257,7 +257,10 @@ export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
     const household = await dataGetHousehold(db, userId);
-    const itemToAdd = { ...item, ownerId: household ? userId : null };
+    // If in a household and item is private, it belongs to the user.
+    // If not private, it's shared, so ownerId is null.
+    const ownerId = (household && item.ownerId === "CURRENT_USER") ? userId : null;
+    const itemToAdd = { ...item, ownerId };
     return dataAddInventoryItem(db, userId, itemToAdd);
 }
 
