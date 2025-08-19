@@ -38,9 +38,10 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name, unit, and ownerName to separate shared vs. private
+        // Group by item name and unit. Also separate private items from shared items.
         const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
-          const key = `${item.name}-${item.unit}-${item.ownerName || 'Shared'}`;
+          const isPrivate = item.ownerName !== 'Shared';
+          const key = `${item.name}-${item.unit}-${isPrivate}`;
           if (!acc[key]) {
             acc[key] = { items: [], unit: item.unit };
           }
