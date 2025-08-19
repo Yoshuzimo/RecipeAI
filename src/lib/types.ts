@@ -16,7 +16,7 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
-  isPrivate: boolean; // True if item is in user's private collection, false if in household
+  isPrivate: boolean; 
 };
 
 // Type for adding a new item, with an optional flag for privacy

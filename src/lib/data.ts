@@ -205,10 +205,11 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
             const originalItemDocSnapshot = await transaction.get(originalItemDocQuery);
             if (!originalItemDocSnapshot.empty) {
                 const originalItemData = originalItemDocSnapshot.docs[0].data() as InventoryItem;
-                 const newItemForLeaver: Omit<InventoryItem, 'id' | 'isPrivate'> = {
+                 const newItemForLeaver: Omit<InventoryItem, 'id'> = {
                     ...originalItemData,
                     totalQuantity: item.quantity,
                     originalQuantity: item.quantity,
+                    isPrivate: true,
                  };
                 transaction.set(userInventoryCollection.doc(), newItemForLeaver);
             }
@@ -346,7 +347,7 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
             }
 
             const { newLocationId, keepPrivate } = migrationInfo;
-            const updatedItemData = { ...itemData, locationId: newLocationId };
+            const updatedItemData = { ...itemData, locationId: newLocationId, isPrivate: keepPrivate };
 
             if (keepPrivate) {
                 // Item stays in user's collection, just update its locationId
@@ -471,7 +472,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
         return {
             id: doc.id,
             ...data,
-            isPrivate: true,
+            isPrivate: data.isPrivate ?? true, // Default to true for items in user's collection
             expiryDate: data.expiryDate?.toDate() ?? null,
         } as InventoryItem;
     });
@@ -489,7 +490,7 @@ export async function getInventory(db: Firestore, userId: string): Promise<Inven
         return {
             id: doc.id,
             ...data,
-            isPrivate: false,
+            isPrivate: data.isPrivate ?? false, // Default to false for items in household collection
             expiryDate: data.expiryDate?.toDate() ?? null,
         } as InventoryItem;
     }).filter((item): item is InventoryItem => item !== null);
@@ -506,8 +507,7 @@ export async function addInventoryItem(db: Firestore, userId: string, item: NewI
         ? `households/${household!.id}/inventory`
         : `users/${userId}/inventory`;
 
-    // We don't store the isPrivate flag in the database, it's derived.
-    const { isPrivate, ...itemToAdd } = item;
+    const itemToAdd = { ...item };
 
     const docRef = await db.collection(collectionPath).add(itemToAdd);
 
@@ -519,9 +519,9 @@ export async function addInventoryItem(db: Firestore, userId: string, item: NewI
 
 export async function updateInventoryItem(db: Firestore, userId: string, updatedItem: InventoryItem): Promise<InventoryItem> {
     const household = await getHousehold(db, userId);
-    const { id, isPrivate, ...data } = updatedItem;
+    const { id, ...data } = updatedItem;
 
-    const collectionPath = (household && !isPrivate)
+    const collectionPath = (household && !data.isPrivate)
         ? `households/${household.id}/inventory`
         : `users/${userId}/inventory`;
     
@@ -576,7 +576,7 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
             const destCollectionPath = makePrivate ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             
             const sourceDocRef = db.collection(sourceCollectionPath).doc(item.id);
-            const destDocRef = db.collection(destCollectionPath).doc(); // Create a new doc in the destination
+            const destDocRef = db.collection(destCollectionPath).doc(item.id); // Use same ID for simplicity
 
             const itemDoc = await transaction.get(sourceDocRef);
             if (!itemDoc.exists) {
@@ -585,9 +585,9 @@ export async function toggleItemPrivacy(db: Firestore, userId: string, household
             }
 
             const itemData = itemDoc.data()!;
+            const newItemData = { ...itemData, isPrivate: makePrivate };
             
-            // We don't store the isPrivate flag, so just move the data
-            transaction.set(destDocRef, itemData);
+            transaction.set(destDocRef, newItemData);
             transaction.delete(sourceDocRef);
         }
     });
