@@ -781,7 +781,7 @@ export default function HouseholdPage() {
         <TakeItemsDialog 
             isOpen={isTakeItemsOpen}
             setIsOpen={setIsTakeItemsOpen}
-            inventory={householdInventory.filter(i => i.ownerName === 'Shared')}
+            inventory={householdInventory.filter(i => !i.isPrivate)}
             onConfirm={(items) => {
                 onLeaveHousehold(items);
                 setIsTakeItemsOpen(false);
