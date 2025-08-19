@@ -100,7 +100,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
             } else if (newFullCount < currentFullCount) {
                 const toRemove = currentFullCount - newFullCount;
                 for (let i = 0; i < toRemove; i++) {
-                    updates.push(dataRemoveInventoryItem(db, userId, existingFullPackages[i].id));
+                    updates.push(dataRemoveInventoryItem(db, userId, existingFullPackages[i]));
                 }
             }
 
@@ -110,7 +110,7 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
                         updates.push(dataUpdateInventoryItem(db, userId, { ...existingPartialPackage, totalQuantity: newPartialQty }));
                     }
                 } else {
-                    updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage.id));
+                    updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage));
                 }
             } else if (newPartialQty > 0) {
                  updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1' }));
@@ -161,7 +161,7 @@ export async function handleRemoveInventoryPackageGroup(itemsToRemove: Inventory
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
     try {
-        await dataRemoveInventoryItems(db, userId, itemsToRemove.map(item => item.id));
+        await dataRemoveInventoryItems(db, userId, itemsToRemove);
         const newInventory = await getInventory(db, userId);
         return { success: true, error: null, newInventory };
     } catch (e) {
@@ -202,7 +202,7 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
             const spoilage = request[Number(sizeStr)];
             const { fullPackagesToSpoil, partialAmountToSpoil, source } = spoilage;
             if (fullPackagesToSpoil > 0) {
-                source.fullPackages.slice(0, fullPackagesToSpoil).forEach(pkg => updates.push(dataRemoveInventoryItem(db, userId, pkg.id)));
+                source.fullPackages.slice(0, fullPackagesToSpoil).forEach(pkg => updates.push(dataRemoveInventoryItem(db, userId, pkg)));
             }
             if (partialAmountToSpoil > 0 && source.partialPackage) {
                 updates.push(dataUpdateInventoryItem(db, userId, { ...source.partialPackage, totalQuantity: source.partialPackage.totalQuantity - partialAmountToSpoil }));
@@ -256,11 +256,12 @@ export async function getClientTodaysMacros() {
 export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
     const userId = await getCurrentUserId();
     const { db } = getAdmin();
-    const household = await dataGetHousehold(db, userId);
-    // If in a household and item is private, it belongs to the user.
-    // If not private, it's shared, so ownerId is null.
-    const ownerId = (household && item.ownerId === "CURRENT_USER") ? userId : null;
-    const itemToAdd = { ...item, ownerId };
+    // In the new model, ownerId being set means it's private to the user.
+    // If it's not private, ownerId is null and it goes to the household inventory.
+    const itemToAdd = { ...item };
+    if (item.isPrivate) {
+        itemToAdd.ownerId = userId;
+    }
     return dataAddInventoryItem(db, userId, itemToAdd);
 }
 

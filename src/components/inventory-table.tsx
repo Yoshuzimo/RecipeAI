@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import type { InventoryItemGroup } from "@/lib/types";
@@ -14,6 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { User, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+
 
 function getItemStatus(expiryDate: Date | null): {
   label: "Expired" | "Expiring Soon" | "Fresh" | "N/A";
@@ -61,8 +65,20 @@ export function InventoryTable({ data, onRowClick }: { data: InventoryItemGroup[
             data.map((group) => {
               const status = getItemStatus(group.nextExpiry);
               return (
-                <TableRow key={`${group.name}-${group.unit}`} onClick={() => onRowClick(group)} className="cursor-pointer">
-                  <TableCell className="font-medium">{group.name}</TableCell>
+                <TableRow key={`${group.name}-${group.unit}-${group.ownerName}`} onClick={() => onRowClick(group)} className="cursor-pointer">
+                  <TableCell className="font-medium flex items-center gap-2">
+                     <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger>
+                                {group.ownerName === "Shared" ? <Users className="h-4 w-4 text-muted-foreground" /> : <User className="h-4 w-4 text-muted-foreground" />}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{group.ownerName}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    {group.name}
+                  </TableCell>
                   <TableCell>
                     {group.packageInfo}
                   </TableCell>

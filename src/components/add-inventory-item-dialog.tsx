@@ -18,6 +18,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -153,7 +154,7 @@ export function AddInventoryItemDialog({
         unit: values.unit,
         expiryDate: values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
-        ownerId: values.isPrivate ? "CURRENT_USER" : null, // A placeholder the action will interpret
+        isPrivate: values.isPrivate,
       });
       onItemAdded(newItem);
       toast({
@@ -327,10 +328,10 @@ export function AddInventoryItemDialog({
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>
-                          Mark as Private
+                          Keep this item Private
                         </FormLabel>
                         <FormDescription>
-                            Private items are only visible to you.
+                           Private items are only visible to you and will not be added to the shared household inventory.
                         </FormDescription>
                       </div>
                     </FormItem>

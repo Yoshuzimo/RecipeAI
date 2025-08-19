@@ -11,33 +11,25 @@ export type StorageLocation = {
 export type InventoryItem = {
   id: string;
   name: string;
-  // The original size of the package when it was full
   originalQuantity: number; 
-  // The current remaining quantity in the package
   totalQuantity: number; 
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
-  ownerId?: string | null; // ID of the user who owns this, null/undefined if shared
-  ownerName?: string; // Name of the user who owns this
+  ownerId?: string | null; // ID of the user who owns this, null if shared/in household inv
+  ownerName?: "You" | "Shared" | string; // Display name for UI
+  isPrivate?: boolean; // Used for client->server communication on adds
 };
 
-// This group is for displaying items in the main inventory table.
-// It groups all packages of the same item (e.g., "Chicken Breast") together.
 export type InventoryItemGroup = {
   name: string;
-  // A friendly string describing the packages, e.g., "1 x 1lb (100%), 1 x 1.5lb (50%)"
   packageInfo: string; 
-  // All individual inventory items (packages) for this group.
   items: InventoryItem[];
-  // The expiry date of the package that will expire first.
   nextExpiry: Date | null;
-  // The unit of measurement. All items in the group share the same unit.
   unit: Unit; 
+  ownerName?: "You" | "Shared" | string;
 }
 
-// This group is for the new edit/view dialog.
-// It groups packages of the same item by their size.
 export type InventoryPackageGroup = {
     size: number;
     fullPackages: InventoryItem[];
@@ -148,7 +140,6 @@ export type RequestedItem = {
     name: string;
     quantity: number;
     unit: Unit;
-    // Store a reference to one of the original items for data consistency
     originalItemId: string; 
 };
 

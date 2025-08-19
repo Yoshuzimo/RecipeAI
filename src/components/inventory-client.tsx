@@ -5,12 +5,14 @@
 import { useState } from "react";
 import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Refrigerator, Snowflake, Warehouse } from "lucide-react";
+import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 
 const locationIcons = {
   Fridge: <Refrigerator className="h-6 w-6" />,
@@ -36,9 +38,9 @@ export default function InventoryClient({
 
   const updateState = (newFlatInventory: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[]): InventoryItemGroup[] => {
-        // Group by item name, unit, and ownerId to separate private items
+        // Group by item name, unit, and ownerName to separate shared vs. private
         const groupedByName = items.reduce<Record<string, { items: InventoryItem[], unit: Unit }>>((acc, item) => {
-          const key = `${item.name}-${item.unit}-${item.ownerId || 'shared'}`;
+          const key = `${item.name}-${item.unit}-${item.ownerName || 'Shared'}`;
           if (!acc[key]) {
             acc[key] = { items: [], unit: item.unit };
           }
@@ -46,21 +48,17 @@ export default function InventoryClient({
           return acc;
         }, {});
 
-        // Now, map over the grouped items to create the final structure.
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
           const { items, unit } = groupData;
-          // If any item in the group has an owner, we use that name for display
           const representativeItem = items[0];
-          const displayName = representativeItem.ownerName
-            ? `${representativeItem.name} (${representativeItem.ownerName})`
-            : representativeItem.name;
-
+          const name = representativeItem.name;
+          const ownerName = representativeItem.ownerName;
 
           let packageInfo = '';
 
           if (unit === 'pcs') {
               const totalPieces = items.reduce((sum, item) => sum + item.totalQuantity, 0);
-              const packageSize = items[0]?.originalQuantity || 1; // Assume at least one item to get package size
+              const packageSize = items[0]?.originalQuantity || 1;
               
               if (packageSize > 1) {
                 const fullPackages = Math.floor(totalPieces / packageSize);
@@ -79,7 +77,6 @@ export default function InventoryClient({
               }
 
           } else {
-            // Original logic for non-'pcs' items
             const packageCounts = items.reduce<Record<string, { count: number, items: InventoryItem[] }>>((acc, item) => {
               const packageKey = item.originalQuantity.toString();
               if (!acc[packageKey]) {
@@ -106,7 +103,6 @@ export default function InventoryClient({
             }).join('; ');
           }
 
-
           const sortedItems = items.sort((a, b) => {
             if (a.expiryDate === null) return 1;
             if (b.expiryDate === null) return -1;
@@ -115,11 +111,12 @@ export default function InventoryClient({
           const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
 
           return {
-            name: displayName,
+            name,
             unit,
             items: sortedItems,
             packageInfo,
             nextExpiry,
+            ownerName: ownerName,
           };
         });
 
@@ -142,7 +139,7 @@ export default function InventoryClient({
 
       if (selectedGroup) {
         const allGroups = [...newGroupedByLocation.Fridge, ...newGroupedByLocation.Freezer, ...newGroupedByLocation.Pantry];
-        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit);
+        const updatedGroup = allGroups.find(g => g.name === selectedGroup.name && g.unit === selectedGroup.unit && g.ownerName === selectedGroup.ownerName);
         if (updatedGroup) {
             setSelectedGroup(updatedGroup);
         } else {
@@ -199,7 +196,7 @@ export default function InventoryClient({
                         </CardHeader>
                     </AccordionTrigger>
                     <AccordionContent className="px-2 sm:px-4 pb-4">
-                        <InventoryTable data={groupedInventory[locationType]} onRowClick={handleRowClick} />
+                       <InventoryTable data={groupedInventory[locationType]} onRowClick={handleRowClick} />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
@@ -224,3 +221,4 @@ export default function InventoryClient({
     </>
   );
 }
+

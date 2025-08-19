@@ -176,7 +176,7 @@ export function ViewInventoryItemDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Manage {group.name}</DialogTitle>
+          <DialogTitle>Manage {group.name} ({group.ownerName})</DialogTitle>
           <DialogDescription>
             Adjust the number of full containers and the quantity of partial containers.
           </DialogDescription>
@@ -268,9 +268,6 @@ export function ViewInventoryItemDialog({
                    <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
                       <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
                   </Button>
-                   <Button type="button" variant="outline" onClick={() => setIsMarkPrivateDialogOpen(true)} disabled>
-                      <Lock className="mr-2 h-4 w-4" /> Mark Private
-                  </Button>
                 </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
@@ -291,7 +288,6 @@ export function ViewInventoryItemDialog({
             packageGroups={packageGroups}
             onUpdateComplete={(newInventory) => {
                 onUpdateComplete(newInventory);
-                // Also close the main dialog
                 setIsOpen(false);
             }}
         />
@@ -303,20 +299,6 @@ export function ViewInventoryItemDialog({
             setIsOpen={setIsSpoilageDialogOpen}
             group={group}
             packageGroups={packageGroups}
-            onUpdateComplete={(newInventory) => {
-                onUpdateComplete(newInventory);
-                setIsOpen(false);
-            }}
-        />
-    )}
-
-     {isMarkPrivateDialogOpen && (
-        <MarkPrivateDialog
-            isOpen={isMarkPrivateDialogOpen}
-            setIsOpen={setIsMarkPrivateDialogOpen}
-            group={group}
-            packageGroups={packageGroups}
-            householdMembers={[]}
             onUpdateComplete={(newInventory) => {
                 onUpdateComplete(newInventory);
                 setIsOpen(false);
