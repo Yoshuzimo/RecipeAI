@@ -31,7 +31,37 @@ import {
     getHousehold as dataGetHousehold
 } from "@/lib/data";
 import { addDays } from "date-fns";
-import { getAdmin } from "@/lib/firebase-admin";
+
+let adminInstance: any = null;
+
+function getAdmin() {
+    if (adminInstance) {
+        return adminInstance;
+    }
+
+    const admin = require('firebase-admin');
+    const { getAuth } = require('firebase-admin/auth');
+    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+    
+    if (admin.apps.length === 0) {
+        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (!serviceAccountKey) {
+            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
+        }
+        const serviceAccount = JSON.parse(serviceAccountKey);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+    }
+
+    adminInstance = {
+        auth: getAuth(),
+        db: getFirestore(),
+        FieldValue,
+    };
+    
+    return adminInstance;
+}
 
 
 // --- Server Actions ---

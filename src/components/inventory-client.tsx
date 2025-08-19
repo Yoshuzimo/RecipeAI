@@ -50,9 +50,9 @@ export default function InventoryClient({
         const finalGroups = Object.entries(groupedByName).map(([key, groupData]) => {
           const { items, unit } = groupData;
           // If any item in the group has an owner, we use that name for display
-          const representativeItem = items.find(item => item.ownerId) || items[0];
-          const name = representativeItem.ownerName
-            ? `${representativeItem.name} - ${representativeItem.ownerName}'s`
+          const representativeItem = items.find(item => item.ownerName) || items[0];
+          const displayName = representativeItem.ownerName
+            ? `${representativeItem.name} (${representativeItem.ownerName})`
             : representativeItem.name;
 
 
@@ -115,7 +115,7 @@ export default function InventoryClient({
           const nextExpiry = sortedItems.length > 0 ? sortedItems[0].expiryDate : null;
 
           return {
-            name,
+            name: displayName,
             unit,
             items: sortedItems,
             packageInfo,

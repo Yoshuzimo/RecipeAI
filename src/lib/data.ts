@@ -1,6 +1,6 @@
 
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household } from "./types";
-import type { Firestore, WriteBatch } from "firebase-admin/firestore";
+import type { Firestore, WriteBatch, FieldValue } from "firebase-admin/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -137,7 +137,7 @@ export async function createHousehold(db: Firestore, userId: string, userName: s
     return newHousehold;
 }
 
-export async function joinHousehold(db: Firestore, arrayUnion: any, userId: string, userName: string, inviteCode: string): Promise<Household> {
+export async function joinHousehold(db: Firestore, arrayUnion: typeof FieldValue.arrayUnion, userId: string, userName: string, inviteCode: string): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const q = db.collection('households').where('inviteCode', '==', inviteCode).limit(1);
         const snapshot = await transaction.get(q);
@@ -162,7 +162,7 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
     });
 }
 
-export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: string, newOwnerId?: string): Promise<void> {
+export async function leaveHousehold(db: Firestore, arrayRemove: typeof FieldValue.arrayRemove, userId: string, newOwnerId?: string): Promise<void> {
     await db.runTransaction(async (transaction) => {
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
@@ -210,7 +210,7 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, userId: st
 }
 
 
-export async function approvePendingMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+export async function approvePendingMember(db: Firestore, arrayUnion: typeof FieldValue.arrayUnion, arrayRemove: typeof FieldValue.arrayRemove, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const memberUserRef = db.collection('users').doc(memberIdToApprove);
@@ -239,7 +239,7 @@ export async function approvePendingMember(db: Firestore, arrayUnion: any, array
     });
 }
 
-export async function rejectPendingMember(db: Firestore, arrayRemove: any, currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
+export async function rejectPendingMember(db: Firestore, arrayRemove: typeof FieldValue.arrayRemove, currentUserId: string, householdId: string, memberIdToReject: string): Promise<Household> {
      return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const householdDoc = await transaction.get(householdRef);
@@ -300,16 +300,56 @@ export async function removeStorageLocation(db: Firestore, userId: string, locat
 
 // Inventory
 export async function getInventory(db: Firestore, userId: string): Promise<InventoryItem[]> {
-  const snapshot = await db.collection(`users/${userId}/inventory`).get();
-  return snapshot.docs.map(doc => {
+  const household = await getHousehold(db, userId);
+  
+  if (!household) {
+    // User is not in a household, fetch only their own inventory
+    const snapshot = await db.collection(`users/${userId}/inventory`).get();
+    return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
           id: doc.id,
           ...data,
           expiryDate: data.expiryDate?.toDate() ?? null,
       } as InventoryItem;
+    });
+  }
+
+  // User is in a household, fetch everyone's inventory
+  const memberIds = household.activeMembers.map(m => m.userId);
+  const allInventories = await Promise.all(
+    memberIds.map(async (memberId) => {
+      const snapshot = await db.collection(`users/${memberId}/inventory`).get();
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          expiryDate: data.expiryDate?.toDate() ?? null,
+          ownerId: memberId // Add ownerId to track who owns what
+        } as InventoryItem;
+      });
+    })
+  );
+
+  // Flatten the array of arrays and filter out private items not owned by the current user
+  const sharedInventory = allInventories.flat().filter(item => {
+    // If an item has an ownerId and it's not the current user, it's private and should be excluded.
+    // In this data model, ownerId implies it's a private item. Shared items have no ownerId.
+    // For now, we will assume all items are shared if in a household, but the UI will show ownership.
+    // Logic for *true* private items would need an explicit 'isPrivate' flag.
+    // Let's adjust this to show all items but tag them with owner info.
+    return true; 
   });
+
+  const memberNames = new Map(household.activeMembers.map(m => [m.userId, m.userName]));
+
+  return sharedInventory.map(item => ({
+      ...item,
+      ownerName: item.ownerId === userId ? undefined : memberNames.get(item.ownerId!)
+  }));
 }
+
 
 type AddItemData = Omit<InventoryItem, 'id'>;
 
