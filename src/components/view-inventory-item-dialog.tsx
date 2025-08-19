@@ -138,10 +138,10 @@ export function ViewInventoryItemDialog({
 
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
-    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit, isPrivate);
+    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit);
     setIsPending(false);
 
-    if (result.success) {
+    if (result.success && result.newInventory) {
         toast({ title: "Inventory Updated", description: `${group.name} has been updated successfully.` });
         const { privateItems, sharedItems } = await getClientInventory();
         onUpdateComplete(privateItems, sharedItems);
@@ -161,7 +161,7 @@ export function ViewInventoryItemDialog({
     
     setIsPending(true);
     const itemsToRemove = packageGroups[groupToDelete].items;
-    const result = await handleRemoveInventoryPackageGroup(itemsToRemove, isPrivate);
+    const result = await handleRemoveInventoryPackageGroup(itemsToRemove);
     setIsPending(false);
     setIsConfirmDeleteOpen(false);
 
@@ -169,6 +169,7 @@ export function ViewInventoryItemDialog({
       toast({ title: "Package Size Removed", description: `All ${groupToDelete}${group.unit} containers of ${group.name} have been removed.` });
       const { privateItems, sharedItems } = await getClientInventory();
       onUpdateComplete(privateItems, sharedItems);
+      setIsOpen(false);
     } else {
       toast({ variant: "destructive", title: "Removal Failed", description: result.error });
     }
@@ -311,12 +312,11 @@ export function ViewInventoryItemDialog({
             isOpen={isMoveDialogOpen}
             setIsOpen={setIsMoveDialogOpen}
             group={group}
-            isPrivate={isPrivate}
             packageGroups={packageGroups}
             onUpdateComplete={async () => {
-                const { privateItems, sharedItems } = await getClientInventory();
-                onUpdateComplete(privateItems, sharedItems);
-                setIsOpen(false);
+                 const { privateItems, sharedItems } = await getClientInventory();
+                 onUpdateComplete(privateItems, sharedItems);
+                 setIsOpen(false);
             }}
         />
     )}
@@ -326,7 +326,6 @@ export function ViewInventoryItemDialog({
             isOpen={isSpoilageDialogOpen}
             setIsOpen={setIsSpoilageDialogOpen}
             group={group}
-            isPrivate={isPrivate}
             packageGroups={packageGroups}
             onUpdateComplete={async () => {
                 const { privateItems, sharedItems } = await getClientInventory();
