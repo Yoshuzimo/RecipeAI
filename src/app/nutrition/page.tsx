@@ -79,6 +79,9 @@ export default function NutritionPage() {
             </SelectContent>
             </Select>
         </div>
+        <p className="text-sm text-muted-foreground pt-2">
+            Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional medical advice. Always consult your doctor.
+        </p>
         <Separator />
          <Card>
             <CardHeader>

@@ -440,6 +440,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                                         <Badge variant="outline">Carbs: {recipe.macros.carbs}g</Badge>
                                         <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
                                      </div>
+                                     <p className="text-xs text-muted-foreground mt-2">(These are approximate)</p>
                                 </div>
                                 <Separator />
                                 <div className="flex gap-2">

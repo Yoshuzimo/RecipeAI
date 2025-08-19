@@ -21,16 +21,8 @@ const nextConfig = {
       },
     ],
   },
-  webpack(config, { isServer }) {
+  webpack(config) {
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    
-    if (!isServer) {
-      config.resolve.fallback = {
-        "firebase-admin": false,
-        "async_hooks": false,
-      }
-    }
-
     return config;
   },
 };
