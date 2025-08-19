@@ -16,9 +16,7 @@ export type InventoryItem = {
   unit: Unit;
   expiryDate: Date | null;
   locationId: string;
-  ownerId?: string | null; // ID of the user who owns this, null if shared/in household inv
-  ownerName?: "You" | "Shared" | string; // Display name for UI
-  isPrivate?: boolean; // Used for client->server communication on adds
+  ownerName?: "You" | "Shared" | string; // Display name for UI. Set on the client based on source.
 };
 
 export type InventoryItemGroup = {

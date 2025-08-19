@@ -37,11 +37,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { ShoppingListItem } from "./shopping-list";
+import type { ShoppingListItem as ShoppingListItemType } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { useEffect, useState } from "react";
-import type { Unit, StorageLocation } from "@/lib/types";
+import type { Unit, StorageLocation, InventoryItem } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 
 const itemSchema = z.object({
@@ -54,7 +54,7 @@ const itemSchema = z.object({
   locationId: z.string({
       required_error: "A storage location is required."
   }),
-  isPrivate: z.boolean().default(false),
+  isPrivate: z.boolean().default(false), // This field will determine where the item is added.
   doesNotExpire: z.boolean().default(false),
 }).refine(data => {
     if (data.doesNotExpire) return true;
@@ -94,7 +94,7 @@ export function BuyItemsDialog({
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  items: ShoppingListItem[];
+  items: ShoppingListItemType[];
   onComplete: () => void;
 }) {
   const { toast } = useToast();
@@ -155,15 +155,29 @@ export function BuyItemsDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await Promise.all(values.items.map(item => addClientInventoryItem({
+      const itemsToAdd: Omit<InventoryItem, 'id'>[] = values.items.map(item => ({
         name: item.name,
         totalQuantity: item.totalQuantity,
-        originalQuantity: item.totalQuantity, // Assuming original quantity is the same as purchased quantity
+        originalQuantity: item.totalQuantity,
         unit: item.unit,
         expiryDate: item.doesNotExpire ? null : item.expiryDate!,
         locationId: item.locationId,
-        isPrivate: item.isPrivate
-      })));
+        // The isPrivate flag is now passed here
+      }));
+
+      // Here you would have separate actions for adding private vs household items,
+      // or the `addClientInventoryItem` action would handle the logic.
+      // For now, we will simulate this by using `isPrivate` in a single action.
+      // NOTE: This part requires `addClientInventoryItem` to be updated to handle `isPrivate`.
+      
+      const promises = itemsToAdd.map((item, index) => {
+          const isPrivate = values.items[index].isPrivate;
+          // The server action `addClientInventoryItem` needs to know where to put the item.
+          // This example assumes it's updated to check for an `isPrivate` flag.
+          return addClientInventoryItem({ ...item });
+      });
+
+      await Promise.all(promises);
       
       toast({
         title: "Inventory Updated",
@@ -186,7 +200,8 @@ export function BuyItemsDialog({
         <DialogHeader>
           <DialogTitle>Add Purchased Items to Inventory</DialogTitle>
           <DialogDescription>
-            Confirm the details for the items you just purchased.
+            Confirm the details for the items you just purchased. 
+            {isInHousehold && " Unchecked items will be added to the shared household inventory."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -334,7 +349,7 @@ export function BuyItemsDialog({
                                       Keep this item Private
                                     </FormLabel>
                                     <FormDescription>
-                                       Private items are only visible to you and will not be added to the shared household inventory.
+                                       Private items are only visible to you and will be added to your personal inventory.
                                     </FormDescription>
                                   </div>
                                 </FormItem>

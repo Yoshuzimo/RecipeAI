@@ -231,7 +231,7 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
     }
 }
 
-export async function handleToggleItemPrivacy(items: InventoryItem[], newPrivacyState: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivate: boolean): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -240,7 +240,7 @@ export async function handleToggleItemPrivacy(items: InventoryItem[], newPrivacy
         if (!household) {
             return { success: false, error: "You must be in a household to change item privacy." };
         }
-        await dataToggleItemPrivacy(db, userId, household.id, items, newPrivacyState);
+        await dataToggleItemPrivacy(db, userId, household.id, items, makePrivate);
         const newInventory = await getInventory(db, userId);
         return { success: true, newInventory, error: null };
     } catch (e) {
@@ -295,13 +295,7 @@ export async function addClientInventoryItem(item: Omit<InventoryItem, 'id'>) {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    // In the new model, ownerId being set means it's private to the user.
-    // If it's not private, ownerId is null and it goes to the household inventory.
-    const itemToAdd = { ...item };
-    if (item.isPrivate) {
-        itemToAdd.ownerId = userId;
-    }
-    return dataAddInventoryItem(db, userId, itemToAdd);
+    return dataAddInventoryItem(db, userId, item);
 }
 
 export async function addClientStorageLocation(location: Omit<StorageLocation, 'id'>) {
@@ -488,5 +482,3 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
     }
 }
-
-    
