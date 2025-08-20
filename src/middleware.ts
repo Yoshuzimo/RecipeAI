@@ -4,31 +4,22 @@ import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
 
-// This function is defined but not used in the middleware directly
-// It's a good practice to keep it separate in case you need complex verification later
-// in a dedicated API route.
-async function verifySessionCookie(sessionCookie: string) {
-    const { getAdmin } = require("@/lib/firebase-admin");
-    const { auth } = getAdmin();
-    await auth.verifySessionCookie(sessionCookie, true);
-}
-
-
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const sessionCookie = request.cookies.get('__session')?.value;
   
   const publicPaths = ['/login', '/signup'];
 
   // Allow access to public paths regardless of authentication status.
-  if (publicPaths.includes(pathname)) {
+  if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
   // If there's no session cookie, redirect to the login page for any protected route.
   if (!sessionCookie) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
+    // Preserve the original path and query parameters
+    loginUrl.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }
 
