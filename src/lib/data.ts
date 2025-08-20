@@ -178,9 +178,8 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
     });
 }
 
-export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[]): Promise<void> {
+export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[], locationMapping: Record<string, string>): Promise<void> {
     return db.runTransaction(async (transaction) => {
-        // --- ALL READS FIRST ---
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
@@ -204,7 +203,16 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
             throw new Error("You are not an active member of this household.");
         }
 
-        // Pre-fetch all original items to be taken
+        // --- Handle remap of user's own private inventory ---
+        const privateInventorySnapshot = await transaction.get(userRef.collection('inventory'));
+        privateInventorySnapshot.docs.forEach(doc => {
+            const newLocationId = locationMapping[doc.id];
+            if (newLocationId) {
+                transaction.update(doc.ref, { locationId: newLocationId });
+            }
+        });
+
+        // --- Handle transfer of shared items ---
         const itemsToProcess: { originalItemData: InventoryItem, requested: RequestedItem }[] = [];
         for (const item of itemsToTake) {
              const originalItemDocQuery = householdRef.collection('inventory').where('name', '==', item.name).limit(1);
@@ -215,7 +223,6 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
              }
         }
         
-        // --- ALL WRITES LAST ---
         const userInventoryCollection = userRef.collection('inventory');
         itemsToProcess.forEach(({ originalItemData, requested }) => {
              const newItemForLeaver: Omit<InventoryItem, 'id'> = {
@@ -223,6 +230,7 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
                 totalQuantity: requested.quantity,
                 originalQuantity: requested.quantity,
                 isPrivate: true,
+                locationId: locationMapping[requested.originalItemId], // Use the new mapping
              };
             transaction.set(userInventoryCollection.doc(), newItemForLeaver);
         });
@@ -346,7 +354,7 @@ export async function approvePendingMember(db: Firestore, arrayUnion: any, array
     });
 }
 
-export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string, approvedItemIds: string[]): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const memberUserRef = db.collection('users').doc(memberIdToApprove);
@@ -368,7 +376,7 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
         const householdInventoryCollection = householdRef.collection('inventory');
 
         for (const doc of memberInventorySnapshot.docs) {
-            const itemData = doc.data() as Omit<InventoryItem, 'id'>;
+             const itemData = doc.data() as Omit<InventoryItem, 'id'>;
             const migrationInfo = pendingMember.itemMigrationMapping![doc.id];
             
             if (!migrationInfo) {
@@ -383,9 +391,12 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
                 // Item stays in user's collection, just update its locationId
                 transaction.update(doc.ref, { locationId: newLocationId });
             } else {
-                // Item moves to household collection
-                transaction.set(householdInventoryCollection.doc(), updatedItemData);
-                transaction.delete(doc.ref);
+                 if (approvedItemIds.includes(doc.id)) {
+                    transaction.set(householdInventoryCollection.doc(), updatedItemData);
+                    transaction.delete(doc.ref);
+                 } else {
+                    transaction.update(doc.ref, { locationId: newLocationId, isPrivate: true });
+                 }
             }
         }
         
@@ -427,6 +438,28 @@ export async function rejectPendingMember(db: Firestore, arrayRemove: any, curre
         const updatedHousehold = await getHousehold(db, currentUserId);
         if (!updatedHousehold) throw new Error("Failed to refetch household data after rejection.");
         return updatedHousehold;
+    });
+}
+
+export async function getPendingMemberInventory(db: Firestore, currentUserId: string, memberId: string): Promise<InventoryItem[]> {
+    const household = await getHousehold(db, currentUserId);
+    if (!household || household.ownerId !== currentUserId) {
+        throw new Error("You do not have permission to view this inventory.");
+    }
+    const pendingMember = household.pendingMembers.find(m => m.userId === memberId);
+    if (!pendingMember || !pendingMember.wantsToMergeInventory) {
+        throw new Error("This member is not pending or does not want to merge inventory.");
+    }
+
+    const inventorySnapshot = await db.collection(`users/${memberId}/inventory`).get();
+    return inventorySnapshot.docs.map(doc => {
+         const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            expiryDate: data.expiryDate?.toDate() ?? null,
+            isPrivate: true,
+        } as InventoryItem;
     });
 }
 
