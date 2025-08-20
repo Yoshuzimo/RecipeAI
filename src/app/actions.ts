@@ -569,5 +569,3 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
-
-    
