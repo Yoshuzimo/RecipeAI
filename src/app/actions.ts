@@ -1,4 +1,3 @@
-
 "use server";
 
 import { getAdmin } from "@/lib/firebase-admin";
@@ -74,8 +73,14 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
     const { db } = getAdmin();
 
     const personalDetails = await dataGetPersonalDetails(db, userId);
-    const settings = await dataGetSettings(db, userId);
+    const settingsData = await dataGetSettings(db, userId);
     const todaysMacros = await getTodaysMacros(db, userId);
+
+    // Ensure all required fields are present for the AI
+    const settings: Settings = {
+        ...settingsData,
+        subscriptionStatus: settingsData.subscriptionStatus || 'free',
+    };
 
     const suggestions = await generateSuggestions({
         inventory,
