@@ -520,7 +520,7 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
      const currentUserId = await getCurrentUserId();
      const { db, FieldValue } = getAdmin();
     try {
-        const updatedHousehold = await dataRejectPendingMember(db, FieldValue.arrayRemove, currentUserId, householdId, memberIdToReject);
+        const updatedHousehold = await dataRejectMember(db, FieldValue.arrayRemove, currentUserId, householdId, memberIdToReject);
         return { success: true, household: updatedHousehold };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred." };
@@ -532,5 +532,3 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
-
-    

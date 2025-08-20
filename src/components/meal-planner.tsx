@@ -83,9 +83,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
       const result = await handleGenerateSuggestions(formData);
       setError(result.error);
-      if (result.debugInfo) {
-          setDebugInfo(result.debugInfo);
-      }
       
       if (result.suggestions) {
         setSuggestions(result.suggestions);
@@ -175,7 +172,10 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                         if (b.expiryDate === null) return -1;
                         return a.expiryDate.getTime() - b.expiryDate.getTime()
                     })[0].expiryDate : null,
-                    unit: items[0]?.unit || 'pcs'
+                    unit: items[0]?.unit || 'pcs',
+                    isPrivate: items[0]?.isPrivate,
+                    locationId: items[0]?.locationId,
+                    locationName: '', // not needed
                 };
                 setGroupToView(group);
                 setIsViewInventoryDialogOpen(true);
@@ -215,15 +215,16 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   }
 
   const handleInventoryUpdateAndCheckSubstitutions = async () => {
-    const updatedInventory = await getClientInventory(); // Re-fetch inventory
-    setInventory(updatedInventory);
+    const { privateItems, sharedItems } = await getClientInventory(); // Re-fetch inventory
+    const newInventory = [...privateItems, ...sharedItems];
+    setInventory(newInventory);
 
     if (ingredientToCheck) {
         const { recipe, ingredient } = ingredientToCheck;
         const ingredientName = inventory.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
         
         // Check if the item still exists in inventory after update
-        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && i.totalQuantity > 0);
+        const itemStillExists = newInventory.some(i => i.name === ingredientName && i.totalQuantity > 0);
         
         if (!itemStillExists) {
             toast({
@@ -514,6 +515,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             setIsViewInventoryDialogOpen(open);
           }}
           group={groupToView}
+          isPrivate={groupToView.isPrivate}
           onUpdateComplete={handleInventoryUpdateAndCheckSubstitutions}
         />
       )}

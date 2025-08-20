@@ -125,10 +125,9 @@ export function ViewInventoryItemDialog({
     const result = await handleToggleItemPrivacy(group.items, !isPrivate);
     setIsPending(false);
 
-    if (result.success) {
+    if (result.success && result.newInventory) {
       toast({ title: "Privacy Updated", description: `${group.name} has been moved.` });
-      const { privateItems, sharedItems } = await getClientInventory();
-      onUpdateComplete(privateItems, sharedItems);
+      onUpdateComplete(result.newInventory.privateItems, result.newInventory.sharedItems);
       setIsOpen(false);
     } else {
       toast({ variant: "destructive", title: "Update Failed", description: result.error });
@@ -143,8 +142,7 @@ export function ViewInventoryItemDialog({
 
     if (result.success && result.newInventory) {
         toast({ title: "Inventory Updated", description: `${group.name} has been updated successfully.` });
-        const { privateItems, sharedItems } = await getClientInventory();
-        onUpdateComplete(privateItems, sharedItems);
+        onUpdateComplete(result.newInventory.privateItems, result.newInventory.sharedItems);
         setIsOpen(false);
     } else {
         toast({ variant: "destructive", title: "Update Failed", description: result.error });
@@ -165,10 +163,9 @@ export function ViewInventoryItemDialog({
     setIsPending(false);
     setIsConfirmDeleteOpen(false);
 
-    if (result.success) {
+    if (result.success && result.newInventory) {
       toast({ title: "Package Size Removed", description: `All ${groupToDelete}${group.unit} containers of ${group.name} have been removed.` });
-      const { privateItems, sharedItems } = await getClientInventory();
-      onUpdateComplete(privateItems, sharedItems);
+      onUpdateComplete(result.newInventory.privateItems, result.newInventory.sharedItems);
       setIsOpen(false);
     } else {
       toast({ variant: "destructive", title: "Removal Failed", description: result.error });
