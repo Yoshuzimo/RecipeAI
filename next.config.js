@@ -3,7 +3,7 @@
 const nextConfig = {
   /* config options here */
   experimental: {
-    serverComponentsExternalPackages: ['firebase-admin'],
+    serverComponentsExternalPackages: ['firebase-admin', 'genkit/tools'],
   },
   typescript: {
     ignoreBuildErrors: true,

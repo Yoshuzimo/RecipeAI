@@ -41,6 +41,7 @@ import {
     getPendingMemberInventory,
 } from "@/lib/data";
 import { addDays } from "date-fns";
+import { generateSuggestions } from "@/ai/flows/suggestion-flow";
 
 
 // --- Server Actions ---
@@ -71,7 +72,37 @@ export async function seedUserData(userId: string): Promise<void> {
 
 // Placeholder AI-related functions
 export async function handleGenerateSuggestions(formData: FormData) {
-    return { error: { form: ["AI features are currently under maintenance. Please try again later."] }, suggestions: null, debugInfo: { promptInput: "", rawResponse: "" }};
+    try {
+        const inventoryString = formData.get('inventory') as string;
+        const cravings = formData.get('cravingsOrMood') as string;
+        
+        if (!inventoryString) {
+            return { error: { form: ["Inventory data is missing."] }, suggestions: null, debugInfo: { promptInput: "", rawResponse: "" } };
+        }
+        
+        const inventory: InventoryItem[] = JSON.parse(inventoryString);
+        
+        const userId = await getCurrentUserId();
+        const { getAdmin } = require("@/lib/firebase-admin");
+        const { db } = getAdmin();
+        const personalDetails = await getPersonalDetails(db, userId);
+        const settings = await getSettings(db, userId);
+        const todaysMacros = await getTodaysMacros(db, userId);
+        
+        const suggestions = await generateSuggestions({
+            inventory,
+            personalDetails,
+            settings,
+            todaysMacros,
+            cravings,
+        });
+
+        return { error: null, suggestions: suggestions, debugInfo: { promptInput: "", rawResponse: "" }};
+    } catch (e) {
+        console.error("Error in handleGenerateSuggestions:", e);
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating suggestions.";
+        return { error: { form: [errorMessage] }, suggestions: null, debugInfo: { promptInput: "", rawResponse: "" }};
+    }
 }
 export async function handleGenerateShoppingList(inventory: InventoryItem[], personalDetails: PersonalDetails) {
     return { error: "AI features are currently under maintenance. Please try again later.", shoppingList: null };
