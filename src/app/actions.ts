@@ -1,6 +1,7 @@
 
 "use server";
 
+import { getAdmin } from "@/lib/firebase-admin";
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
 import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "@/lib/types";
@@ -15,7 +16,7 @@ import {
     updateMealTime as dataUpdateMealTime,
     saveRecipe as dataSaveRecipe,
     removeInventoryItems as dataRemoveInventoryItems,
-    getStorageLocations, 
+    getStorageLocations as dataGetStorageLocations, 
     getSavedRecipes, 
     getTodaysMacros, 
     addStorageLocation as dataAddStorageLocation,
@@ -34,7 +35,7 @@ import {
     processLeaveRequest as dataProcessLeaveRequest,
     getShoppingList,
     addShoppingListItem,
-updateShoppingListItem,
+    updateShoppingListItem,
     removeShoppingListItem,
     removeCheckedShoppingListItems,
     toggleItemPrivacy as dataToggleItemPrivacy,
@@ -47,7 +48,6 @@ import { generateSuggestions, SuggestionRequest } from "@/ai/flows/suggestion-fl
 // --- Server Actions ---
 
 export async function getCurrentUserId(): Promise<string> {
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { auth } = getAdmin();
     const sessionCookie = cookies().get('__session')?.value;
     if (!sessionCookie) {
@@ -63,7 +63,6 @@ export async function getCurrentUserId(): Promise<string> {
 }
 
 export async function seedUserData(userId: string): Promise<void> {
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     console.log(`ACTIONS: Starting seedUserData for user: ${userId}`);
     await dataSeedInitialData(db, userId);
@@ -72,7 +71,6 @@ export async function seedUserData(userId: string): Promise<void> {
 
 // This is the core logic, now callable from different contexts
 async function generateMealSuggestionsLogic(userId: string, inventory: InventoryItem[], cravings: string) {
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
 
     const personalDetails = await dataGetPersonalDetails(db, userId);
@@ -121,7 +119,7 @@ export async function handleGenerateSuggestionsForApi(userId: string, inventory:
         return { error: null, suggestions };
     } catch (e) {
         console.error("Error in handleGenerateSuggestionsForApi:", e);
-        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating suggestions.";
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
         return { error: { form: [errorMessage] }, suggestions: null };
     }
 }
@@ -145,7 +143,6 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
 
 export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const updates: Promise<any>[] = [];
@@ -191,7 +188,6 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
 
 export async function handleTransferItemToFridge(item: InventoryItem): Promise<InventoryItem> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     const today = new Date();
     const threeDaysFromNow = new Date(today.setDate(today.getDate() + 3));
@@ -202,7 +198,6 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
 
 export async function handleUpdateMealTime(mealId: string, newTime: string): Promise<{success: boolean, error?: string | null}> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const updatedMeal = await dataUpdateMealTime(db, userId, mealId, newTime);
@@ -214,7 +209,6 @@ export async function handleUpdateMealTime(mealId: string, newTime: string): Pro
 
 export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boolean; error?: string }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         await dataSaveRecipe(db, userId, recipe);
@@ -226,7 +220,6 @@ export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boole
 
 export async function handleRemoveInventoryPackageGroup(itemsToRemove: InventoryItem[]): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         await dataRemoveInventoryItems(db, userId, itemsToRemove);
@@ -239,7 +232,6 @@ export async function handleRemoveInventoryPackageGroup(itemsToRemove: Inventory
 
 export async function handleMoveInventoryItems(request: MoveRequest, destinationId: string): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const updates: Promise<any>[] = [];
@@ -264,7 +256,6 @@ export async function handleMoveInventoryItems(request: MoveRequest, destination
 
 export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const updates: Promise<any>[] = [];
@@ -288,7 +279,6 @@ export async function handleReportSpoilage(request: SpoilageRequest): Promise<{ 
 
 export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivate: boolean): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const household = await dataGetHousehold(db, userId);
@@ -306,84 +296,72 @@ export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivat
 // Client Data Fetchers
 export async function getClientInventory() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return getInventory(db, userId);
 }
 
 export async function getClientStorageLocations() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return getStorageLocations(db, userId);
+    return dataGetStorageLocations(db, userId);
 }
 
 export async function getClientSavedRecipes() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return getSavedRecipes(db, userId);
 }
 
 export async function getClientPersonalDetails() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataGetPersonalDetails(db, userId);
 }
 
 export async function savePersonalDetails(details: PersonalDetails) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataSavePersonalDetails(db, userId, details);
 }
 
 export async function getClientTodaysMacros() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return getTodaysMacros(db, userId);
 }
 
 export async function addClientInventoryItem(item: NewInventoryItem) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataAddInventoryItem(db, userId, item);
 }
 
 export async function addClientStorageLocation(location: Omit<StorageLocation, 'id'>) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataAddStorageLocation(db, userId, location);
 }
 
 export async function updateClientStorageLocation(location: StorageLocation) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataUpdateStorageLocation(db, userId, location);
 }
 
 export async function removeClientStorageLocation(locationId: string) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataRemoveStorageLocation(db, userId, locationId);
 }
 
 export async function getSettings() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataGetSettings(db, userId);
 }
 
 export async function saveSettings(settings: Settings) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return dataSaveSettings(db, userId, settings);
 }
@@ -391,35 +369,30 @@ export async function saveSettings(settings: Settings) {
 // --- Shopping List Actions ---
 export async function getClientShoppingList(): Promise<ShoppingListItem[]> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return getShoppingList(db, userId);
 }
 
 export async function addClientShoppingListItem(item: Omit<ShoppingListItem, 'id' | 'addedAt'>): Promise<ShoppingListItem> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return addShoppingListItem(db, userId, item);
 }
 
 export async function updateClientShoppingListItem(item: ShoppingListItem): Promise<ShoppingListItem> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return updateShoppingListItem(db, userId, item);
 }
 
 export async function removeClientShoppingListItem(itemId: string): Promise<{ id: string }> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return removeShoppingListItem(db, userId, itemId);
 }
 
 export async function removeClientCheckedShoppingListItems(): Promise<void> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return removeCheckedShoppingListItems(db, userId);
 }
@@ -438,7 +411,6 @@ function generateInviteCode(): string {
 
 export async function getClientHousehold(): Promise<Household | null> {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     try {
         const household = await dataGetHousehold(db, userId);
@@ -454,7 +426,6 @@ export async function getClientHousehold(): Promise<Household | null> {
 // This is a new action to get a household by its invite code
 // It's needed for the join flow before the user is actually a member.
 export async function getHouseholdByInviteCode(inviteCode: string): Promise<Household | null> {
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     const q = db.collection('households').where('inviteCode', '==', inviteCode.toUpperCase()).limit(1);
     const snapshot = await q.get();
@@ -474,13 +445,12 @@ export async function getHouseholdByInviteCode(inviteCode: string): Promise<Hous
 
 export async function handleCreateHousehold() {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     const userSettings = await dataGetSettings(db, userId);
     const ownerName = userSettings.displayName || "Owner";
     const inviteCode = generateInviteCode();
     try {
-        const userLocations = await getStorageLocations(db, userId);
+        const userLocations = await dataGetStorageLocations(db, userId);
         const household = await dataCreateHousehold(db, userId, ownerName, inviteCode, userLocations);
         return { success: true, household };
     } catch (error) {
@@ -490,7 +460,6 @@ export async function handleCreateHousehold() {
 
 export async function handleJoinHousehold(inviteCode: string, mergeInventory: boolean, itemMigrationMapping: ItemMigrationMapping) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     const userSettings = await dataGetSettings(db, userId);
     const userName = userSettings.displayName || "New Member";
@@ -504,7 +473,6 @@ export async function handleJoinHousehold(inviteCode: string, mergeInventory: bo
 
 export async function handleLeaveHousehold(itemsToTake: RequestedItem[], newOwnerId: string | undefined, locationMapping: Record<string, string>) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
         await dataLeaveHousehold(db, FieldValue.arrayRemove, FieldValue.arrayUnion, userId, newOwnerId, itemsToTake, locationMapping);
@@ -516,7 +484,6 @@ export async function handleLeaveHousehold(itemsToTake: RequestedItem[], newOwne
 
 export async function handleReviewLeaveRequest(requestId: string, approve: boolean) {
     const userId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
         const updatedHousehold = await dataProcessLeaveRequest(db, FieldValue.arrayRemove, userId, requestId, approve);
@@ -529,7 +496,6 @@ export async function handleReviewLeaveRequest(requestId: string, approve: boole
 
 export async function handleApproveMember(householdId: string, memberIdToApprove: string) {
     const currentUserId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
         const updatedHousehold = await dataApprovePendingMember(db, FieldValue.arrayUnion, FieldValue.arrayRemove, currentUserId, householdId, memberIdToApprove);
@@ -541,7 +507,6 @@ export async function handleApproveMember(householdId: string, memberIdToApprove
 
 export async function handleApproveAndMerge(householdId: string, memberIdToApprove: string, approvedItemIds: string[]) {
     const currentUserId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db, FieldValue } = getAdmin();
     try {
         const updatedHousehold = await dataApproveAndMergeMember(db, FieldValue.arrayUnion, FieldValue.arrayRemove, currentUserId, householdId, memberIdToApprove, approvedItemIds);
@@ -553,7 +518,6 @@ export async function handleApproveAndMerge(householdId: string, memberIdToAppro
 
 export async function handleRejectMember(householdId: string, memberIdToReject: string) {
      const currentUserId = await getCurrentUserId();
-     const { getAdmin } = require("@/lib/firebase-admin");
      const { db, FieldValue } = getAdmin();
     try {
         const updatedHousehold = await dataRejectPendingMember(db, FieldValue.arrayRemove, currentUserId, householdId, memberIdToReject);
@@ -565,7 +529,8 @@ export async function handleRejectMember(householdId: string, memberIdToReject: 
 
 export async function getClientPendingMemberInventory(memberId: string): Promise<InventoryItem[]> {
     const currentUserId = await getCurrentUserId();
-    const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
+
+    
