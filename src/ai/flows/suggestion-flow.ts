@@ -73,7 +73,7 @@ const DailyMacrosSchema = z.object({
   loggedAt: z.date(),
 });
 
-export const SuggestionRequestSchema = z.object({
+const SuggestionRequestSchema = z.object({
   inventory: z.array(InventoryItemSchema),
   personalDetails: PersonalDetailsSchema,
   settings: SettingsSchema,
@@ -139,7 +139,7 @@ const formatTodaysMacros = (macros: DailyMacros[]) => {
 };
 
 
-const suggestionPrompt = ai.definePrompt({
+export const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
   input: {
     schema: SuggestionRequestSchema
@@ -203,7 +203,7 @@ Now, generate the three meal suggestions in the required format.`,
 });
 
 
-const suggestionFlow = ai.defineFlow({
+export const suggestionFlow = ai.defineFlow({
   name: 'suggestionFlow',
   inputSchema: SuggestionRequestSchema,
   outputSchema: SuggestionResponseSchema,
