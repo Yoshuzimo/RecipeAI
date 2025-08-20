@@ -20,5 +20,7 @@ export default genkit({
   models: [{
     name: 'gemini-1.5-flash',
     path: 'gemini-1.5-flash-latest',
-  }, ],
+  }],
+  logLevel: 'debug',
+  enableTracing: true,
 });
