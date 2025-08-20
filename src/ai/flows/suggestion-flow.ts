@@ -139,7 +139,7 @@ const formatTodaysMacros = (macros: DailyMacros[]) => {
 };
 
 
-export const suggestionPrompt = ai.definePrompt({
+const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
   input: {
     schema: SuggestionRequestSchema
@@ -203,7 +203,7 @@ Now, generate the three meal suggestions in the required format.`,
 });
 
 
-export const suggestionFlow = ai.defineFlow({
+const suggestionFlow = ai.defineFlow({
   name: 'suggestionFlow',
   inputSchema: SuggestionRequestSchema,
   outputSchema: SuggestionResponseSchema,
