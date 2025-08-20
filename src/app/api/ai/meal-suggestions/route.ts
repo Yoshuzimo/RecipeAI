@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/firebase-admin";
-import { handleGenerateSuggestions } from "@/app/actions";
+import { handleGenerateSuggestionsForApi } from "@/app/actions";
 import type { InventoryItem } from "@/lib/types";
 
 async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
@@ -27,19 +27,13 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         
-        // The handleGenerateSuggestions action expects FormData.
-        // We'll construct it manually from the JSON body.
-        const formData = new FormData();
-        
-        if (body.cravingsOrMood) {
-            formData.append('cravingsOrMood', body.cravingsOrMood);
-        }
-        if (body.inventory) {
-            // The action expects the inventory as a JSON string.
-            formData.append('inventory', JSON.stringify(body.inventory));
+        const { inventory, cravingsOrMood } = body;
+
+        if (!inventory) {
+             return new NextResponse(JSON.stringify({ error: "Inventory data is missing." }), { status: 400 });
         }
         
-        const result = await handleGenerateSuggestions(formData);
+        const result = await handleGenerateSuggestionsForApi(userId, inventory, cravingsOrMood || "");
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 400 });
@@ -53,3 +47,5 @@ export async function POST(request: NextRequest) {
         return new NextResponse(JSON.stringify({ error: "Failed to generate suggestions", details: errorMessage }), { status: 500 });
     }
 }
+
+    

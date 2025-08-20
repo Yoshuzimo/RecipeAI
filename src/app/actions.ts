@@ -34,14 +34,14 @@ import {
     processLeaveRequest as dataProcessLeaveRequest,
     getShoppingList,
     addShoppingListItem,
-    updateShoppingListItem,
+updateShoppingListItem,
     removeShoppingListItem,
     removeCheckedShoppingListItems,
     toggleItemPrivacy as dataToggleItemPrivacy,
     getPendingMemberInventory,
 } from "@/lib/data";
 import { addDays } from "date-fns";
-import { generateSuggestions } from "@/ai/flows/suggestion-flow";
+import { generateSuggestions, SuggestionRequest } from "@/ai/flows/suggestion-flow";
 
 
 // --- Server Actions ---
@@ -70,40 +70,63 @@ export async function seedUserData(userId: string): Promise<void> {
 }
 
 
-// Placeholder AI-related functions
+// This is the core logic, now callable from different contexts
+async function generateMealSuggestionsLogic(userId: string, inventory: InventoryItem[], cravings: string) {
+    const { getAdmin } = require("@/lib/firebase-admin");
+    const { db } = getAdmin();
+
+    const personalDetails = await dataGetPersonalDetails(db, userId);
+    const settings = await dataGetSettings(db, userId);
+    const todaysMacros = await getTodaysMacros(db, userId);
+
+    const suggestions = await generateSuggestions({
+        inventory,
+        personalDetails,
+        settings,
+        todaysMacros,
+        cravings,
+    });
+
+    return { suggestions };
+}
+
+
+// This server action is used by the web UI (which uses session cookies)
 export async function handleGenerateSuggestions(formData: FormData) {
     try {
         const inventoryString = formData.get('inventory') as string;
         const cravings = formData.get('cravingsOrMood') as string;
         
         if (!inventoryString) {
-            return { error: { form: ["Inventory data is missing."] }, suggestions: null, debugInfo: { promptInput: "", rawResponse: "" } };
+            return { error: { form: ["Inventory data is missing."] }, suggestions: null };
         }
         
         const inventory: InventoryItem[] = JSON.parse(inventoryString);
         
         const userId = await getCurrentUserId();
-        const { getAdmin } = require("@/lib/firebase-admin");
-        const { db } = getAdmin();
-        const personalDetails = await getPersonalDetails(db, userId);
-        const settings = await getSettings(db, userId);
-        const todaysMacros = await getTodaysMacros(db, userId);
-        
-        const suggestions = await generateSuggestions({
-            inventory,
-            personalDetails,
-            settings,
-            todaysMacros,
-            cravings,
-        });
+        const { suggestions } = await generateMealSuggestionsLogic(userId, inventory, cravings);
 
-        return { error: null, suggestions: suggestions, debugInfo: { promptInput: "", rawResponse: "" }};
+        return { error: null, suggestions: suggestions };
     } catch (e) {
         console.error("Error in handleGenerateSuggestions:", e);
         const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating suggestions.";
-        return { error: { form: [errorMessage] }, suggestions: null, debugInfo: { promptInput: "", rawResponse: "" }};
+        return { error: { form: [errorMessage] }, suggestions: null };
     }
 }
+
+// This function is for API routes (like the Flutter app) that use an ID token
+export async function handleGenerateSuggestionsForApi(userId: string, inventory: InventoryItem[], cravings: string) {
+    try {
+        const { suggestions } = await generateMealSuggestionsLogic(userId, inventory, cravings);
+        return { error: null, suggestions };
+    } catch (e) {
+        console.error("Error in handleGenerateSuggestionsForApi:", e);
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating suggestions.";
+        return { error: { form: [errorMessage] }, suggestions: null };
+    }
+}
+
+
 export async function handleGenerateShoppingList(inventory: InventoryItem[], personalDetails: PersonalDetails) {
     return { error: "AI features are currently under maintenance. Please try again later.", shoppingList: null };
 }
@@ -120,7 +143,7 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
     return { success: false, error: "AI features are currently under maintenance. Please try again later." };
 }
 
-export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
+export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -546,3 +569,5 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
+
+    
