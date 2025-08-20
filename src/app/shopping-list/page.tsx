@@ -6,9 +6,12 @@ import { getClientInventory, getClientPersonalDetails, getClientShoppingList } f
 export const dynamic = 'force-dynamic';
 
 export default async function ShoppingListPage() {
-  const inventory = await getClientInventory();
+  const { privateItems, sharedItems } = await getClientInventory();
   const personalDetails = await getClientPersonalDetails();
   const shoppingList = await getClientShoppingList();
+
+  // Combine private and shared items into a single array
+  const inventory = [...privateItems, ...sharedItems];
 
   return (
     <MainLayout>
