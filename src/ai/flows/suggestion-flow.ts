@@ -13,7 +13,8 @@ import {
 } from '@/lib/types';
 import {
   format,
-  differenceInDays
+  differenceInDays,
+  parseISO,
 } from 'date-fns';
 
 /**
@@ -30,7 +31,7 @@ const InventoryItemSchema = z.object({
   originalQuantity: z.number(),
   totalQuantity: z.number(),
   unit: z.enum(['g', 'kg', 'ml', 'l', 'pcs', 'oz', 'lbs', 'fl oz', 'gallon']),
-  expiryDate: z.date().nullable(),
+  expiryDate: z.string().nullable(),
   locationId: z.string(),
   isPrivate: z.boolean(),
 });
@@ -70,7 +71,7 @@ const DailyMacrosSchema = z.object({
   meal: z.enum(['Breakfast', 'Lunch', 'Dinner', 'Snack']),
   dishes: z.array(z.object({ name: z.string(), protein: z.number(), carbs: z.number(), fat: z.number() })),
   totals: MacrosSchema,
-  loggedAt: z.date(),
+  loggedAt: z.string(),
 });
 
 const SuggestionRequestSchema = z.object({
@@ -108,7 +109,8 @@ const formatInventory = (inventory: InventoryItem[]) => {
     .map(item => {
       let expiryInfo = 'No expiry date';
       if (item.expiryDate) {
-        const daysUntilExpiry = differenceInDays(item.expiryDate, now);
+        const expiryDate = parseISO(item.expiryDate);
+        const daysUntilExpiry = differenceInDays(expiryDate, now);
         if (daysUntilExpiry < 0) {
           expiryInfo = `Expired ${-daysUntilExpiry} days ago`;
         } else if (daysUntilExpiry === 0) {
