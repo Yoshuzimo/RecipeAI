@@ -1,22 +1,37 @@
 'use server';
 
-import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 import { getAdmin } from "@/lib/firebase-admin";
 
 /**
- * Verifies the session cookie from the __session cookie and returns the user's UID.
- * @returns The user's UID if the session is valid, otherwise null.
+ * Verifies the ID token from either the Authorization header (Bearer) or __session cookie.
+ * Returns the user's UID if valid, otherwise null.
  */
-export async function getUserIdFromToken(): Promise<string | null> {
-    try {
-        const sessionCookie = cookies().get("__session")?.value;
-        if (!sessionCookie) return null;
+export async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
+  try {
+    const { auth } = getAdmin();
 
-        const { auth } = getAdmin();
-        const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-        return decodedClaims.uid;
-    } catch (error) {
-        console.error("Error verifying session cookie:", error);
-        return null;
+    // 1. Try Authorization header first
+    const authHeader = request.headers.get("Authorization");
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      const idToken = authHeader.split("Bearer ")[1];
+      if (idToken) {
+        const decoded = await auth.verifyIdToken(idToken);
+        return decoded.uid;
+      }
     }
+
+    // 2. Fall back to __session cookie
+    const sessionCookie = request.cookies.get("__session")?.value;
+    if (sessionCookie) {
+      const decoded = await auth.verifySessionCookie(sessionCookie, true);
+      return decoded.uid;
+    }
+
+    console.warn("[Auth] No valid token or session cookie found.");
+    return null;
+  } catch (error) {
+    console.error("[Auth] Error verifying token/session:", error);
+    return null;
+  }
 }

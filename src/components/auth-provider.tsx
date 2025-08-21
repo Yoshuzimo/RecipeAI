@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { app } from '@/lib/firebase';
-import { Skeleton } from './ui/skeleton';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { app } from "@/lib/firebase";
+import { Skeleton } from "./ui/skeleton";
 
 interface AuthContextType {
   user: User | null;
@@ -19,24 +19,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const auth = getAuth(app);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
       setLoading(false);
 
       try {
-        if (user) {
-          // Create a session cookie on the server
-          const token = await user.getIdToken(true);
-          await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        if (firebaseUser) {
+          const token = await firebaseUser.getIdToken(true);
+          await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: token }),
           });
         } else {
-          await fetch('/api/auth/session', { method: 'DELETE' });
+          await fetch("/api/auth/session", { method: "DELETE" });
         }
       } catch (error) {
-        console.error('AuthProvider: Error managing session', error);
+        console.error("[AuthProvider] Error managing session:", error);
       }
     });
 
