@@ -1,5 +1,5 @@
 
-"use server";
+'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
@@ -15,8 +15,8 @@ import {
     updateMealTime as dataUpdateMealTime,
     saveRecipe as dataSaveRecipe,
     removeInventoryItems as dataRemoveInventoryItems,
-    getStorageLocations,
-    getSavedRecipes,
+    getStorageLocations as dataGetStorageLocations,
+    getSavedRecipes as dataGetSavedRecipes,
     getTodaysMacros as dataGetTodaysMacros,
     addStorageLocation as dataAddStorageLocation,
     updateStorageLocation as dataUpdateStorageLocation,
@@ -32,11 +32,11 @@ import {
     rejectPendingMember as dataRejectPendingMember,
     getHousehold as dataGetHousehold,
     processLeaveRequest as dataProcessLeaveRequest,
-    getShoppingList,
-    addShoppingListItem,
-    updateShoppingListItem,
-    removeShoppingListItem,
-    removeCheckedShoppingListItems,
+    getShoppingList as dataGetShoppingList,
+    addShoppingListItem as dataAddShoppingListItem,
+    updateShoppingListItem as dataUpdateShoppingListItem,
+    removeShoppingListItem as dataRemoveShoppingListItem,
+    removeCheckedShoppingListItems as dataRemoveCheckedShoppingListItems,
     toggleItemPrivacy as dataToggleItemPrivacy,
     getPendingMemberInventory,
 } from "@/lib/data";
@@ -109,7 +109,8 @@ export async function handleGenerateSuggestions(formData: FormData) {
         return { suggestions, error: null };
     } catch (e) {
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        return { error: { form: [error] }, suggestions: null };
+        // Providing a more structured error for the client
+        return { error: { form: [error] }, suggestions: null, debugInfo: null };
     }
 }
 
@@ -400,14 +401,14 @@ export async function getClientStorageLocations() {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return getStorageLocations(db, userId);
+    return dataGetStorageLocations(db, userId);
 }
 
 export async function getClientSavedRecipes() {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return getSavedRecipes(db, userId);
+    return dataGetSavedRecipes(db, userId);
 }
 
 export async function getClientPersonalDetails() {
@@ -424,7 +425,7 @@ export async function savePersonalDetails(details: PersonalDetails) {
     return dataSavePersonalDetails(db, userId, details);
 }
 
-export async function getTodaysMacros() {
+export async function getClientTodaysMacros() {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -478,35 +479,35 @@ export async function getClientShoppingList(): Promise<ShoppingListItem[]> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return getShoppingList(db, userId);
+    return dataGetShoppingList(db, userId);
 }
 
 export async function addClientShoppingListItem(item: Omit<ShoppingListItem, 'id' | 'addedAt'>): Promise<ShoppingListItem> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return addShoppingListItem(db, userId, item);
+    return dataAddShoppingListItem(db, userId, item);
 }
 
 export async function updateClientShoppingListItem(item: ShoppingListItem): Promise<ShoppingListItem> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return updateShoppingListItem(db, userId, item);
+    return dataUpdateShoppingListItem(db, userId, item);
 }
 
 export async function removeClientShoppingListItem(itemId: string): Promise<{ id: string }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return removeShoppingListItem(db, userId, itemId);
+    return dataRemoveShoppingListItem(db, userId, itemId);
 }
 
 export async function removeClientCheckedShoppingListItems(): Promise<void> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return removeCheckedShoppingListItems(db, userId);
+    return dataRemoveCheckedShoppingListItems(db, userId);
 }
 
 
@@ -565,7 +566,7 @@ export async function handleCreateHousehold() {
     const ownerName = userSettings.displayName || "Owner";
     const inviteCode = generateInviteCode();
     try {
-        const userLocations = await getStorageLocations(db, userId);
+        const userLocations = await dataGetStorageLocations(db, userId);
         const household = await dataCreateHousehold(db, userId, ownerName, inviteCode, userLocations);
         return { success: true, household };
     } catch (error) {
@@ -654,3 +655,5 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
+
+    
