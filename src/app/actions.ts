@@ -1,9 +1,10 @@
+
 "use server";
 
 import { getAdmin } from "@/lib/firebase-admin";
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, DailyMacros } from "@/lib/types";
 import { 
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -29,7 +30,7 @@ import {
     leaveHousehold as dataLeaveHousehold, 
     approvePendingMember as dataApprovePendingMember, 
     approveAndMergeMember as dataApproveAndMergeMember,
-    rejectPendingMember as dataRejectPendingMember,
+    rejectPendingMember as dataRejectMember,
     getHousehold as dataGetHousehold,
     processLeaveRequest as dataProcessLeaveRequest,
     getShoppingList,
@@ -81,6 +82,23 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
         ...settingsData,
         subscriptionStatus: settingsData.subscriptionStatus || 'free',
     };
+    
+    const formatTodaysMacros = (macros: DailyMacros[]) => {
+      if (macros.length === 0) return "No meals logged yet today.";
+      const totals = macros.reduce((acc, meal) => {
+        acc.protein += meal.totals.protein;
+        acc.carbs += meal.totals.carbs;
+        acc.fat += meal.totals.fat;
+        return acc;
+      }, { protein: 0, carbs: 0, fat: 0 });
+
+      return `So far today, the user has consumed:
+    - Protein: ${totals.protein.toFixed(1)}g
+    - Carbs: ${totals.carbs.toFixed(1)}g
+    - Fat: ${totals.fat.toFixed(1)}g
+    `;
+    };
+    
 
     // Explicitly format dates to strings for the AI prompt
     const suggestionRequest: SuggestionRequest = {
@@ -95,6 +113,7 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
             loggedAt: macro.loggedAt.toISOString(),
         })),
         cravings,
+        formattedTodaysMacros: formatTodaysMacros(todaysMacrosData),
     };
 
     const suggestions = await generateSuggestions(suggestionRequest);

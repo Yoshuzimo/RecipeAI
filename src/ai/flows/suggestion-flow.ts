@@ -5,14 +5,8 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import {
   InventoryItem,
-  PersonalDetails,
-  Settings,
-  DailyMacros,
-  Recipe,
-  Macros,
 } from '@/lib/types';
 import {
-  format,
   differenceInDays,
   parseISO,
 } from 'date-fns';
@@ -80,6 +74,7 @@ const SuggestionRequestSchema = z.object({
   settings: SettingsSchema,
   todaysMacros: z.array(DailyMacrosSchema),
   cravings: z.string().optional(),
+  formattedTodaysMacros: z.string(),
 });
 export type SuggestionRequest = z.infer < typeof SuggestionRequestSchema > ;
 
@@ -123,23 +118,6 @@ const formatInventory = (inventory: InventoryItem[]) => {
     })
     .join('\n');
 };
-
-const formatTodaysMacros = (macros: DailyMacros[]) => {
-  if (macros.length === 0) return "No meals logged yet today.";
-  const totals = macros.reduce((acc, meal) => {
-    acc.protein += meal.totals.protein;
-    acc.carbs += meal.totals.carbs;
-    acc.fat += meal.totals.fat;
-    return acc;
-  }, { protein: 0, carbs: 0, fat: 0 });
-
-  return `So far today, the user has consumed:
-- Protein: ${totals.protein.toFixed(1)}g
-- Carbs: ${totals.carbs.toFixed(1)}g
-- Fat: ${totals.fat.toFixed(1)}g
-`;
-};
-
 
 export const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
@@ -188,7 +166,7 @@ User's Context:
 **Unit System:** {{{settings.unitSystem}}}
 
 **Today's Consumption:**
-{{{formatTodaysMacros todaysMacros}}}
+{{{formattedTodaysMacros}}}
 
 **Current Inventory:**
 {{{formatInventory inventory}}}
@@ -200,7 +178,6 @@ User's Context:
 Now, generate the three meal suggestions in the required format.`,
   helpers: {
     formatInventory,
-    formatTodaysMacros
   },
 });
 
