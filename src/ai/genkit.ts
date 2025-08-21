@@ -17,7 +17,7 @@ export const ai = genkit({
       // The API version can be specified here. 'v1beta' is common for recent features.
       // apiVersion: 'v1beta',
     }),
-    // Use specific Firebase plugins instead of the deprecated generic one.
+    // Use the new, simplified Firebase plugin for Genkit v1.x
     firebase(),
   ],
   // This allows Genkit to store flow states in Firestore, which is useful for debugging
