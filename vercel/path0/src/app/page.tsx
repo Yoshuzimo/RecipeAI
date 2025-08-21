@@ -40,7 +40,7 @@ export default async function OverviewPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <TodaysMacros dailyData={dailyData} settings={settings} totals={totals} />
+        <TodaysMacros dailyData={dailyData} settings={settings} totals={totals} onDataChange={async () => {}} />
         <p className="text-sm text-muted-foreground pt-2">
             Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
         </p>

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DailyMacros } from "@/lib/types";
+import { isToday } from "date-fns";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,40 +24,47 @@ export const dynamic = 'force-dynamic';
 const MOCK_WEEKLY_DATA: any[] = [];
 const MOCK_MONTHLY_DATA: any[] = [];
 
+const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 export default function NutritionPage() {
-  const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
+  const [allDailyData, setAllDailyData] = React.useState<DailyMacros[]>([]);
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily");
   
   const fetchData = React.useCallback(async () => {
     const data = await getClientTodaysMacros();
-    setDailyData(data);
+    setAllDailyData(data);
   }, []);
 
   React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const { data, description } = React.useMemo(() => {
+  const { data, description, dailyDataForChart } = React.useMemo(() => {
+    const todaysData = allDailyData.filter(d => isToday(d.loggedAt));
+    const sortedTodaysData = todaysData.sort((a, b) => mealOrder.indexOf(a.meal) - mealOrder.indexOf(b.meal));
+    
     switch (timeframe) {
       case "weekly":
         return { 
             data: MOCK_WEEKLY_DATA, 
-            description: "Your total calorie intake per day for the last week."
+            description: "Your total calorie intake per day for the last week.",
+            dailyDataForChart: []
         }
       case "monthly":
         return { 
             data: MOCK_MONTHLY_DATA,
-            description: "Your total calorie intake per week for the last month."
+            description: "Your total calorie intake per week for the last month.",
+            dailyDataForChart: []
         }
       case "daily":
       default:
         return { 
-            data: dailyData,
-            description: "A running total of your calorie intake for today."
+            data: todaysData,
+            description: "A running total of your calorie intake for today.",
+            dailyDataForChart: sortedTodaysData
         }
     }
-  }, [timeframe, dailyData]);
+  }, [timeframe, allDailyData]);
 
   return (
     <MainLayout>
@@ -89,10 +97,10 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dailyData} timeframe={timeframe} onDataChange={fetchData} />
+                <CalorieLineChart data={data} timeframe={timeframe} onDataChange={fetchData} />
             </CardContent>
          </Card>
-        {timeframe === 'daily' && <NutritionChart dailyData={dailyData} />}
+        {timeframe === 'daily' && <NutritionChart dailyData={dailyDataForChart} />}
       </div>
     </MainLayout>
   );

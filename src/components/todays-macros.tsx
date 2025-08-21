@@ -19,7 +19,6 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart"
 import { Separator } from "./ui/separator"
-import { getClientTodaysMacros, getSettings } from "@/app/actions"
 import type { DailyMacros, Settings } from "@/lib/types"
 import { CalorieLineChart } from "./calorie-line-chart"
 
@@ -42,22 +41,13 @@ const chartConfig = {
   }
 }
 
-export function TodaysMacros() {
-  const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
-  const [settings, setSettings] = React.useState<Settings | null>(null);
-
-  const fetchData = React.useCallback(async () => {
-    const data = await getClientTodaysMacros();
-    setDailyData(data);
-    const settingsData = await getSettings();
-    setSettings(settingsData);
-  }, []);
-
-  React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-
+export function TodaysMacros({ dailyData, settings, totals, onDataChange }: {
+    dailyData: DailyMacros[],
+    settings: Settings | null,
+    totals: { calories: number, protein: number, carbs: number, fat: number },
+    onDataChange: () => void,
+}) {
+  
   const chartData = React.useMemo(() => {
      return dailyData.map(d => {
         const calories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
@@ -72,16 +62,6 @@ export function TodaysMacros() {
      });
   }, [dailyData]);
 
-  const totals = React.useMemo(() => {
-    return chartData.reduce((acc, meal) => {
-        acc.calories += meal.calories;
-        acc.protein += meal.protein;
-        acc.carbs += meal.carbs;
-        acc.fat += meal.fat;
-        return acc;
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [chartData]);
-  
   const goals = {
       calories: settings?.calorieGoal || 2000,
       protein: settings?.proteinGoal || 150,
@@ -125,7 +105,7 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={fetchData} />
+        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={onDataChange} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
