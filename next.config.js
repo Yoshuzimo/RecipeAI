@@ -20,7 +20,7 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Exclude firebase-admin from client-side bundle
-      config.externals.push('firebase-admin');
+      config.externals = [...config.externals, 'firebase-admin'];
     }
     // Required for genkit to work
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
