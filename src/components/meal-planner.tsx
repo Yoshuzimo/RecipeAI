@@ -50,7 +50,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const [error, setError] = useState<any | null>(null);
   const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
   const [isPending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
+  const cravingsRef = useRef<HTMLInputElement>(null);
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -69,20 +69,17 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    console.log("Form submission intercepted. Preventing default POST.");
-
+  const handleSubmit = () => {
     if (!checkRateLimit()) {
       return;
     }
-    
-    if (!formRef.current) return;
-    const formData = new FormData(formRef.current);
 
+    const cravings = cravingsRef.current?.value || "";
+    const formData = new FormData();
+    formData.append("cravingsOrMood", cravings);
+    
     startTransition(async () => {
       recordRequest();
-      // Ensure inventory is in a hidden field to be sent with the form
       const currentInventoryJSON = JSON.stringify(inventory);
       formData.set('inventory', currentInventoryJSON);
 
@@ -296,8 +293,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-             <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
+          <div className="space-y-4">
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
                 Any specific cravings or ideas? (Optional)
@@ -305,13 +301,14 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
               <Input
                 id="cravingsOrMood"
                 name="cravingsOrMood"
+                ref={cravingsRef}
                 placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
                 className="mt-1"
                 disabled={isPending || isRateLimited}
               />
             </div>
             <div className="space-y-2">
-                <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
+                <Button onClick={handleSubmit} disabled={isPending || isRateLimited} className="w-full sm:w-auto">
                   {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -340,7 +337,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                     ))}
                 </div>
             )}
-          </form>
+          </div>
         </CardContent>
       </Card>
 
