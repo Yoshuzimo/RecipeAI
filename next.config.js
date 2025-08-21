@@ -1,7 +1,6 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,13 +18,15 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-
+    // This is the crucial part.
+    // It prevents server-side packages from being bundled into the client-side code.
     if (!isServer) {
-      // Don't bundle 'firebase-admin' on the client
       config.externals.push('firebase-admin');
     }
     
+    // This is needed for another dependency.
+    config.experiments = { ...config.experiments, asyncWebAssembly: true };
+
     return config;
   },
 };
