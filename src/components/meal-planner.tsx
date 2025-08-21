@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useRef, useMemo } from "react";
+import React, { useState, useTransition, useMemo } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -50,8 +50,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const [error, setError] = useState<any | null>(null);
   const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
   const [isPending, startTransition] = useTransition();
-
-  const formRef = useRef<HTMLFormElement>(null);
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -291,10 +289,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form ref={formRef} onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit(new FormData(e.currentTarget));
-            }} className="space-y-4">
+          <form action={handleSubmit} className="space-y-4">
              <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
