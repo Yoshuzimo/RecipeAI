@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
-import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails } from "@/app/actions";
-import type { InventoryItem, Recipe, InventoryItemGroup, Substitution } from "@/lib/types";
+import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
+import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,6 @@ import { SubstitutionsDialog } from "./substitutions-dialog";
 import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
-import { getClientInventory } from "@/app/actions";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
 import { Separator } from "./ui/separator";
@@ -32,26 +31,21 @@ const initialState = {
   adjustedRecipe: null,
   originalRecipeTitle: null,
   error: null,
-  debugInfo: {
-    promptInput: "AI prompt will appear here...",
-    rawResponse: "Raw AI response will appear here...",
-  },
 };
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
 
-export function MealPlanner({ initialInventory, initialSavedRecipes }: { initialInventory: InventoryItem[], initialSavedRecipes: Recipe[] }) {
+export function MealPlanner({ initialInventory, initialSavedRecipes }: { initialInventory: { privateItems: InventoryItem[], sharedItems: InventoryItem[] }, initialSavedRecipes: Recipe[] }) {
   const { toast } = useToast();
   const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+  const [inventory, setInventory] = useState<{ privateItems: InventoryItem[], sharedItems: InventoryItem[] }>(initialInventory);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>(initialSavedRecipes);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [error, setError] = useState<any | null>(null);
-  const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
   const [isPending, startTransition] = useTransition();
 
-  const formRef = useRef<HTMLFormElement>(null);
+  const cravingsRef = useRef<HTMLInputElement>(null);
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -70,35 +64,20 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
 
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!checkRateLimit()) {
       return;
     }
 
     startTransition(async () => {
       recordRequest();
-      // Ensure inventory is in a hidden field to be sent with the form
-      const currentInventoryJSON = JSON.stringify(inventory);
-      formData.set('inventory', currentInventoryJSON);
-
-      const result = await handleGenerateSuggestions(formData);
+      const cravings = cravingsRef.current?.value || "";
+      const result = await handleGenerateSuggestions(cravings);
       setError(result.error);
-      if (result.debugInfo) {
-          setDebugInfo(result.debugInfo);
-      }
       
       if (result.suggestions) {
         setSuggestions(result.suggestions);
-      }
-      
-      if (result.adjustedRecipe && result.originalRecipeTitle) {
-        setSuggestions(prev => 
-            prev?.map(s => s.title === result.originalRecipeTitle ? result.adjustedRecipe! : s) || null
-        );
-         toast({
-            title: "Recipe Adjusted",
-            description: `Servings for "${result.originalRecipeTitle}" updated.`,
-        });
       }
     });
   };
@@ -122,10 +101,10 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   };
 
   const getIngredientStatus = (ingredient: string) => {
+      const allItems = [...inventory.privateItems, ...inventory.sharedItems];
       const now = new Date();
       now.setHours(0,0,0,0);
-      // Find any inventory item whose name is a substring of the ingredient string
-      const inventoryItem = inventory.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
+      const inventoryItem = allItems.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
       if (inventoryItem) {
           if (!inventoryItem.expiryDate) return 'fresh';
           const expiryDate = new Date(inventoryItem.expiryDate);
@@ -155,34 +134,34 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   
   const handleExpiredCheckComplete = (isGood: boolean) => {
       setIsExpiredCheckDialogOpen(false);
+      const allItems = [...inventory.privateItems, ...inventory.sharedItems];
       if (ingredientToCheck) {
           if(isGood) {
-            // User says it's good, so take them to substitutions but don't pre-select anything
             handleOpenSubstitutions(ingredientToCheck.recipe);
           } else {
-            // User says it's spoiled, open the inventory view to manage packages
-            const inventoryItem = inventory.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
+            const inventoryItem = allItems.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
             const ingredientName = inventoryItem?.name;
             if (ingredientName) {
-                const items = inventory.filter(item => item.name === ingredientName);
-                // Create a dummy group to pass to the dialog
+                const items = allItems.filter(item => item.name === ingredientName);
                 const group: InventoryItemGroup = {
                     name: ingredientName,
                     items: items,
-                    packageInfo: '', // Not needed for this view
+                    packageInfo: '',
                     nextExpiry: items.length > 0 ? items.sort((a,b) => {
                         if (a.expiryDate === null) return 1;
                         if (b.expiryDate === null) return -1;
                         return a.expiryDate.getTime() - b.expiryDate.getTime()
                     })[0].expiryDate : null,
-                    unit: items[0]?.unit || 'pcs'
+                    unit: items[0]?.unit || 'pcs',
+                    isPrivate: items[0]?.isPrivate,
+                    locationId: items[0]?.locationId,
+                    locationName: '', // This isn't critical for the dialog
                 };
                 setGroupToView(group);
                 setIsViewInventoryDialogOpen(true);
             }
           }
       }
-      // Don't reset ingredientToCheck here, we need it for the inventory dialog logic
   }
 
   const handleSubstitutionsApplied = async (originalRecipeTitle: string, newIngredients: string[]) => {
@@ -215,22 +194,21 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   }
 
   const handleInventoryUpdateAndCheckSubstitutions = async () => {
-    const updatedInventory = await getClientInventory(); // Re-fetch inventory
+    const updatedInventory = await getClientInventory();
     setInventory(updatedInventory);
+    const allItems = [...updatedInventory.privateItems, ...updatedInventory.sharedItems];
 
     if (ingredientToCheck) {
         const { recipe, ingredient } = ingredientToCheck;
-        const ingredientName = inventory.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
+        const ingredientName = allItems.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
         
-        // Check if the item still exists in inventory after update
-        const itemStillExists = updatedInventory.some(i => i.name === ingredientName && i.totalQuantity > 0);
+        const itemStillExists = allItems.some(i => i.name === ingredientName && i.totalQuantity > 0);
         
         if (!itemStillExists) {
             toast({
                 title: "Item Removed",
                 description: `${ingredientName} was removed from inventory. Opening substitutions.`,
             });
-            // Item was fully removed, so force substitution
             handleOpenSubstitutions(recipe);
         } else {
             toast({
@@ -239,7 +217,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             })
         }
     }
-    setIngredientToCheck(null); // Reset after handling
+    setIngredientToCheck(null);
     setGroupToView(null);
   };
   
@@ -248,12 +226,16 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     setIsLogMealDialogOpen(true);
   };
 
-  const handleMealLogged = (newInventory: InventoryItem[]) => {
-    setInventory(newInventory);
-    toast({
-        title: "Inventory Updated",
-        description: "Your inventory has been updated with the new leftovers.",
-    })
+  const handleMealLogged = (newInventoryItems: InventoryItem[]) => {
+    // This function assumes the new inventory list is complete (private + shared)
+    // We need to re-group it. For now, we'll just set it.
+    // This might need adjustment based on what `handleLogCookedMeal` returns.
+    // For simplicity, let's assume it returns all items and we need to re-fetch.
+    async function refreshInventory() {
+        const fullInventory = await getClientInventory();
+        setInventory(fullInventory);
+    }
+    refreshInventory();
   }
 
   const handleRecipeCreated = (newRecipe: Recipe) => {
@@ -266,7 +248,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
       return prevSuggestions.map(recipe => {
         if (recipe.title === recipeTitle) {
-          if (newServingSize <= 0) return recipe; // Don't allow less than 1 serving
+          if (newServingSize <= 0) return recipe;
 
           const newIngredients = scaleIngredients(recipe.ingredients, recipe.servings, newServingSize);
           
@@ -274,7 +256,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             ...recipe,
             servings: newServingSize,
             ingredients: newIngredients,
-            // Re-parse ingredients for AI context if needed later, though not required for this action
             parsedIngredients: newIngredients.map(ing => parseIngredient(ing))
           };
         }
@@ -289,11 +270,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form ref={formRef} onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit(new FormData(e.currentTarget));
-            }} className="space-y-4">
-             <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
                 Any specific cravings or ideas? (Optional)
@@ -301,6 +278,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
               <Input
                 id="cravingsOrMood"
                 name="cravingsOrMood"
+                ref={cravingsRef}
                 placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
                 className="mt-1"
                 disabled={isPending || isRateLimited}
@@ -328,13 +306,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             </div>
             {error?.form && (
                 <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
-            )}
-            {error?.fieldErrors && (
-                <div className="text-sm font-medium text-destructive mt-2">
-                    {Object.entries(error.fieldErrors).map(([key, value]) => (
-                        <p key={key}>{`${key}: ${(value as string[]).join(', ')}`}</p>
-                    ))}
-                </div>
             )}
           </form>
         </CardContent>
@@ -372,7 +343,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             {suggestions.map((recipe, index) => {
               const isSaved = savedRecipeTitles.has(recipe.title);
               return (
-               <Card key={recipe.title}>
+               <Card key={`${recipe.title}-${index}`}>
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                         <CardHeader className="flex flex-row items-start justify-between p-6">
                             <AccordionTrigger className="flex-1 text-left p-0">
@@ -473,25 +444,13 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
           </div>
         )}
       </div>
-
-       {/* <div className="mt-8 space-y-4">
-        <h3 className="text-xl font-bold">Debug Info</h3>
-        <div className="space-y-2">
-          <Label htmlFor="prompt-input">Prompt Input</Label>
-          <Textarea id="prompt-input" readOnly value={debugInfo.promptInput || ""} className="h-64 font-mono text-xs" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="raw-response">Raw AI Response</Label>
-          <Textarea id="raw-response" readOnly value={debugInfo.rawResponse || ""} className="h-64 font-mono text-xs" />
-        </div>
-      </div> */}
     </div>
      {isSubstitutionsDialogOpen && recipeForSubstitutions && (
         <SubstitutionsDialog
             isOpen={isSubstitutionsDialogOpen}
             setIsOpen={setIsSubstitutionsDialogOpen}
             recipe={recipeForSubstitutions}
-            inventory={inventory}
+            inventory={[...inventory.privateItems, ...inventory.sharedItems]}
             onSubstitutionsApplied={handleSubstitutionsApplied}
         />
      )}
@@ -514,7 +473,12 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             setIsViewInventoryDialogOpen(open);
           }}
           group={groupToView}
-          onUpdateComplete={handleInventoryUpdateAndCheckSubstitutions}
+          isPrivate={groupToView.isPrivate}
+          onUpdateComplete={async () => {
+              const fullInventory = await getClientInventory();
+              setInventory(fullInventory);
+              handleInventoryUpdateAndCheckSubstitutions();
+          }}
         />
       )}
       {isLogMealDialogOpen && recipeToLog && (
@@ -528,7 +492,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       <CreateRecipeDialog
         isOpen={isCreateRecipeDialogOpen}
         setIsOpen={setIsCreateRecipeDialogOpen}
-        inventory={inventory}
+        inventory={[...inventory.privateItems, ...inventory.sharedItems]}
         onRecipeCreated={handleRecipeCreated}
       />
     </>

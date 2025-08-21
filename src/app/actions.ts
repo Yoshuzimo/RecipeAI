@@ -41,6 +41,7 @@ import {
     getPendingMemberInventory,
 } from "@/lib/data";
 import { addDays } from "date-fns";
+import { generateSuggestions, generateSubstitutions, generateRecipeDetails, logCookedMeal, generateShoppingList } from "@/ai/flows";
 
 
 // --- Server Actions ---
@@ -71,10 +72,41 @@ export async function seedUserData(userId: string): Promise<void> {
 
 // --- AI Actions ---
 
-export async function handleGenerateSuggestions(formData: FormData) {
-    // Placeholder logic
-    const error = "AI features are currently under maintenance. Please try again later.";
-    return { error: { form: [error] }, suggestions: null, debugInfo: null };
+export async function handleGenerateSuggestions(cravingsOrMood: string) {
+    try {
+        const userId = await getCurrentUserId();
+        const { getAdmin } = require("@/lib/firebase-admin");
+        const { db } = getAdmin();
+        
+        const { privateItems, sharedItems } = await getInventory(db, userId);
+        const inventory = [...privateItems, ...sharedItems];
+        const personalDetails = await dataGetPersonalDetails(db, userId);
+        const todaysMacros = await dataGetTodaysMacros(db, userId);
+        const settings = await dataGetSettings(db, userId);
+
+        const totalMacros = todaysMacros.reduce((acc, meal) => {
+            acc.protein += meal.totals.protein;
+            acc.carbs += meal.totals.carbs;
+            acc.fat += meal.totals.fat;
+            return acc;
+        }, { protein: 0, carbs: 0, fat: 0 });
+
+        const suggestions = await generateSuggestions({
+            inventory: inventory,
+            personalDetails: personalDetails,
+            todaysMacros: totalMacros,
+            cravingsOrMood: cravingsOrMood,
+            unitSystem: settings.unitSystem,
+        });
+
+        return { suggestions, error: null };
+    } catch (e: any) {
+        console.error("Error generating suggestions:", e);
+        return {
+            suggestions: null,
+            error: { form: [e.message || "An unexpected error occurred."] },
+        }
+    }
 }
 
 export async function handleGenerateShoppingList(inventory: {privateItems: InventoryItem[], sharedItems: InventoryItem[]}, personalDetails: PersonalDetails) {
