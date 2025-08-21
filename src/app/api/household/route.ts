@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         const result = await handleCreateHousehold();
         return NextResponse.json(result);
     } catch (error) {
-        console.error("Error in /api/household POST:`, error);
+        console.error("Error in /api/household POST:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return new NextResponse(JSON.stringify({ error: "Failed to create household", details: errorMessage }), { status: 500 });
     }

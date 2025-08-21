@@ -53,7 +53,7 @@ export async function DELETE(request: NextRequest) {
         await removeClientCheckedShoppingListItems();
         return new NextResponse(null, { status: 204 });
 
-    } catch (error)
+    } catch (error) {
         console.error("Error in /api/shopping-list DELETE:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return new NextResponse(JSON.stringify({ error: "Failed to delete checked items", details: errorMessage }), { status: 500 });
