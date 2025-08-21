@@ -74,7 +74,7 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
 
     const personalDetails = await dataGetPersonalDetails(db, userId);
     const settingsData = await dataGetSettings(db, userId);
-    const todaysMacros = await getTodaysMacros(db, userId);
+    const todaysMacrosData = await getTodaysMacros(db, userId);
 
     // Ensure all required fields are present for the AI
     const settings: Settings = {
@@ -82,13 +82,22 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
         subscriptionStatus: settingsData.subscriptionStatus || 'free',
     };
 
-    const suggestions = await generateSuggestions({
-        inventory,
+    // Explicitly format dates to strings for the AI prompt
+    const suggestionRequest: SuggestionRequest = {
+        inventory: inventory.map(item => ({
+            ...item,
+            expiryDate: item.expiryDate ? item.expiryDate.toISOString() : null,
+        })),
         personalDetails,
         settings,
-        todaysMacros,
+        todaysMacros: todaysMacrosData.map(macro => ({
+            ...macro,
+            loggedAt: macro.loggedAt.toISOString(),
+        })),
         cravings,
-    });
+    };
+
+    const suggestions = await generateSuggestions(suggestionRequest);
 
     return { suggestions };
 }
@@ -104,7 +113,12 @@ export async function handleGenerateSuggestions(formData: FormData) {
             return { error: { form: ["Inventory data is missing."] }, suggestions: null };
         }
         
-        const inventory: InventoryItem[] = JSON.parse(inventoryString);
+        const inventory: InventoryItem[] = JSON.parse(inventoryString, (key, value) => {
+            if (key === 'expiryDate' && value) {
+                return new Date(value);
+            }
+            return value;
+        });
         
         const userId = await getCurrentUserId();
         const { suggestions } = await generateMealSuggestionsLogic(userId, inventory, cravings);
@@ -120,7 +134,12 @@ export async function handleGenerateSuggestions(formData: FormData) {
 // This function is for API routes (like the Flutter app) that use an ID token
 export async function handleGenerateSuggestionsForApi(userId: string, inventory: InventoryItem[], cravings: string) {
     try {
-        const { suggestions } = await generateMealSuggestionsLogic(userId, inventory, cravings);
+        // The inventory from the API likely has date strings, so we convert them to Date objects first
+        const typedInventory = inventory.map(item => ({
+            ...item,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+        }));
+        const { suggestions } = await generateMealSuggestionsLogic(userId, typedInventory, cravings);
         return { error: null, suggestions };
     } catch (e) {
         console.error("Error in handleGenerateSuggestionsForApi:", e);
