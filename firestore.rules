@@ -4,48 +4,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // By default, deny all
+    // Default deny all access
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // HOUSEHOLD DATA
-    // This section defines access control for shared household data.
-    match /households/{householdId} {
-        // Allow any authenticated user who is a member of the household to read its main document.
-        allow read: if request.auth != null && exists(/databases/$(database)/documents/households/$(householdId)) &&
-                      (request.auth.uid in resource.data.activeMembers.map(m => m.userId) || request.auth.uid == resource.data.ownerId);
-
-        // Only the owner of the household can update the main household document (e.g., change owner, approve members).
-        allow write: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    // Rules for user-specific data
+    match /users/{userId}/{documents=**} {
+      // Allow a user to read and write to their own documents and subcollections
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    match /households/{householdId}/{path=**} {
-      // Allow any active member of the household to read and write documents in subcollections (e.g., inventory, shopping-list).
-      allow read, write: if request.auth != null &&
-                           exists(/databases/$(database)/documents/households/$(householdId)) &&
-                           get(/databases/$(database)/documents/households/$(householdId)).data.activeMembers.map(m => m.userId).hasAny([request.auth.uid]);
-    }
-
-
-    // USER-SPECIFIC DATA
-    // This section defines access control for a user's private data.
+    
+    // Allow a user to be created only if they don't already exist.
     match /users/{userId} {
-      // A user can only be created if they don't already exist.
-      allow create: if request.auth != null && !exists(/databases/$(database)/documents/users/$(userId));
-
-      // Allow a user to read their own main document (which might store their householdId).
-      allow read: if request.auth != null && request.auth.uid == userId;
-
-      // Allow a user to update their own householdId.
-      allow update: if request.auth != null && request.auth.uid == userId;
+       allow create: if request.auth != null && !exists(/databases/$(database)/documents/users/$(userId));
     }
 
-    // This rule governs all subcollections under a user's document (e.g., inventory, app-data).
-    match /users/{userId}/{document=**} {
-        // Allow a user to read and write to any document within their own user space.
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
+    // Rules for shared household data
+    match /households/{householdId} {
+        // Any authenticated user can read household data to check for invites, etc.
+        allow read: if request.auth != null;
 
+        // Only allow a user to write to a household if they are listed as an active member.
+        // This covers creating/updating inventory, shopping lists, and locations.
+        allow write: if request.auth != null && exists(/databases/$(database)/documents/households/$(householdId))
+                      && resource.data.activeMembers.hasAny(['userId'], [request.auth.uid]);
+    }
+    
+    // Rules for household subcollections (inventory, locations, etc.)
+    match /households/{householdId}/{documents=**} {
+       // Only allow a user to read/write to subcollections if they are an active member.
+       allow read, write: if request.auth != null 
+                          && get(/databases/$(database)/documents/households/$(householdId)).data.activeMembers.hasAny(['userId'], [request.auth.uid]);
+    }
   }
 }
