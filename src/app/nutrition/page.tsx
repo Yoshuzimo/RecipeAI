@@ -6,7 +6,7 @@ import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
 import { getClientTodaysMacros } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
-import { CalorieLineChart } from "@/components/calorie-line-chart";
+import { CalorieLineChart } from "@/components/ui/calorie-line-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select,
@@ -16,13 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DailyMacros } from "@/lib/types";
-import { isToday } from "date-fns";
+import { isToday, isWithinInterval, startOfWeek, endOfWeek, format } from "date-fns";
 
 export const dynamic = 'force-dynamic';
-
-// Weekly and monthly data would come from a more complex query in a real app
-const MOCK_WEEKLY_DATA: any[] = [];
-const MOCK_MONTHLY_DATA: any[] = [];
 
 const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
@@ -39,30 +35,54 @@ export default function NutritionPage() {
     fetchData();
   }, [fetchData]);
 
-  const { data, description, dailyDataForChart } = React.useMemo(() => {
-    const todaysData = allDailyData.filter(d => isToday(d.loggedAt));
-    const sortedTodaysData = todaysData.sort((a, b) => mealOrder.indexOf(a.meal) - mealOrder.indexOf(b.meal));
-    
+  const { dataForCharts, description } = React.useMemo(() => {
+    const now = new Date();
     switch (timeframe) {
-      case "weekly":
+      case "weekly": {
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+        const weekData = allDailyData.filter(d => isWithinInterval(d.loggedAt, { start: weekStart, end: weekEnd }));
+        
+        const dailyTotals = Array.from({ length: 7 }, (_, i) => {
+            const day = new Date(weekStart);
+            day.setDate(day.getDate() + i);
+            return {
+                day: format(day, 'E'), // Mon, Tue, etc.
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+            }
+        });
+
+        weekData.forEach(meal => {
+            const dayIndex = (meal.loggedAt.getDay() + 6) % 7; // Monday is 0
+            const mealCalories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
+            dailyTotals[dayIndex].calories += mealCalories;
+            dailyTotals[dayIndex].protein += meal.totals.protein;
+            dailyTotals[dayIndex].carbs += meal.totals.carbs;
+            dailyTotals[dayIndex].fat += meal.totals.fat;
+        });
+
         return { 
-            data: MOCK_WEEKLY_DATA, 
-            description: "Your total calorie intake per day for the last week.",
-            dailyDataForChart: []
+            dataForCharts: dailyTotals, 
+            description: "Your total calorie and macronutrient intake per day for the current week.",
         }
+      }
       case "monthly":
         return { 
-            data: MOCK_MONTHLY_DATA,
+            dataForCharts: [],
             description: "Your total calorie intake per week for the last month.",
-            dailyDataForChart: []
         }
       case "daily":
-      default:
+      default: {
+        const todaysData = allDailyData.filter(d => isToday(d.loggedAt));
+        const sortedTodaysData = todaysData.sort((a, b) => mealOrder.indexOf(a.meal) - mealOrder.indexOf(b.meal));
         return { 
-            data: todaysData,
+            dataForCharts: sortedTodaysData,
             description: "A running total of your calorie intake for today.",
-            dailyDataForChart: sortedTodaysData
         }
+      }
     }
   }, [timeframe, allDailyData]);
 
@@ -82,7 +102,7 @@ export default function NutritionPage() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly" disabled>Weekly (Coming Soon)</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly" disabled>Monthly (Coming Soon)</SelectItem>
             </SelectContent>
             </Select>
@@ -97,10 +117,10 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={data} timeframe={timeframe} onDataChange={fetchData} />
+                <CalorieLineChart data={dataForCharts} timeframe={timeframe} onDataChange={fetchData} />
             </CardContent>
          </Card>
-        {timeframe === 'daily' && <NutritionChart dailyData={dailyDataForChart} />}
+        <NutritionChart data={dataForCharts} timeframe={timeframe} />
       </div>
     </MainLayout>
   );

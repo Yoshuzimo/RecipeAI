@@ -11,7 +11,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { DailyMacros } from "@/lib/types"
-import { EditMealTimeDialog } from "./edit-meal-time-dialog"
+import { EditMealTimeDialog } from "../edit-meal-time-dialog"
 
 type ChartDataPoint = {
     time: number; // Daily

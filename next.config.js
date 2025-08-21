@@ -18,8 +18,14 @@ const nextConfig = {
       },
     ],
   },
-  webpack(config) {
+  webpack: (config, { isServer }) => {
+    // Prevent firebase-admin from being bundled on the client
+    if (!isServer) {
+      config.externals.push('firebase-admin');
+    }
+    
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
+    
     return config;
   },
 };
