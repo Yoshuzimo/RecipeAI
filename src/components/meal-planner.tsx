@@ -56,7 +56,8 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!checkRateLimit()) {
       return;
     }
@@ -273,44 +274,46 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <div className="space-y-4">
-             <div className="grid gap-2">
-              <Label htmlFor="cravingsOrMood">
-                Any specific cravings or ideas? (Optional)
-              </Label>
-              <Input
-                id="cravingsOrMood"
-                name="cravingsOrMood"
-                ref={cravingsRef}
-                placeholder="e.g., 'spicy thai curry', 'healthy snack'..."
-                className="mt-1"
-                disabled={isPending || isRateLimited}
-              />
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="cravingsOrMood">
+                  Any specific cravings or ideas? (Optional)
+                </Label>
+                <Input
+                  id="cravingsOrMood"
+                  name="cravingsOrMood"
+                  ref={cravingsRef}
+                  placeholder="e.g., 'spicy thai curry', 'healthy snack'..."
+                  className="mt-1"
+                  disabled={isPending || isRateLimited}
+                />
+              </div>
+              <div className="space-y-2">
+                  <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : isRateLimited ? (
+                      `Please wait (${timeToWait}s)`
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generate Suggestions
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                      AI can make mistakes. The results are based on the information you provide, not a healthcare professional. Always follow your doctor's advice.
+                  </p>
+              </div>
+              {error?.form && (
+                  <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
+              )}
             </div>
-            <div className="space-y-2">
-                <Button onClick={handleSubmit} disabled={isPending || isRateLimited} className="w-full sm:w-auto">
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : isRateLimited ? (
-                    `Please wait (${timeToWait}s)`
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Suggestions
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                    AI can make mistakes. The results are based on the information you provide, not a healthcare professional. Always follow your doctor's advice.
-                </p>
-            </div>
-            {error?.form && (
-                <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
-            )}
-          </div>
+          </form>
         </CardContent>
       </Card>
 
