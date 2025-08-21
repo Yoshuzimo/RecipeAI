@@ -1,44 +1,45 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { handleGenerateSuggestionsForApi } from "@/app/actions";
 import { getUserIdFromToken } from "@/lib/auth";
+import { InventoryItem } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
+    console.log("Received request for /api/ai/meal-suggestions");
+    
     try {
-        // Safely parse JSON body
-        const body = await request.json().catch(() => null);
-        if (!body) {
-            return NextResponse.json(
-                { error: "Invalid request body", suggestions: null },
-                { status: 400 }
-            );
-        }
+        const authHeader = request.headers.get("authorization");
+        console.log("Authorization Header:", authHeader);
 
-        const { inventory, cravings } = body;
-
-        if (!inventory || !Array.isArray(inventory)) {
-            return NextResponse.json(
-                { error: "Inventory must be an array", suggestions: null },
-                { status: 400 }
-            );
-        }
-
-        // Safely get userId from token
         const userId = await getUserIdFromToken(request);
         if (!userId) {
-            return NextResponse.json(
-                { error: "Authentication required", suggestions: null },
-                { status: 401 }
-            );
+            console.error("Unauthorized: No user ID found from token.");
+            return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+        }
+        console.log("Authenticated User ID:", userId);
+
+        const body = await request.json();
+        console.log("Request Body:", body);
+        const { inventory, cravings } = body;
+
+        if (!inventory) {
+             console.error("Bad Request: Missing inventory in request body.");
+            return new NextResponse(JSON.stringify({ error: "Missing required field: inventory" }), { status: 400 });
+        }
+        
+        const result = await handleGenerateSuggestionsForApi(userId, inventory, cravings || "");
+
+        if (result.error) {
+            console.error("Error from handleGenerateSuggestionsForApi:", result.error);
+            return NextResponse.json({ error: result.error }, { status: 500 });
         }
 
-        const response = await handleGenerateSuggestionsForApi(userId, inventory, cravings || "");
+        console.log("Successfully generated meal suggestions.");
+        return NextResponse.json(result);
 
-        return NextResponse.json(response);
     } catch (error) {
-        console.error("Error in meal-suggestions API route:", error);
-        return NextResponse.json(
-            { error: "An unknown error occurred", suggestions: null },
-            { status: 500 }
-        );
+        console.error(`Error in /api/ai/meal-suggestions POST:`, error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return new NextResponse(JSON.stringify({ error: "Failed to generate suggestions", details: errorMessage }), { status: 500 });
     }
 }
