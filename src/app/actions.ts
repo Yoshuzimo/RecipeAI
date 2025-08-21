@@ -27,7 +27,7 @@ import {
     createHousehold as dataCreateHousehold,
     joinHousehold as dataJoinHousehold,
     leaveHousehold as dataLeaveHousehold,
-approvePendingMember as dataApprovePendingMember,
+    approvePendingMember as dataApprovePendingMember,
     approveAndMergeMember as dataApproveAndMergeMember,
     rejectPendingMember as dataRejectPendingMember,
     getHousehold as dataGetHousehold,
@@ -150,7 +150,10 @@ export async function handleGenerateSubstitutions(recipe: Recipe, ingredientsToR
         const settings = await dataGetSettings(db, userId);
 
         const input: SubstitutionInput = {
-            recipe,
+            recipe: {
+                ...recipe,
+                parsedIngredients: recipe.parsedIngredients || [],
+            },
             ingredientsToReplace,
             inventory: inventory.map(i => ({...i, expiryDate: i.expiryDate || new Date()})),
             personalDetails,
@@ -165,7 +168,7 @@ export async function handleGenerateSubstitutions(recipe: Recipe, ingredientsToR
     }
 }
 
-export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">): Promise<{recipe: Recipe | null, error: string | null}> {
+export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients" | "ingredients"> & { ingredients: string[] }): Promise<{recipe: Recipe | null, error: string | null}> {
      try {
         const input: RecipeDetailsInput = {
             title: recipeData.title,
@@ -174,7 +177,7 @@ export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "serv
             instructions: recipeData.instructions,
         };
         const recipe = await generateRecipeDetails(input);
-        return { recipe, error: null };
+        return { recipe: { ...recipe, parsedIngredients: recipe.parsedIngredients || [] }, error: null };
      } catch (e: any) {
         console.error("Error generating recipe details:", e);
         return { recipe: null, error: e.message || "Failed to finalize recipe." };
@@ -193,7 +196,10 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
         const settings = await getSettings(db, userId);
 
         const input: LogMealInput = {
-            recipe,
+            recipe: {
+                ...recipe,
+                parsedIngredients: recipe.parsedIngredients || [],
+            },
             inventory: inventory.map(i => ({...i, expiryDate: i.expiryDate || new Date()})),
             servingsEaten,
             servingsEatenByOthers,
@@ -206,6 +212,7 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
 
         // Process the results to update Firestore
         const batch = db.batch();
+        const userDoc = await db.collection('users').doc(userId).get();
 
         // 1. Remove items
         result.itemsToRemove.forEach(item => {
@@ -226,7 +233,6 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
         });
         
         // 3. Add leftover items
-        const userDoc = await db.collection('users').doc(userId).get();
         result.leftoverItems.forEach(item => {
             const collectionPath = (item.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
             const newLeftoverRef = db.collection(collectionPath).doc();

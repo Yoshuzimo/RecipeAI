@@ -4,7 +4,7 @@
  * used in the AI flows. These schemas are used for input validation and to ensure
  * the AI model returns data in the correct format.
  */
-import {z} from 'genkit';
+import {z} from 'zod';
 
 export const UnitSchema = z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]);
 
@@ -52,7 +52,7 @@ export const RecipeSchema = z.object({
   description: z.string(),
   servings: z.number().positive(),
   ingredients: z.array(z.string()),
-  parsedIngredients: z.array(RecipeIngredientSchema).optional(),
+  parsedIngredients: z.array(RecipeIngredientSchema),
   instructions: z.array(z.string()),
   macros: MacrosSchema,
 });

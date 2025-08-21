@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
             return new NextResponse(JSON.stringify({ error: "Missing required fields for generating recipe details." }), { status: 400 });
         }
         
-        const result = await handleGenerateRecipeDetails(recipeData);
+        const result = await handleGenerateRecipeDetails(recipeData as Omit<Recipe, "servings" | "macros" | "parsedIngredients" | "ingredients"> & { ingredients: string[] });
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 500 });
         }
 
-        return NextResponse.json(result);
+        return NextResponse.json(result.recipe);
 
     } catch (error) {
         console.error(`Error in /api/ai/recipe-details POST:`, error);

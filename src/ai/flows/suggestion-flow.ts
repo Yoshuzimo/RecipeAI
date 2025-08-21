@@ -6,7 +6,7 @@
  * personalized recipe ideas.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import {
     InventoryItemSchema,
     PersonalDetailsSchema,
@@ -31,18 +31,18 @@ export type SuggestionOutput = z.infer<typeof SuggestionOutputSchema>;
 // The main prompt that drives the suggestion logic
 const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
-  input: {schema: SuggestionInputSchema},
-  output: {schema: SuggestionOutputSchema},
+  inputSchema: SuggestionInputSchema,
+  outputSchema: SuggestionOutputSchema,
   prompt: `
     You are a world-class chef and nutritionist who specializes in creating delicious, healthy, and practical meal plans.
     Your goal is to suggest 3-5 meal ideas based on the user's current inventory, personal preferences, and health goals.
 
     Here is the information you have about the user:
     - Current kitchen inventory: {{#each inventory}}- {{name}} ({{totalQuantity}} {{unit}} available, expires on {{expiryDate}}) {{/each}}
-    - User's personal details (health goals, allergies, etc.): {{JSON.stringify personalDetails}}
-    - User's macros consumed so far today: {{todaysMacros.protein}}g protein, {{todaysMacros.carbs}}g carbs, {{todaysMacros.fat}}g fat.
+    - User's personal details (health goals, allergies, etc.): {{JSONstringify personalDetails}}
+    - User's macros consumed so far today: {{{todaysMacros.protein}}}g protein, {{{todaysMacros.carbs}}}g carbs, {{{todaysMacros.fat}}}g fat.
     - User's current craving or mood: "{{cravingsOrMood}}"
-    - User's preferred unit system for recipes: {{unitSystem}}
+    - User's preferred unit system for recipes: {{{unitSystem}}}
 
     Your task is to generate 3 to 5 creative and suitable meal suggestions. For each suggestion, provide a complete recipe.
 
@@ -66,10 +66,8 @@ const suggestionFlow = ai.defineFlow(
     outputSchema: SuggestionOutputSchema,
   },
   async (input) => {
-    // In a more complex scenario, you could add more logic here,
-    // like fetching additional data or calling other tools before running the prompt.
-    const {output} = await suggestionPrompt(input);
-    return output!;
+    const response = await suggestionPrompt.generate({input});
+    return response.output()!;
   }
 );
 

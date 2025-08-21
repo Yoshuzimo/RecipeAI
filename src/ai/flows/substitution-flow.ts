@@ -4,7 +4,7 @@
  * @fileOverview This flow provides ingredient substitution suggestions for a given recipe.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import {
     InventoryItemSchema,
     PersonalDetailsSchema,
@@ -36,18 +36,18 @@ export type SubstitutionOutput = z.infer<typeof SubstitutionOutputSchema>;
 // The main prompt for the flow
 const substitutionPrompt = ai.definePrompt({
     name: 'substitutionPrompt',
-    input: {schema: SubstitutionInputSchema},
-    output: {schema: SubstitutionOutputSchema},
+    inputSchema: SubstitutionInputSchema,
+    outputSchema: SubstitutionOutputSchema,
     prompt: `
         You are a culinary expert with a deep knowledge of ingredient substitutions. A user needs help modifying a recipe.
 
         Here is the information you have:
-        - The recipe: {{recipe.title}}
+        - The recipe: {{{recipe.title}}}
         - The user wants to replace: {{#each ingredientsToReplace}}- {{this}} {{/each}}
         - User's current inventory: {{#each inventory}}- {{name}} ({{totalQuantity}} {{unit}}) {{/each}}
-        - User's personal details (for allergies/preferences): {{JSON.stringify personalDetails}}
-        - Allow suggestions outside of inventory: {{allowExternalSuggestions}}
-        - User's preferred unit system: {{unitSystem}}
+        - User's personal details (for allergies/preferences): {{JSONstringify personalDetails}}
+        - Allow suggestions outside of inventory: {{{allowExternalSuggestions}}}
+        - User's preferred unit system: {{{unitSystem}}}
 
         Your task is to provide 1-3 suitable substitutions for EACH of the requested ingredients.
 
@@ -70,8 +70,8 @@ const substitutionFlow = ai.defineFlow(
     outputSchema: SubstitutionOutputSchema,
   },
   async (input) => {
-    const {output} = await substitutionPrompt(input);
-    return output!;
+    const response = await substitutionPrompt.generate({input});
+    return response.output()!;
   }
 );
 

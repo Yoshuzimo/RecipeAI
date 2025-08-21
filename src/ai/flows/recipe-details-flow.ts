@@ -5,7 +5,7 @@
  * for a user-provided recipe.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import {RecipeSchema} from '@/ai/schemas';
 
 // Input schema for generating recipe details
@@ -20,13 +20,13 @@ export type RecipeDetailsInput = z.infer<typeof RecipeDetailsInputSchema>;
 // The prompt for the flow
 const recipeDetailsPrompt = ai.definePrompt({
     name: 'recipeDetailsPrompt',
-    input: {schema: RecipeDetailsInputSchema},
-    output: {schema: RecipeSchema},
+    inputSchema: RecipeDetailsInputSchema,
+    outputSchema: RecipeSchema,
     prompt: `
         You are a master chef and nutritionist. A user has provided a custom recipe and needs you to fill in the details.
 
-        Recipe Title: {{title}}
-        Description: {{description}}
+        Recipe Title: {{{title}}}
+        Description: {{{description}}}
         Ingredients:
         {{#each ingredients}}
         - {{this}}
@@ -53,8 +53,8 @@ const recipeDetailsFlow = ai.defineFlow(
     outputSchema: RecipeSchema,
   },
   async (input) => {
-    const {output} = await recipeDetailsPrompt(input);
-    return output!;
+    const response = await recipeDetailsPrompt.generate({input});
+    return response.output()!;
   }
 );
 

@@ -6,7 +6,7 @@
  * information for the consumed portion of the meal.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import {
     InventoryItemSchema,
     RecipeSchema,
@@ -47,20 +47,20 @@ export type LogMealOutput = z.infer<typeof LogMealOutputSchema>;
 // The main prompt for the flow
 const logMealPrompt = ai.definePrompt({
     name: 'logMealPrompt',
-    input: {schema: LogMealInputSchema},
-    output: {schema: LogMealOutputSchema},
+    inputSchema: LogMealInputSchema,
+    outputSchema: LogMealOutputSchema,
     prompt: `
         You are an expert kitchen inventory manager and nutritionist. Your task is to process a meal that has been cooked and consumed, and determine the impact on the user's inventory and their daily nutritional intake.
 
         Here is the information you have:
-        - The recipe that was cooked: {{recipe.title}} (makes {{recipe.servings}} servings total)
+        - The recipe that was cooked: {{{recipe.title}}} (makes {{{recipe.servings}}} servings total)
         - Ingredients required for the recipe: {{#each recipe.ingredients}}- {{this}} {{/each}}
         - User's current inventory: {{#each inventory}}- {{name}} ({{totalQuantity}} {{unit}} available, expires on {{expiryDate}}) {{/each}}
-        - Servings eaten by the user: {{servingsEaten}}
-        - Servings eaten by others: {{servingsEatenByOthers}}
-        - Leftovers to be stored in the fridge: {{#each fridgeLeftovers}}{{servings}} servings in location {{locationId}}{{/each}}
-        - Leftovers to be stored in the freezer: {{#each freezerLeftovers}}{{servings}} servings in location {{locationId}}{{/each}}
-        - User's preferred unit system: {{unitSystem}}
+        - Servings eaten by the user: {{{servingsEaten}}}
+        - Servings eaten by others: {{{servingsEatenByOthers}}}
+        - Leftovers to be stored in the fridge: {{#each fridgeLeftovers}}{{{servings}}} servings in location {{{locationId}}}{{/each}}
+        - Leftovers to be stored in the freezer: {{#each freezerLeftovers}}{{{servings}}} servings in location {{{locationId}}}{{/each}}
+        - User's preferred unit system: {{{unitSystem}}}
 
         Your tasks are:
         1.  **Calculate Ingredient Deduction**: Based on the recipe's ingredients and the total number of servings cooked (which is the entire recipe), determine which items from the inventory were used. You must match the ingredients from the recipe to the items in the inventory. For each matched ingredient, calculate how much was used.
@@ -85,8 +85,8 @@ const logMealFlow = ai.defineFlow(
     outputSchema: LogMealOutputSchema,
   },
   async (input) => {
-    const {output} = await logMealPrompt(input);
-    return output!;
+    const response = await logMealPrompt.generate({input});
+    return response.output()!;
   }
 );
 

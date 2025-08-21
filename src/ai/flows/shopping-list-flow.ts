@@ -5,7 +5,7 @@
  * inventory, preferences, and consumption habits.
  */
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import {
     InventoryItemSchema,
     PersonalDetailsSchema,
@@ -32,16 +32,16 @@ export type ShoppingListOutput = z.infer<typeof ShoppingListOutputSchema>;
 // The main prompt for the flow
 const shoppingListPrompt = ai.definePrompt({
     name: 'shoppingListPrompt',
-    input: {schema: ShoppingListInputSchema},
-    output: {schema: ShoppingListOutputSchema},
+    inputSchema: ShoppingListInputSchema,
+    outputSchema: ShoppingListOutputSchema,
     prompt: `
         You are a smart shopping assistant. Your goal is to create a helpful and personalized shopping list for a user.
 
         Here is the information you have:
         - User's current inventory: {{#each inventory}}- {{name}} ({{totalQuantity}} {{unit}}) {{/each}}
-        - User's personal details: {{JSON.stringify personalDetails}}
-        - User's consumption history: {{consumptionHistory}}
-        - User's preferred unit system: {{unitSystem}}
+        - User's personal details: {{JSONstringify personalDetails}}
+        - User's consumption history: {{{consumptionHistory}}}
+        - User's preferred unit system: {{{unitSystem}}}
 
         Your tasks:
         1.  **Analyze Inventory**: Identify items that are likely running low based on the user's consumption history and typical usage patterns.
@@ -60,8 +60,8 @@ const shoppingListFlow = ai.defineFlow(
     outputSchema: ShoppingListOutputSchema,
   },
   async (input) => {
-    const {output} = await shoppingListPrompt(input);
-    return output!;
+    const response = await shoppingListPrompt.generate({input});
+    return response.output()!;
   }
 );
 
