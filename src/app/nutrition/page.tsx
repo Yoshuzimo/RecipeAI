@@ -47,7 +47,7 @@ export default function NutritionPage() {
             const day = new Date(weekStart);
             day.setDate(day.getDate() + i);
             return {
-                day: format(day, 'E'), // Mon, Tue, etc.
+                day: format(day, 'E M/d'), // e.g. Mon 8/19
                 calories: 0,
                 protein: 0,
                 carbs: 0,
@@ -125,3 +125,4 @@ export default function NutritionPage() {
     </MainLayout>
   );
 }
+

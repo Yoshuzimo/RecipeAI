@@ -15,8 +15,6 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('__session')?.value;
   
-  console.log(`MIDDLEWARE: Path: ${pathname}, Cookie present: ${!!sessionCookie}`);
-
   const publicPaths = ['/login', '/signup'];
 
   if (publicPaths.includes(pathname)) {
@@ -24,7 +22,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!sessionCookie) {
-    console.log(`MIDDLEWARE: No session cookie for protected path '${pathname}'. Redirecting to login.`);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
@@ -32,10 +29,8 @@ export async function middleware(request: NextRequest) {
 
   try {
     await verifySessionCookie(sessionCookie);
-    console.log(`MIDDLEWARE: Session cookie verified successfully for path '${pathname}'.`);
     return NextResponse.next();
   } catch (error) {
-    console.log(`MIDDLEWARE: Session cookie verification failed for path '${pathname}'. Redirecting to login.`);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     const response = NextResponse.redirect(loginUrl);
