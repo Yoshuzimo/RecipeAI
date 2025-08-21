@@ -2,6 +2,7 @@
 
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
+import { startOfDay, endOfDay } from 'date-fns';
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -709,7 +710,14 @@ export async function saveSettings(db: Firestore, userId: string, settings: Sett
 
 // Macros
 export async function getTodaysMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
-    const snapshot = await db.collection(`users/${userId}/daily-macros`).get();
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    const snapshot = await db.collection(`users/${userId}/daily-macros`)
+        .where('loggedAt', '>=', todayStart)
+        .where('loggedAt', '<=', todayEnd)
+        .get();
+
     return snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -719,6 +727,7 @@ export async function getTodaysMacros(db: Firestore, userId: string): Promise<Da
         } as DailyMacros;
     });
 }
+
 
 export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
     const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);

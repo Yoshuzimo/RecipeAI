@@ -42,6 +42,9 @@ const chartConfig = {
   }
 }
 
+const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
+
+
 export function TodaysMacros() {
   const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
   const [settings, setSettings] = React.useState<Settings | null>(null);
@@ -59,28 +62,43 @@ export function TodaysMacros() {
 
 
   const chartData = React.useMemo(() => {
-     return dailyData.map(d => {
-        const calories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
+     const mealDataMap = new Map<string, DailyMacros>();
+     dailyData.forEach(d => mealDataMap.set(d.meal, d));
+
+     return mealOrder.map(mealName => {
+        const mealData = mealDataMap.get(mealName);
+        if (mealData) {
+            const calories = (mealData.totals.protein * 4) + (mealData.totals.carbs * 4) + (mealData.totals.fat * 9);
+            return {
+                meal: mealData.meal,
+                calories,
+                protein: mealData.totals.protein,
+                carbs: mealData.totals.carbs,
+                fat: mealData.totals.fat,
+                dishes: mealData.dishes,
+            }
+        }
         return {
-            meal: d.meal,
-            calories,
-            protein: d.totals.protein,
-            carbs: d.totals.carbs,
-            fat: d.totals.fat,
-            dishes: d.dishes,
+            meal: mealName,
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            dishes: [],
         }
      });
   }, [dailyData]);
 
   const totals = React.useMemo(() => {
-    return chartData.reduce((acc, meal) => {
-        acc.calories += meal.calories;
-        acc.protein += meal.protein;
-        acc.carbs += meal.carbs;
-        acc.fat += meal.fat;
+    return dailyData.reduce((acc, meal) => {
+        const calories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
+        acc.calories += calories;
+        acc.protein += meal.totals.protein;
+        acc.carbs += meal.totals.carbs;
+        acc.fat += meal.totals.fat;
         return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [chartData]);
+  }, [dailyData]);
   
   const goals = {
       calories: settings?.calorieGoal || 2000,
