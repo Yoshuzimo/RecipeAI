@@ -5,9 +5,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
-    "genkit:start": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -51,12 +48,7 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.2",
-    "genkit": "^1.0.0",
-    "@genkit-ai/googleai": "^1.0.0",
-    "@genkit-ai/firebase": "^1.0.0",
-    "@opentelemetry/exporter-jaeger": "^1.25.1",
-    "tsx": "^4.16.2"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -67,3 +59,5 @@
     "typescript": "^5"
   }
 }
+
+    

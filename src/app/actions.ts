@@ -41,11 +41,6 @@ import {
     getPendingMemberInventory,
 } from "@/lib/data";
 import { addDays } from "date-fns";
-import { generateSuggestions } from "@/ai/flows/suggestion-flow";
-import { generateSubstitutions } from "@/ai/flows/substitution-flow";
-import { generateRecipeDetails } from "@/ai/flows/recipe-details-flow";
-import { generateShoppingList } from "@/ai/flows/shopping-list-flow";
-import { logCookedMeal } from "@/ai/flows/log-meal-flow";
 
 
 // --- Server Actions ---
@@ -77,156 +72,35 @@ export async function seedUserData(userId: string): Promise<void> {
 // --- AI Actions ---
 
 export async function handleGenerateSuggestions(formData: FormData) {
-    try {
-        const userId = await getCurrentUserId();
-        const { getAdmin } = require("@/lib/firebase-admin");
-        const { db } = getAdmin();
-
-        const [personalDetails, todaysMacros, settings] = await Promise.all([
-            dataGetPersonalDetails(db, userId),
-            dataGetTodaysMacros(db, userId),
-            dataGetSettings(db, userId)
-        ]);
-
-        const totalMacros = todaysMacros.reduce((acc, meal) => {
-            acc.protein += meal.totals.protein;
-            acc.carbs += meal.totals.carbs;
-            acc.fat += meal.totals.fat;
-            return acc;
-        }, { protein: 0, carbs: 0, fat: 0 });
-
-        const inventory = JSON.parse(formData.get('inventory') as string);
-        const cravingsOrMood = formData.get('cravingsOrMood') as string;
-
-        const suggestions = await generateSuggestions({
-            inventory: inventory,
-            personalDetails: personalDetails,
-            todaysMacros: totalMacros,
-            cravingsOrMood: cravingsOrMood,
-            unitSystem: settings.unitSystem
-        });
-
-        return { suggestions, error: null };
-    } catch (e) {
-        const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        // Providing a more structured error for the client
-        return { error: { form: [error] }, suggestions: null, debugInfo: null };
-    }
+    // Placeholder logic
+    const error = "AI features are currently under maintenance. Please try again later.";
+    return { error: { form: [error] }, suggestions: null, debugInfo: null };
 }
 
 export async function handleGenerateShoppingList(inventory: {privateItems: InventoryItem[], sharedItems: InventoryItem[]}, personalDetails: PersonalDetails) {
-    try {
-        const userId = await getCurrentUserId();
-        const { getAdmin } = require("@/lib/firebase-admin");
-        const { db } = getAdmin();
-        const settings = await dataGetSettings(db, userId);
-
-        const shoppingList = await generateShoppingList({
-            inventory: [...inventory.privateItems, ...inventory.sharedItems],
-            personalDetails,
-            unitSystem: settings.unitSystem,
-            consumptionHistory: "User has eaten a lot of chicken this month.", // Placeholder
-        });
-        return { shoppingList, error: null };
-    } catch (e) {
-        const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        return { error, shoppingList: null };
-    }
+    // Placeholder logic
+    const error = "AI features are currently under maintenance. Please try again later.";
+    return { error, shoppingList: null };
 }
 
 export async function handleGenerateSubstitutions(recipe: Recipe, ingredientsToReplace: string[], inventory: InventoryItem[], allowExternalSuggestions: boolean) {
-    try {
-        const userId = await getCurrentUserId();
-        const { getAdmin } = require("@/lib/firebase-admin");
-        const { db } = getAdmin();
-        const [personalDetails, settings] = await Promise.all([
-            dataGetPersonalDetails(db, userId),
-            dataGetSettings(db, userId)
-        ]);
-
-        const substitutions = await generateSubstitutions({
-            recipe,
-            ingredientsToReplace,
-            inventory,
-            personalDetails,
-            allowExternalSuggestions,
-            unitSystem: settings.unitSystem,
-        });
-
-        return { substitutions, error: null };
-    } catch (e) {
-        const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        return { substitutions: null, error };
-    }
+    // Placeholder logic
+    const error = "AI features are currently under maintenance. Please try again later.";
+    return { substitutions: null, error };
 }
 
 export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">) {
-     try {
-        const recipe = await generateRecipeDetails({
-            title: recipeData.title,
-            description: recipeData.description,
-            ingredients: recipeData.ingredients,
-            instructions: recipeData.instructions
-        });
-        return { recipe, error: null };
-    } catch (e) {
-        const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        return { recipe: null, error };
-    }
+     // Placeholder logic
+    const error = "AI features are currently under maintenance. Please try again later.";
+    return { recipe: null, error };
 }
 
 
 // Inventory & Meal Logging
 export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number, servingsEatenByOthers: number, fridgeLeftovers: LeftoverDestination[], freezerLeftovers: LeftoverDestination[], mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack") {
-    try {
-        const userId = await getCurrentUserId();
-        const { getAdmin } = require("@/lib/firebase-admin");
-        const { db } = getAdmin();
-
-        const { privateItems, sharedItems } = await getInventory(db, userId);
-        const settings = await dataGetSettings(db, userId);
-
-        const result = await logCookedMeal({
-            recipe,
-            inventory: [...privateItems, ...sharedItems],
-            servingsEaten,
-            servingsEatenByOthers,
-            fridgeLeftovers,
-            freezerLeftovers,
-            unitSystem: settings.unitSystem
-        });
-
-        const batch = db.batch();
-
-        // Remove used items
-        result.itemsToRemove.forEach(item => {
-            const docRef = db.collection(`users/${userId}/inventory`).doc(item.id);
-            batch.delete(docRef);
-        });
-
-        // Update partially used items
-        result.itemsToUpdate.forEach(item => {
-            const docRef = db.collection(`users/${userId}/inventory`).doc(item.id);
-            batch.update(docRef, { totalQuantity: item.newQuantity });
-        });
-
-        // Add new leftover items
-        result.leftoverItems.forEach(item => {
-            const docRef = db.collection(`users/${userId}/inventory`).doc();
-            batch.set(docRef, item);
-        });
-
-        await batch.commit();
-
-        // Log the macros consumed by the current user
-        await logMacros(db, userId, mealType, recipe.title, result.macrosConsumed);
-
-        const newInventory = await getInventory(db, userId);
-        return { success: true, error: null, newInventory: [...newInventory.privateItems, ...newInventory.sharedItems] };
-    } catch (e) {
-        const error = e instanceof Error ? e.message : "An unknown error occurred.";
-        return { success: false, error };
-    }
+    // Placeholder logic
+    const error = "AI features are currently under maintenance. Please try again later.";
+    return { success: false, error };
 }
 
 export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
@@ -655,3 +529,5 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const { db } = getAdmin();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
+
+    
