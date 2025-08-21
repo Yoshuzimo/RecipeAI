@@ -6,7 +6,7 @@ import { InventoryItem } from "@/lib/types";
 
 async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return null;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
     const idToken = authHeader.split("Bearer ")[1];
     try {
         const { auth } = getAdmin();
