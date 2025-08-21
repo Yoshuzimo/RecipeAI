@@ -178,9 +178,8 @@ export async function joinHousehold(db: Firestore, arrayUnion: any, userId: stri
     });
 }
 
-export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[]): Promise<void> {
+export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion: any, userId: string, newOwnerId: string | undefined, itemsToTake: RequestedItem[], locationMapping: Record<string, string>): Promise<void> {
     return db.runTransaction(async (transaction) => {
-        // --- ALL READS FIRST ---
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
         const householdId = userDoc.data()?.householdId;
@@ -204,7 +203,6 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
             throw new Error("You are not an active member of this household.");
         }
 
-        // Pre-fetch all original items to be taken
         const itemsToProcess: { originalItemData: InventoryItem, requested: RequestedItem }[] = [];
         for (const item of itemsToTake) {
              const originalItemDocQuery = householdRef.collection('inventory').where('name', '==', item.name).limit(1);
@@ -215,14 +213,14 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
              }
         }
         
-        // --- ALL WRITES LAST ---
         const userInventoryCollection = userRef.collection('inventory');
         itemsToProcess.forEach(({ originalItemData, requested }) => {
-             const newItemForLeaver: Omit<InventoryItem, 'id'> = {
+             const newItemForLeaver: Omit<InventoryItem, 'id' | 'locationId'> & { locationId: string } = {
                 ...originalItemData,
                 totalQuantity: requested.quantity,
                 originalQuantity: requested.quantity,
                 isPrivate: true,
+                locationId: locationMapping[requested.originalItemId]
              };
             transaction.set(userInventoryCollection.doc(), newItemForLeaver);
         });
@@ -235,7 +233,6 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
             status: 'pending_review',
         };
         transaction.update(householdRef, { leaveRequests: arrayUnion(leaveRequest) });
-
         transaction.update(householdRef, { activeMembers: arrayRemove(memberToRemove) });
 
         if (householdData.ownerId === userId) {
@@ -267,7 +264,6 @@ export async function leaveHousehold(db: Firestore, arrayRemove: any, arrayUnion
 
 export async function processLeaveRequest(db: Firestore, arrayRemove: any, currentUserId: string, requestId: string, approve: boolean): Promise<Household> {
     return db.runTransaction(async (transaction: Transaction) => {
-        // --- READS ---
         const userDoc = await transaction.get(db.collection('users').doc(currentUserId));
         const householdId = userDoc.data()?.householdId;
         if (!householdId) throw new Error("Could not find household.");
@@ -296,7 +292,6 @@ export async function processLeaveRequest(db: Firestore, arrayRemove: any, curre
             }
         }
 
-        // --- WRITES ---
         inventoryRefsToUpdate.forEach(({ ref, newQuantity }) => {
             if (newQuantity <= 0) {
                 transaction.delete(ref);
@@ -307,7 +302,6 @@ export async function processLeaveRequest(db: Firestore, arrayRemove: any, curre
 
         transaction.update(householdRef, { leaveRequests: arrayRemove(request) });
     }).then(async () => {
-        // Refetch the entire household object outside the transaction to return it
         const updatedHousehold = await getHousehold(db, currentUserId);
         if (!updatedHousehold) throw new Error("Could not fetch household after processing request.");
         return updatedHousehold;
@@ -346,7 +340,7 @@ export async function approvePendingMember(db: Firestore, arrayUnion: any, array
     });
 }
 
-export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string): Promise<Household> {
+export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arrayRemove: any, currentUserId: string, householdId: string, memberIdToApprove: string, approvedItemIds: string[]): Promise<Household> {
     return db.runTransaction(async (transaction) => {
         const householdRef = db.collection('households').doc(householdId);
         const memberUserRef = db.collection('users').doc(memberIdToApprove);
@@ -362,31 +356,17 @@ export async function approveAndMergeMember(db: Firestore, arrayUnion: any, arra
 
         const pendingMember = householdData.pendingMembers.find(m => m.userId === memberIdToApprove);
         if (!pendingMember) throw new Error("This user is not pending approval.");
-        if (!pendingMember.itemMigrationMapping) throw new Error("Item migration mapping is missing for inventory merge.");
 
         const memberInventorySnapshot = await transaction.get(memberUserRef.collection('inventory'));
         const householdInventoryCollection = householdRef.collection('inventory');
 
         for (const doc of memberInventorySnapshot.docs) {
-            const itemData = doc.data() as Omit<InventoryItem, 'id'>;
-            const migrationInfo = pendingMember.itemMigrationMapping![doc.id];
-            
-            if (!migrationInfo) {
-                console.warn(`No migration mapping found for item ${itemData.name} (${doc.id}). Skipping.`);
-                continue;
-            }
-
-            const { newLocationId, keepPrivate } = migrationInfo;
-            const updatedItemData = { ...itemData, locationId: newLocationId, isPrivate: false };
-
-            if (keepPrivate) {
-                // Item stays in user's collection, just update its locationId
-                transaction.update(doc.ref, { locationId: newLocationId });
-            } else {
-                // Item moves to household collection
+             if (approvedItemIds.includes(doc.id)) {
+                const itemData = doc.data() as Omit<InventoryItem, 'id'>;
+                const updatedItemData = { ...itemData, isPrivate: false };
                 transaction.set(householdInventoryCollection.doc(), updatedItemData);
                 transaction.delete(doc.ref);
-            }
+             }
         }
         
         const { wantsToMergeInventory, itemMigrationMapping, ...activeMember } = pendingMember;
@@ -427,6 +407,28 @@ export async function rejectPendingMember(db: Firestore, arrayRemove: any, curre
         const updatedHousehold = await getHousehold(db, currentUserId);
         if (!updatedHousehold) throw new Error("Failed to refetch household data after rejection.");
         return updatedHousehold;
+    });
+}
+
+export async function getPendingMemberInventory(db: Firestore, currentUserId: string, memberId: string): Promise<InventoryItem[]> {
+    const userDoc = await db.collection('users').doc(currentUserId).get();
+    const householdId = userDoc.data()?.householdId;
+    if (!householdId) throw new Error("Not in a household.");
+
+    const householdDoc = await db.collection('households').doc(householdId).get();
+    if (!householdDoc.exists || householdDoc.data()?.ownerId !== currentUserId) {
+        throw new Error("Only the owner can view pending member inventories.");
+    }
+    
+    const memberInventorySnapshot = await db.collection(`users/${memberId}/inventory`).get();
+    return memberInventorySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            expiryDate: data.expiryDate?.toDate() ?? null,
+            isPrivate: true, // It's private until merged
+        } as InventoryItem;
     });
 }
 

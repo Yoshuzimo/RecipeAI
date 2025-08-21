@@ -54,6 +54,8 @@
     "zod": "^3.24.2",
     "genkit": "^1.0.0",
     "@genkit-ai/googleai": "^1.0.0",
+    "@genkit-ai/firebase": "^1.0.0",
+    "@opentelemetry/exporter-jaeger": "^1.25.1",
     "tsx": "^4.16.2"
   },
   "devDependencies": {

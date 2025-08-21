@@ -17,7 +17,7 @@ import {
     removeInventoryItems as dataRemoveInventoryItems,
     getStorageLocations,
     getSavedRecipes,
-    getTodaysMacros,
+    getTodaysMacros as dataGetTodaysMacros,
     addStorageLocation as dataAddStorageLocation,
     updateStorageLocation as dataUpdateStorageLocation,
     removeStorageLocation as dataRemoveStorageLocation,
@@ -84,7 +84,7 @@ export async function handleGenerateSuggestions(formData: FormData) {
 
         const [personalDetails, todaysMacros, settings] = await Promise.all([
             dataGetPersonalDetails(db, userId),
-            getTodaysMacros(db, userId),
+            dataGetTodaysMacros(db, userId),
             dataGetSettings(db, userId)
         ]);
 
@@ -424,11 +424,11 @@ export async function savePersonalDetails(details: PersonalDetails) {
     return dataSavePersonalDetails(db, userId, details);
 }
 
-export async function getClientTodaysMacros() {
+export async function getTodaysMacros() {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
-    return getTodaysMacros(db, userId);
+    return dataGetTodaysMacros(db, userId);
 }
 
 export async function addClientInventoryItem(item: NewInventoryItem) {
