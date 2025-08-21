@@ -56,7 +56,7 @@ const substitutionPrompt = ai.definePrompt({
         2.  **Consider Context**: The substitution should make sense in the context of the recipe (e.g., don't suggest a sweet substitute for a savory dish).
         3.  **Respect Allergies**: Do NOT suggest any substitutes that conflict with the user's allergies or dietary restrictions.
         4.  **Provide Notes**: For each suggestion, provide a brief note explaining any necessary adjustments (e.g., "Use 1:1 ratio," "May change the texture slightly," "Reduce cooking time").
-        5.  **External Suggestions**: If `allowExternalSuggestions` is true and you can't find a good fit in the inventory, you can suggest common ingredients the user might be able to buy.
+        5.  **External Suggestions**: {{#if allowExternalSuggestions}}If you can't find a good fit in the inventory, you can suggest common ingredients the user might be able to buy.{{/if}}
 
         Provide the output as an array of substitution objects in the specified JSON format.
     `,
