@@ -50,8 +50,8 @@ const initialSections: Section[] = [
 ];
 
 
-export function ShoppingList({ initialInventory, personalDetails, initialShoppingList }: { 
-    initialInventory: InventoryItem[], 
+export function ShoppingList({ initialInventoryData, personalDetails, initialShoppingList }: { 
+    initialInventoryData: { privateItems: InventoryItem[], sharedItems: InventoryItem[] }, 
     personalDetails: PersonalDetails,
     initialShoppingList: ShoppingListItem[]
 }) {
@@ -59,7 +59,7 @@ export function ShoppingList({ initialInventory, personalDetails, initialShoppin
   const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const { toast } = useToast();
 
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+  const [inventory, setInventory] = useState<InventoryItem[]>([...initialInventoryData.privateItems, ...initialInventoryData.sharedItems]);
   const [aiShoppingList, setAiShoppingList] = useState<AIListItem[] | null>(null);
   const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>(initialShoppingList);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function ShoppingList({ initialInventory, personalDetails, initialShoppin
     startTransition(async () => {
       recordRequest();
       setError(null);
-      const result = await handleGenerateShoppingList(inventory, personalDetails);
+      const result = await handleGenerateShoppingList(initialInventoryData, personalDetails);
       if (result.error) {
         setError(result.error);
         setAiShoppingList(null);

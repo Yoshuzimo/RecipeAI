@@ -6,7 +6,7 @@ import { getClientInventory, getClientPersonalDetails, getClientShoppingList } f
 export const dynamic = 'force-dynamic';
 
 export default async function ShoppingListPage() {
-  const inventory = await getClientInventory();
+  const inventoryData = await getClientInventory();
   const personalDetails = await getClientPersonalDetails();
   const shoppingList = await getClientShoppingList();
 
@@ -14,7 +14,7 @@ export default async function ShoppingListPage() {
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <ShoppingList 
-            initialInventory={inventory} 
+            initialInventoryData={inventoryData} 
             personalDetails={personalDetails} 
             initialShoppingList={shoppingList}
         />
