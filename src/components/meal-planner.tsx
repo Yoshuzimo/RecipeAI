@@ -119,7 +119,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   };
 
   const getIngredientStatus = (ingredient: string) => {
-      if (!ingredient) return 'fresh';
+      if (!ingredient || typeof ingredient !== 'string') return 'fresh';
       const now = new Date();
       now.setHours(0,0,0,0);
       // Find any inventory item whose name is a substring of the ingredient string
@@ -138,7 +138,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const handleIngredientClick = (recipe: Recipe, ingredient: string) => {
       const status = getIngredientStatus(ingredient);
-      if (status.startsWith('expired')) {
+      if (status && status.startsWith('expired')) {
           setIngredientToCheck({recipe, ingredient});
           setIsExpiredCheckDialogOpen(true);
       } else {
