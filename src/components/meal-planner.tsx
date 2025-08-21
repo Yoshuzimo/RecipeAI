@@ -119,6 +119,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   };
 
   const getIngredientStatus = (ingredient: string) => {
+      if (!ingredient) return 'fresh';
       const now = new Date();
       now.setHours(0,0,0,0);
       // Find any inventory item whose name is a substring of the ingredient string
