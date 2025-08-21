@@ -130,7 +130,7 @@ User's Context:
 ---
 **Personal Details:**
 - Health Goals: {{{personalDetails.healthGoals}}}
-- Dietary Restrictions: {{{personalDetails.dietaryRestrictions}}}
+- DietaryRestrictions: {{{personalDetails.dietaryRestrictions}}}
 - Allergies: {{{personalDetails.allergies}}}
 - Favorite Foods: {{{personalDetails.favoriteFoods}}}
 - Disliked Foods: {{{personalDetails.dislikedFoods}}}
@@ -161,7 +161,7 @@ export const suggestionFlow = ai.defineFlow({
 }, async (input) => {
   const {
     output
-  } = await suggestionPrompt(input);
+  } = await suggestionPrompt(input, { model: 'gemini-1.5-flash' });
   return output || [];
 });
 
