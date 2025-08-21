@@ -6,9 +6,8 @@ import { getClientInventory, getClientSavedRecipes } from "@/app/actions";
 export const dynamic = 'force-dynamic';
 
 export default async function MealPlannerPage() {
-  const { privateItems, sharedItems } = await getClientInventory();
+  const inventory = await getClientInventory();
   const savedRecipes = await getClientSavedRecipes();
-  const inventory = [...privateItems, ...sharedItems];
 
   return (
     <MainLayout>

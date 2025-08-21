@@ -1,34 +1,72 @@
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export const runtime = 'experimental-edge'; // 👈 Explicitly declare Edge runtime
+export const runtime = 'nodejs';
+
+async function verifySessionCookie(sessionCookie: string) {
+    const admin = require('firebase-admin');
+    const { getAuth } = require('firebase-admin/auth');
+
+    if (admin.apps.length === 0) {
+        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (!serviceAccountKey) {
+            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
+        }
+        const serviceAccount = JSON.parse(serviceAccountKey);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+    }
+
+    await getAuth(admin.app()).verifySessionCookie(sessionCookie, true);
+}
+
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const search = request.nextUrl.search ?? '';
   const sessionCookie = request.cookies.get('__session')?.value;
+  
+  console.log(`MIDDLEWARE: Path: ${pathname}, Cookie present: ${!!sessionCookie}`);
 
   const publicPaths = ['/login', '/signup'];
 
-  // Allow access to public paths regardless of authentication status.
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // If there's no session cookie, redirect to the login page for any protected route.
   if (!sessionCookie) {
+    console.log(`MIDDLEWARE: No session cookie for protected path '${pathname}'. Redirecting to login.`);
     const loginUrl = new URL('/login', request.url);
-    // Preserve the original path and query parameters
-    loginUrl.searchParams.set('next', `${pathname}${search}`);
+    loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // If a session cookie exists, let the request proceed.
-  return NextResponse.next();
+  try {
+    await verifySessionCookie(sessionCookie);
+    console.log(`MIDDLEWARE: Session cookie verified successfully for path '${pathname}'.`);
+    return NextResponse.next();
+  } catch (error) {
+    console.log(`MIDDLEWARE: Session cookie verification failed for path '${pathname}'. Redirecting to login.`);
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', pathname);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete('__session');
+    return response;
+  }
 }
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
+
+    

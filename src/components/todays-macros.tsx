@@ -42,40 +42,46 @@ const chartConfig = {
   }
 }
 
-const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
+export function TodaysMacros() {
+  const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
+  const [settings, setSettings] = React.useState<Settings | null>(null);
 
+  const fetchData = React.useCallback(async () => {
+    const data = await getClientTodaysMacros();
+    setDailyData(data);
+    const settingsData = await getSettings();
+    setSettings(settingsData);
+  }, []);
 
-export function TodaysMacros({ dailyData, settings, totals }: { dailyData: DailyMacros[], settings: Settings | null, totals: any }) {
-  const [currentDailyData, setCurrentDailyData] = React.useState(dailyData);
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
 
   const chartData = React.useMemo(() => {
-     const mealDataMap = new Map<string, DailyMacros>();
-     currentDailyData.forEach(d => mealDataMap.set(d.meal, d));
-
-     return mealOrder.map(mealName => {
-        const mealData = mealDataMap.get(mealName);
-        if (mealData) {
-            const calories = (mealData.totals.protein * 4) + (mealData.totals.carbs * 4) + (mealData.totals.fat * 9);
-            return {
-                meal: mealData.meal,
-                calories,
-                protein: mealData.totals.protein,
-                carbs: mealData.totals.carbs,
-                fat: mealData.totals.fat,
-                dishes: mealData.dishes,
-            }
-        }
+     return dailyData.map(d => {
+        const calories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
         return {
-            meal: mealName,
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            dishes: [],
+            meal: d.meal,
+            calories,
+            protein: d.totals.protein,
+            carbs: d.totals.carbs,
+            fat: d.totals.fat,
+            dishes: d.dishes,
         }
      });
-  }, [currentDailyData]);
+  }, [dailyData]);
 
+  const totals = React.useMemo(() => {
+    return chartData.reduce((acc, meal) => {
+        acc.calories += meal.calories;
+        acc.protein += meal.protein;
+        acc.carbs += meal.carbs;
+        acc.fat += meal.fat;
+        return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  }, [chartData]);
+  
   const goals = {
       calories: settings?.calorieGoal || 2000,
       protein: settings?.proteinGoal || 150,
@@ -119,10 +125,7 @@ export function TodaysMacros({ dailyData, settings, totals }: { dailyData: Daily
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={currentDailyData} goal={goals.calories} timeframe="daily" onDataChange={async () => {
-          const data = await getClientTodaysMacros();
-          setCurrentDailyData(data);
-        }} />
+        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={fetchData} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>

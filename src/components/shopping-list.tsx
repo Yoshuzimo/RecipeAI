@@ -82,7 +82,7 @@ export function ShoppingList({ initialInventory, personalDetails, initialShoppin
 
   const { register, handleSubmit, reset } = useForm<AddItemForm>();
 
-  const lowOnStockItems = inventory.filter(item => item.originalQuantity > 0 && (item.totalQuantity / item.originalQuantity) < 0.25);
+  const lowOnStockItems = inventory.filter(item => (item.totalQuantity / item.originalQuantity) < 0.25);
 
   const checkedItems = useMemo(() => myShoppingList.filter(item => item.checked), [myShoppingList]);
   const hasCheckedItems = checkedItems.length > 0;
@@ -273,7 +273,7 @@ export function ShoppingList({ initialInventory, personalDetails, initialShoppin
                         )}
                     </Button>
                      <p className="text-xs text-muted-foreground text-right">
-                        AI can make mistakes. This is based on what you have in stock, the details in your personal detail section and what you tend to eat.
+                        AI can make mistakes. This is based on your inventory, personal details, and consumption habits.
                     </p>
                 </div>
             </div>

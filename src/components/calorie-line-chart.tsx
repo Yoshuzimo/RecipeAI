@@ -49,7 +49,7 @@ const CustomTick = (props: any) => {
 
     const dataEntry = data.find((d: any) => d.time === tickValue);
 
-    if (!dataEntry || !dataEntry.meal) {
+    if (!dataEntry) {
         return null;
     }
 
@@ -81,36 +81,25 @@ export function CalorieLineChart({
 
   const chartData = React.useMemo(() => {
     if (timeframe !== 'daily') {
+        // For weekly/monthly, we can just map the data as before
+        // This component is now primarily for daily view as requested.
+        // Returning empty so it doesn't render for other timeframes.
         return [];
     }
 
     // Sort meals by time
-    const sortedData = [...data].sort((a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime());
+    const sortedData = [...data].sort((a, b) => a.loggedAt.getTime() - b.loggedAt.getTime());
     
     let runningTotal = 0;
-    const processedData = sortedData.map(d => {
+    return sortedData.map(d => {
         const mealCalories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
         runningTotal += mealCalories;
         return {
             ...d, // Pass full meal data to payload
             calories: runningTotal,
-            time: new Date(d.loggedAt).getTime(), // Use timestamp for x-axis
+            time: d.loggedAt.getTime(), // Use timestamp for x-axis
         }
     });
-
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-
-    // Add invisible start and end points to ensure the line spans the full day
-    const fullDayData = [
-        { time: todayStart.getTime(), calories: 0 },
-        ...processedData,
-        { time: todayEnd.getTime(), calories: runningTotal || 0 },
-    ];
-    
-    return fullDayData;
-
   }, [data, timeframe]);
 
   const handleDotClick = (payload: DailyMacros) => {
@@ -129,7 +118,7 @@ export function CalorieLineChart({
   const todayStart = startOfDay(new Date()).getTime();
   const todayEnd = endOfDay(new Date()).getTime();
   
-  const mealTicks = chartData.filter(d => 'meal' in d).map(d => d.time);
+  const mealTicks = chartData.map(d => d.time);
 
   return (
     <>
@@ -156,7 +145,7 @@ export function CalorieLineChart({
                 tickLine={false}
             />
             <YAxis
-                domain={[0, (goal || 2000) + 500]}
+                domain={[0, 3000]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
@@ -167,7 +156,7 @@ export function CalorieLineChart({
                     <ChartTooltipContent 
                         formatter={(value, name, props) => {
                             const { payload } = props;
-                            if (!payload || !payload.meal) return null;
+                            if (!payload) return null;
 
                             const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
                             const runningTotal = value;
