@@ -1,25 +1,13 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getAdmin } from './lib/firebase-admin';
 
 export const runtime = 'nodejs';
 
 async function verifySessionCookie(sessionCookie: string) {
-    const admin = require('firebase-admin');
-    const { getAuth } = require('firebase-admin/auth');
-
-    if (admin.apps.length === 0) {
-        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        if (!serviceAccountKey) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-        }
-        const serviceAccount = JSON.parse(serviceAccountKey);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
-    }
-
-    await getAuth(admin.app()).verifySessionCookie(sessionCookie, true);
+    const { auth } = getAdmin();
+    await auth.verifySessionCookie(sessionCookie, true);
 }
 
 
@@ -68,5 +56,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
-
-    

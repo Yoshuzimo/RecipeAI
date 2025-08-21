@@ -32,5 +32,3 @@ export const ai = genkit({
   // Traces can be exported to various services, including Google Cloud Trace.
   traceStore: 'firebase',
 });
-
-    

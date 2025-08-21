@@ -39,7 +39,6 @@ const suggestionPrompt = ai.definePrompt({
 
     Here is the information you have about the user:
     - Current kitchen inventory: {{#each inventory}}- {{name}} ({{totalQuantity}} {{unit}} available, expires on {{expiryDate}}) {{/each}}
-    - Expiring soon: {{#each expiringIngredients}}{{name}}, {{/each}}
     - User's personal details (health goals, allergies, etc.): {{JSON.stringify personalDetails}}
     - User's macros consumed so far today: {{todaysMacros.protein}}g protein, {{todaysMacros.carbs}}g carbs, {{todaysMacros.fat}}g fat.
     - User's current craving or mood: "{{cravingsOrMood}}"
