@@ -1,16 +1,20 @@
 
-
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getClientInventory } from "@/app/actions";
+import { getClientInventory, getClientTodaysMacros, getSettings } from "@/app/actions";
 import { differenceInDays } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
+import type { DailyMacros, Settings, InventoryItem } from "@/lib/types";
+import { useState } from "react";
 
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
-  const { privateItems, sharedItems } = await getClientInventory();
+  const { privateItems, sharedItems }: { privateItems: InventoryItem[], sharedItems: InventoryItem[] } = await getClientInventory();
+  const dailyData: DailyMacros[] = await getClientTodaysMacros();
+  const settings: Settings | null = await getSettings();
+
   const inventory = [...privateItems, ...sharedItems];
 
   const now = new Date();
@@ -24,11 +28,24 @@ export default async function OverviewPage() {
     if (!item.expiryDate) return false;
     return differenceInDays(item.expiryDate, now) < 0
   }).length;
+  
+  const totals = dailyData.reduce((acc, meal) => {
+    const calories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
+    acc.calories += calories;
+    acc.protein += meal.totals.protein;
+    acc.carbs += meal.totals.carbs;
+    acc.fat += meal.totals.fat;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <TodaysMacros />
+        <TodaysMacros dailyData={dailyData} settings={settings} totals={totals} onDataChange={async () => {
+          "use server";
+          // This function can be called from the client to re-fetch data.
+          // For now it's a placeholder. In a real app this would call the server action again.
+        }} />
         <p className="text-sm text-muted-foreground pt-2">
             Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
         </p>
