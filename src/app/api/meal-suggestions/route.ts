@@ -8,9 +8,6 @@ export async function POST(request: NextRequest) {
     console.log("Received request for /api/ai/meal-suggestions");
     
     try {
-        const authHeader = request.headers.get("authorization");
-        console.log("Authorization Header:", authHeader);
-
         const userId = await getUserIdFromToken(request);
         if (!userId) {
             console.error("Unauthorized: No user ID found from token.");

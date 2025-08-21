@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       try {
         if (user) {
+          // Create a session cookie on the server
           const token = await user.getIdToken(true);
           await fetch('/api/auth/session', {
             method: 'POST',
