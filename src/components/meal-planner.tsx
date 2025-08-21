@@ -2,6 +2,7 @@
 
 "use client";
 
+
 import React, { useState, useTransition, useMemo, useRef } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution } from "@/lib/types";
