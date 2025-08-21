@@ -12,8 +12,8 @@ import { getAdmin } from "@/lib/firebase-admin";
 export async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
     const authHeader = request.headers.get("Authorization");
     
-    // Safely check if the header exists and starts with "Bearer "
-    if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith("Bearer ")) {
+    // Safely check if the header exists and is a string before calling .startsWith()
+    if (typeof authHeader !== 'string' || !authHeader.startsWith("Bearer ")) {
         console.warn("getUserIdFromToken: Missing or invalid Authorization header.");
         return null;
     }
