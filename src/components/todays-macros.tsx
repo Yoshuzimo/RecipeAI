@@ -3,6 +3,7 @@
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { isToday } from "date-fns"
 
 import {
   Card,
@@ -41,26 +42,55 @@ const chartConfig = {
   }
 }
 
-export function TodaysMacros({ dailyData, settings, totals, onDataChange }: {
+const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
+
+export function TodaysMacros({ dailyData, settings, onDataChange }: {
     dailyData: DailyMacros[],
     settings: Settings | null,
-    totals: { calories: number, protein: number, carbs: number, fat: number },
     onDataChange: () => void,
 }) {
   
+  const todaysData = React.useMemo(() => {
+    return dailyData.filter(d => isToday(d.loggedAt));
+  }, [dailyData]);
+
+  const totals = React.useMemo(() => {
+    return todaysData.reduce((acc, meal) => {
+        const calories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
+        acc.calories += calories;
+        acc.protein += meal.totals.protein;
+        acc.carbs += meal.totals.carbs;
+        acc.fat += meal.totals.fat;
+        return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  }, [todaysData]);
+
+
   const chartData = React.useMemo(() => {
-     return dailyData.map(d => {
-        const calories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
+     const dataMap = new Map(todaysData.map(d => [d.meal, d]));
+     return mealOrder.map(mealName => {
+        const mealData = dataMap.get(mealName);
+        if (mealData) {
+            const calories = (mealData.totals.protein * 4) + (mealData.totals.carbs * 4) + (mealData.totals.fat * 9);
+            return {
+                meal: mealData.meal,
+                calories,
+                protein: mealData.totals.protein,
+                carbs: mealData.totals.carbs,
+                fat: mealData.totals.fat,
+                dishes: mealData.dishes,
+            }
+        }
         return {
-            meal: d.meal,
-            calories,
-            protein: d.totals.protein,
-            carbs: d.totals.carbs,
-            fat: d.totals.fat,
-            dishes: d.dishes,
+            meal: mealName,
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            dishes: [],
         }
      });
-  }, [dailyData]);
+  }, [todaysData]);
 
   const goals = {
       calories: settings?.calorieGoal || 2000,
@@ -79,22 +109,12 @@ export function TodaysMacros({ dailyData, settings, totals, onDataChange }: {
   const CustomMacroTick = (props: any) => {
     const { x, y, payload } = props;
     const mealName = payload.value;
-    const dataEntry = chartData.find(d => d.meal === mealName);
     
-    if (!dataEntry) return null;
-
-    const { dishes } = dataEntry;
-
     return (
       <g transform={`translate(${x},${y})`}>
         <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12} fontWeight="bold">
           {mealName}
         </text>
-        {dishes.map((dish, index) => (
-           <text key={index} x={0} y={20} dy={(index + 1) * 12} textAnchor="middle" fill="#888" fontSize={10}>
-                {dish.name}
-            </text>
-        ))}
       </g>
     );
   };
@@ -105,10 +125,10 @@ export function TodaysMacros({ dailyData, settings, totals, onDataChange }: {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={onDataChange} />
+        <CalorieLineChart data={todaysData} goal={goals.calories} timeframe="daily" onDataChange={onDataChange} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
-            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
+            <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="meal"
@@ -117,7 +137,6 @@ export function TodaysMacros({ dailyData, settings, totals, onDataChange }: {
                   tickMargin={8}
                   tick={<CustomMacroTick />}
                   interval={0}
-                  height={100}
                 />
                 <YAxis
                     tickLine={false}

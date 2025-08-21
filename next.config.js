@@ -19,13 +19,10 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Don't bundle `firebase-admin` on the client.
+      // Exclude firebase-admin from client-side bundle
       config.externals.push('firebase-admin');
     }
-    
-    // This is needed for another dependency.
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
-
     return config;
   },
 };

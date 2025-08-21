@@ -3,10 +3,11 @@
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory, getClientTodaysMacros, getSettings } from "@/app/actions";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, isToday } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
 import type { DailyMacros, Settings, InventoryItem } from "@/lib/types";
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,23 +30,20 @@ export default async function OverviewPage() {
     return differenceInDays(item.expiryDate, now) < 0
   }).length;
   
-  const totals = dailyData.reduce((acc, meal) => {
-    const calories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
-    acc.calories += calories;
-    acc.protein += meal.totals.protein;
-    acc.carbs += meal.totals.carbs;
-    acc.fat += meal.totals.fat;
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  async function refreshData() {
+    "use server";
+    revalidatePath('/');
+  }
+
 
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <TodaysMacros dailyData={dailyData} settings={settings} totals={totals} onDataChange={async () => {
-          "use server";
-          // This function can be called from the client to re-fetch data.
-          // For now it's a placeholder. In a real app this would call the server action again.
-        }} />
+        <TodaysMacros 
+            dailyData={dailyData} 
+            settings={settings} 
+            onDataChange={refreshData}
+        />
         <p className="text-sm text-muted-foreground pt-2">
             Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
         </p>
