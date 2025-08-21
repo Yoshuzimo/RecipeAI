@@ -9,9 +9,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-      nodeMiddleware: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -26,8 +23,8 @@ const nextConfig = {
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
     
     if (!isServer) {
+      config.externals.push('firebase-admin');
       config.resolve.fallback = {
-        "firebase-admin": false,
         "async_hooks": false,
       }
     }

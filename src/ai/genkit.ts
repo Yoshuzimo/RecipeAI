@@ -21,9 +21,6 @@ export const ai = genkit({
     firebaseAuth(),
     firebaseFirestore(),
   ],
-  // Log level can be set to 'debug' for more detailed output during development.
-  logLevel: 'debug',
-
   // This allows Genkit to store flow states in Firestore, which is useful for debugging
   // and monitoring production flows. This requires Firestore to be set up in your Firebase project.
   flowStateStore: 'firebase',
