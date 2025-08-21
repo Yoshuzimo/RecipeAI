@@ -45,25 +45,12 @@ const chartConfig = {
 const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 
-export function TodaysMacros() {
-  const [dailyData, setDailyData] = React.useState<DailyMacros[]>([]);
-  const [settings, setSettings] = React.useState<Settings | null>(null);
-
-  const fetchData = React.useCallback(async () => {
-    const data = await getClientTodaysMacros();
-    setDailyData(data);
-    const settingsData = await getSettings();
-    setSettings(settingsData);
-  }, []);
-
-  React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
+export function TodaysMacros({ dailyData, settings, totals }: { dailyData: DailyMacros[], settings: Settings | null, totals: any }) {
+  const [currentDailyData, setCurrentDailyData] = React.useState(dailyData);
 
   const chartData = React.useMemo(() => {
      const mealDataMap = new Map<string, DailyMacros>();
-     dailyData.forEach(d => mealDataMap.set(d.meal, d));
+     currentDailyData.forEach(d => mealDataMap.set(d.meal, d));
 
      return mealOrder.map(mealName => {
         const mealData = mealDataMap.get(mealName);
@@ -87,19 +74,8 @@ export function TodaysMacros() {
             dishes: [],
         }
      });
-  }, [dailyData]);
+  }, [currentDailyData]);
 
-  const totals = React.useMemo(() => {
-    return dailyData.reduce((acc, meal) => {
-        const calories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
-        acc.calories += calories;
-        acc.protein += meal.totals.protein;
-        acc.carbs += meal.totals.carbs;
-        acc.fat += meal.totals.fat;
-        return acc;
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [dailyData]);
-  
   const goals = {
       calories: settings?.calorieGoal || 2000,
       protein: settings?.proteinGoal || 150,
@@ -143,7 +119,10 @@ export function TodaysMacros() {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={dailyData} goal={goals.calories} timeframe="daily" onDataChange={fetchData} />
+        <CalorieLineChart data={currentDailyData} goal={goals.calories} timeframe="daily" onDataChange={async () => {
+          const data = await getClientTodaysMacros();
+          setCurrentDailyData(data);
+        }} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
