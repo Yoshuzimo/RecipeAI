@@ -1,4 +1,5 @@
 
+
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory, getClientTodaysMacros, getSettings } from "@/app/actions";
@@ -6,7 +7,6 @@ import { differenceInDays } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
 import type { DailyMacros, Settings, InventoryItem } from "@/lib/types";
-import { useState } from "react";
 
 export const dynamic = 'force-dynamic';
 

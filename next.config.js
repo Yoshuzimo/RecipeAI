@@ -18,9 +18,8 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // This is the crucial part.
-    // It prevents server-side packages from being bundled into the client-side code.
     if (!isServer) {
+      // Don't bundle `firebase-admin` on the client.
       config.externals.push('firebase-admin');
     }
     
