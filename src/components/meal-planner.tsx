@@ -3,7 +3,7 @@
 "use client";
 
 
-import React, { useState, useTransition, useMemo, useRef } from "react";
+import React, { useState, useTransition, useMemo, useRef, useCallback } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails, getClientInventory } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -57,28 +57,27 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!checkRateLimit()) {
       return;
     }
     
+    console.log("Form submission intercepted. Preventing default POST.");
     setError(null);
-
     const cravings = cravingsRef.current?.value || "";
-    const formData = new FormData();
-    formData.append("cravingsOrMood", cravings);
-    
-    startTransition(async () => {
-      recordRequest();
-      const currentInventoryJSON = JSON.stringify(inventory);
-      formData.set('inventory', currentInventoryJSON);
 
-      const result = await handleGenerateSuggestions(formData);
-      setError(result.error);
-      
-      if (result.suggestions) {
-        setSuggestions(result.suggestions);
-      }
+    startTransition(async () => {
+        recordRequest();
+        const formData = new FormData();
+        formData.append("cravingsOrMood", cravings);
+        formData.append('inventory', JSON.stringify(inventory));
+
+        const result = await handleGenerateSuggestions(formData);
+        setError(result.error);
+        
+        if (result.suggestions) {
+            setSuggestions(result.suggestions);
+        }
     });
   };
 
@@ -110,7 +109,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       });
     });
     return statuses;
-  }, [inventory, suggestions, getIngredientStatus]);
+  }, [suggestions, getIngredientStatus]);
 
 
   const handleIngredientClick = (recipe: Recipe, ingredient: string) => {
