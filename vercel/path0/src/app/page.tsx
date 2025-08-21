@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory, getTodaysMacros, getSettings } from "@/app/actions";
 import { differenceInDays } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
-import { OverviewStats } from "@/components/overview-stats";
+import { TodaysMacros } from "@/components/todays-macros";
 import type { DailyMacros, Settings, InventoryItem } from "@/lib/types";
 
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
   const { privateItems, sharedItems }: { privateItems: InventoryItem[], sharedItems: InventoryItem[] } = await getClientInventory();
-  const dailyData: DailyMacros[] = await getClientTodaysMacros();
+  const dailyData: DailyMacros[] = await getTodaysMacros();
   const settings: Settings | null = await getSettings();
 
   const inventory = [...privateItems, ...sharedItems];
@@ -40,7 +40,7 @@ export default async function OverviewPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <OverviewStats dailyData={dailyData} settings={settings} totals={totals} />
+        <TodaysMacros dailyData={dailyData} settings={settings} totals={totals} />
         <p className="text-sm text-muted-foreground pt-2">
             Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
         </p>
