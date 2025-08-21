@@ -1,7 +1,15 @@
 
 'use server';
-export { generateSuggestions } from './suggestion-flow';
-export { generateSubstitutions } from './substitution-flow';
-export { generateRecipeDetails } from './recipe-details-flow';
-export { logCookedMeal } from './log-meal-flow';
-export { generateShoppingList } from './shopping-list-flow';
+import { generateSuggestions } from './suggestion-flow';
+import { generateSubstitutions } from './substitution-flow';
+import { generateRecipeDetails } from './recipe-details-flow';
+import { logCookedMeal } from './log-meal-flow';
+import { generateShoppingList } from './shopping-list-flow';
+
+export { 
+    generateSuggestions,
+    generateSubstitutions,
+    generateRecipeDetails,
+    logCookedMeal,
+    generateShoppingList
+};

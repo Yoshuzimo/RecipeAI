@@ -22,6 +22,8 @@ const nextConfig = {
       // Exclude firebase-admin from client-side bundle
       config.externals.push('firebase-admin');
     }
+    // Required for genkit to work
+    config.experiments = { ...config.experiments, asyncWebAssembly: true };
     return config;
   },
 };
