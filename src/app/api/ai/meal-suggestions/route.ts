@@ -27,25 +27,15 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         
-        // The handleGenerateSuggestions action expects FormData.
-        // We'll construct it manually from the JSON body.
-        const formData = new FormData();
+        const cravingsOrMood = body.cravingsOrMood || "";
         
-        if (body.cravingsOrMood) {
-            formData.append('cravingsOrMood', body.cravingsOrMood);
-        }
-        if (body.inventory) {
-            // The action expects the inventory as a JSON string.
-            formData.append('inventory', JSON.stringify(body.inventory));
-        }
-        
-        const result = await handleGenerateSuggestions(formData);
+        const result = await handleGenerateSuggestions(cravingsOrMood);
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 400 });
         }
 
-        return NextResponse.json(result);
+        return NextResponse.json(result.suggestions);
 
     } catch (error) {
         console.error(`Error in /api/ai/meal-suggestions POST:`, error);

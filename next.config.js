@@ -25,9 +25,6 @@ const nextConfig = {
       config.externals = [
           ...(config.externals || []), 
           'firebase-admin',
-          '@opentelemetry/winston-transport',
-          'winston',
-          '@opentelemetry/exporter-jaeger'
       ];
       
       // Provide empty fallbacks for Node.js modules that should not be in the browser

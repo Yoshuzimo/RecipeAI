@@ -20,7 +20,7 @@ export const InventoryItemSchema = z.object({
   originalQuantity: z.number(),
   totalQuantity: z.number(),
   unit: UnitSchema,
-  expiryDate: z.date().nullable(),
+  expiryDate: z.date(),
   locationId: z.string(),
   isPrivate: z.boolean(),
 });

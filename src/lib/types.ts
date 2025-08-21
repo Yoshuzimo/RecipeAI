@@ -82,8 +82,8 @@ export type Recipe = {
     title: string;
     description: string;
     servings: number;
-    ingredients: string[]; // Keep original strings for display
-    parsedIngredients: RecipeIngredient[]; // Parsed ingredients for AI processing
+    ingredients: string[];
+    parsedIngredients?: RecipeIngredient[];
     instructions: string[];
     macros: Macros;
 };

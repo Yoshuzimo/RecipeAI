@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros } from "@/lib/types";
 import {
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -27,7 +27,7 @@ import {
     createHousehold as dataCreateHousehold,
     joinHousehold as dataJoinHousehold,
     leaveHousehold as dataLeaveHousehold,
-    approvePendingMember as dataApprovePendingMember,
+approvePendingMember as dataApprovePendingMember,
     approveAndMergeMember as dataApproveAndMergeMember,
     rejectPendingMember as dataRejectPendingMember,
     getHousehold as dataGetHousehold,
@@ -42,6 +42,11 @@ import {
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { generateSuggestions, generateSubstitutions, generateRecipeDetails, logCookedMeal, generateShoppingList } from "@/ai/flows";
+import type { SuggestionInput, SuggestionOutput } from "@/ai/flows/suggestion-flow";
+import type { SubstitutionInput, SubstitutionOutput } from "@/ai/flows/substitution-flow";
+import type { RecipeDetailsInput } from "@/ai/flows/recipe-details-flow";
+import type { LogMealInput, LogMealOutput } from "@/ai/flows/log-meal-flow";
+import type { ShoppingListInput, ShoppingListOutput } from "@/ai/flows/shopping-list-flow";
 
 
 // --- Server Actions ---
@@ -72,7 +77,7 @@ export async function seedUserData(userId: string): Promise<void> {
 
 // --- AI Actions ---
 
-export async function handleGenerateSuggestions(cravingsOrMood: string) {
+export async function handleGenerateSuggestions(cravingsOrMood: string): Promise<{suggestions: SuggestionOutput | null, error: any}> {
     try {
         const userId = await getCurrentUserId();
         const { getAdmin } = require("@/lib/firebase-admin");
@@ -91,13 +96,15 @@ export async function handleGenerateSuggestions(cravingsOrMood: string) {
             return acc;
         }, { protein: 0, carbs: 0, fat: 0 });
 
-        const suggestions = await generateSuggestions({
-            inventory: inventory,
+        const input: SuggestionInput = {
+            inventory: inventory.map(i => ({...i, expiryDate: i.expiryDate || new Date()})), // Handle null expiry for schema
             personalDetails: personalDetails,
             todaysMacros: totalMacros,
             cravingsOrMood: cravingsOrMood,
             unitSystem: settings.unitSystem,
-        });
+        };
+
+        const suggestions = await generateSuggestions(input);
 
         return { suggestions, error: null };
     } catch (e: any) {
@@ -109,30 +116,135 @@ export async function handleGenerateSuggestions(cravingsOrMood: string) {
     }
 }
 
-export async function handleGenerateShoppingList(inventory: {privateItems: InventoryItem[], sharedItems: InventoryItem[]}, personalDetails: PersonalDetails) {
-    // Placeholder logic
-    const error = "AI features are currently under maintenance. Please try again later.";
-    return { error, shoppingList: null };
+export async function handleGenerateShoppingList(inventory: {privateItems: InventoryItem[], sharedItems: InventoryItem[]}, personalDetails: PersonalDetails): Promise<{error: string | null, shoppingList: ShoppingListOutput | null}> {
+    try {
+        const userId = await getCurrentUserId();
+        const { getAdmin } = require("@/lib/firebase-admin");
+        const { db } = getAdmin();
+        const settings = await dataGetSettings(db, userId);
+        
+        // This is a placeholder. In a real app, you'd generate a more meaningful history.
+        const consumptionHistory = "User has been eating a variety of foods.";
+
+        const input: ShoppingListInput = {
+            inventory: [...inventory.privateItems, ...inventory.sharedItems].map(i => ({...i, expiryDate: i.expiryDate || new Date()})),
+            personalDetails,
+            consumptionHistory,
+            unitSystem: settings.unitSystem
+        };
+        const shoppingList = await generateShoppingList(input);
+        return { error: null, shoppingList };
+
+    } catch (e: any) {
+        console.error("Error generating shopping list:", e);
+        return { error: e.message || "Failed to generate shopping list.", shoppingList: null };
+    }
 }
 
-export async function handleGenerateSubstitutions(recipe: Recipe, ingredientsToReplace: string[], inventory: InventoryItem[], allowExternalSuggestions: boolean) {
-    // Placeholder logic
-    const error = "AI features are currently under maintenance. Please try again later.";
-    return { substitutions: null, error };
+export async function handleGenerateSubstitutions(recipe: Recipe, ingredientsToReplace: string[], inventory: InventoryItem[], allowExternalSuggestions: boolean): Promise<{substitutions: SubstitutionOutput | null, error: string | null}> {
+    try {
+        const userId = await getCurrentUserId();
+        const { getAdmin } = require("@/lib/firebase-admin");
+        const { db } = getAdmin();
+        const personalDetails = await dataGetPersonalDetails(db, userId);
+        const settings = await dataGetSettings(db, userId);
+
+        const input: SubstitutionInput = {
+            recipe,
+            ingredientsToReplace,
+            inventory: inventory.map(i => ({...i, expiryDate: i.expiryDate || new Date()})),
+            personalDetails,
+            allowExternalSuggestions,
+            unitSystem: settings.unitSystem,
+        };
+        const substitutions = await generateSubstitutions(input);
+        return { substitutions, error: null };
+    } catch(e: any) {
+        console.error("Error generating substitutions:", e);
+        return { substitutions: null, error: e.message || "Failed to get substitutions." };
+    }
 }
 
-export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">) {
-     // Placeholder logic
-    const error = "AI features are currently under maintenance. Please try again later.";
-    return { recipe: null, error };
+export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "servings" | "macros" | "parsedIngredients">): Promise<{recipe: Recipe | null, error: string | null}> {
+     try {
+        const input: RecipeDetailsInput = {
+            title: recipeData.title,
+            description: recipeData.description,
+            ingredients: recipeData.ingredients,
+            instructions: recipeData.instructions,
+        };
+        const recipe = await generateRecipeDetails(input);
+        return { recipe, error: null };
+     } catch (e: any) {
+        console.error("Error generating recipe details:", e);
+        return { recipe: null, error: e.message || "Failed to finalize recipe." };
+     }
 }
 
 
 // Inventory & Meal Logging
-export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number, servingsEatenByOthers: number, fridgeLeftovers: LeftoverDestination[], freezerLeftovers: LeftoverDestination[], mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack") {
-    // Placeholder logic
-    const error = "AI features are currently under maintenance. Please try again later.";
-    return { success: false, error };
+export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number, servingsEatenByOthers: number, fridgeLeftovers: LeftoverDestination[], freezerLeftovers: LeftoverDestination[], mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack"): Promise<{ success: boolean; error: string | null, newInventory?: InventoryItem[] }> {
+    try {
+        const userId = await getCurrentUserId();
+        const { getAdmin } = require("@/lib/firebase-admin");
+        const { db } = getAdmin();
+        const { privateItems, sharedItems } = await getInventory(db, userId);
+        const inventory = [...privateItems, ...sharedItems];
+        const settings = await getSettings(db, userId);
+
+        const input: LogMealInput = {
+            recipe,
+            inventory: inventory.map(i => ({...i, expiryDate: i.expiryDate || new Date()})),
+            servingsEaten,
+            servingsEatenByOthers,
+            fridgeLeftovers,
+            freezerLeftovers,
+            unitSystem: settings.unitSystem
+        };
+
+        const result: LogMealOutput = await logCookedMeal(input);
+
+        // Process the results to update Firestore
+        const batch = db.batch();
+
+        // 1. Remove items
+        result.itemsToRemove.forEach(item => {
+            const itemToDelete = inventory.find(i => i.id === item.id);
+            if (itemToDelete) {
+                const collectionPath = (itemToDelete.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+                batch.delete(db.collection(collectionPath).doc(item.id));
+            }
+        });
+
+        // 2. Update items
+        result.itemsToUpdate.forEach(item => {
+            const itemToUpdate = inventory.find(i => i.id === item.id);
+            if (itemToUpdate) {
+                const collectionPath = (itemToUpdate.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+                batch.update(db.collection(collectionPath).doc(item.id), { totalQuantity: item.newQuantity });
+            }
+        });
+        
+        // 3. Add leftover items
+        const userDoc = await db.collection('users').doc(userId).get();
+        result.leftoverItems.forEach(item => {
+            const collectionPath = (item.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+            const newLeftoverRef = db.collection(collectionPath).doc();
+            batch.set(newLeftoverRef, item);
+        });
+
+        await batch.commit();
+        
+        // 4. Log macros
+        await logMacros(db, userId, mealType, recipe.title, result.macrosConsumed);
+
+        const updatedInventory = await getInventory(db, userId);
+        return { success: true, error: null, newInventory: [...updatedInventory.privateItems, ...updatedInventory.sharedItems] };
+
+    } catch (e: any) {
+        console.error("Error logging meal:", e);
+        return { success: false, error: e.message || "An unexpected error occurred." };
+    }
 }
 
 export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
@@ -229,7 +341,7 @@ export async function handleRemoveInventoryPackageGroup(itemsToRemove: Inventory
     }
 }
 
-export async function handleMoveInventoryItems(request: MoveRequest, destinationId: string): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
+export async function handleMoveInventoryItems(request: MoveRequest, destinationId: string): Promise<{ success: boolean; error: string | null; newInventory?: InventoryItem[] }> {
     const userId = await getCurrentUserId();
     const { getAdmin } = require("@/lib/firebase-admin");
     const { db } = getAdmin();
@@ -248,7 +360,7 @@ export async function handleMoveInventoryItems(request: MoveRequest, destination
         }
         await Promise.all(updates);
         const newInventory = await getInventory(db, userId);
-        return { success: true, error: null, newInventory };
+        return { success: true, error: null, newInventory: [...newInventory.privateItems, ...newInventory.sharedItems] };
     } catch (e) {
         return { success: false, error: "Failed to move items." };
     }
