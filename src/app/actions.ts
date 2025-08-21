@@ -68,89 +68,16 @@ export async function seedUserData(userId: string): Promise<void> {
     await dataSeedInitialData(db, userId);
 }
 
-
-// This is the core logic, now callable from different contexts
-async function generateMealSuggestionsLogic(userId: string, inventory: InventoryItem[], cravings: string) {
-    const { db } = getAdmin();
-
-    const personalDetails = await dataGetPersonalDetails(db, userId);
-    const settingsData = await dataGetSettings(db, userId);
-    const todaysMacrosData = await getTodaysMacros(db, userId);
-
-    // Ensure all required fields are present for the AI
-    const settings: Settings = {
-        ...settingsData,
-        subscriptionStatus: settingsData.subscriptionStatus || 'free',
-    };
-    
-    const formatTodaysMacros = (macros: DailyMacros[]) => {
-      if (macros.length === 0) return "No meals logged yet today.";
-      const totals = macros.reduce((acc, meal) => {
-        acc.protein += meal.totals.protein;
-        acc.carbs += meal.totals.carbs;
-        acc.fat += meal.totals.fat;
-        return acc;
-      }, { protein: 0, carbs: 0, fat: 0 });
-
-      return `So far today, the user has consumed:
-    - Protein: ${totals.protein.toFixed(1)}g
-    - Carbs: ${totals.carbs.toFixed(1)}g
-    - Fat: ${totals.fat.toFixed(1)}g
-    `;
-    };
-    
-    // Helper function to format inventory for the prompt
-    const formatInventory = (inventory: InventoryItem[]) => {
-      const now = new Date();
-      return inventory
-        .filter(item => item.totalQuantity > 0)
-        .map(item => {
-          let expiryInfo = 'No expiry date';
-          if (item.expiryDate) {
-            const expiryDate = item.expiryDate instanceof Date ? item.expiryDate : parseISO(item.expiryDate as any);
-            const daysUntilExpiry = differenceInDays(expiryDate, now);
-            if (daysUntilExpiry < 0) {
-              expiryInfo = `Expired ${-daysUntilExpiry} days ago`;
-            } else if (daysUntilExpiry === 0) {
-              expiryInfo = 'Expires today';
-            } else {
-              expiryInfo = `Expires in ${daysUntilExpiry} days`;
-            }
-          }
-          return `${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} available. ${expiryInfo}.`;
-        })
-        .join('\n');
-    };
-
-    // Explicitly format dates to strings for the AI prompt
-    const suggestionRequest: SuggestionRequest = {
-        inventory: inventory.map(item => ({
-            ...item,
-            expiryDate: item.expiryDate ? item.expiryDate.toISOString() : null,
-        })),
-        personalDetails,
-        settings,
-        todaysMacros: todaysMacrosData.map(macro => ({
-            ...macro,
-            loggedAt: macro.loggedAt.toISOString(),
-        })),
-        cravings,
-        formattedTodaysMacros: formatTodaysMacros(todaysMacrosData),
-        formattedInventory: formatInventory(inventory),
-    };
-
-    const suggestions = await generateSuggestions(suggestionRequest);
-
-    return { suggestions };
-}
-
-
-// This server action is used by the web UI (which uses session cookies)
+// This is the core server action for meal suggestions, used by the web UI.
 export async function handleGenerateSuggestions(formData: FormData) {
     try {
+        const userId = await getCurrentUserId();
+        const { db } = getAdmin();
+
+        // Extract data from FormData
         const inventoryString = formData.get('inventory') as string;
         const cravings = formData.get('cravingsOrMood') as string;
-        
+
         if (!inventoryString) {
             return { error: { form: ["Inventory data is missing."] }, suggestions: null };
         }
@@ -161,31 +88,77 @@ export async function handleGenerateSuggestions(formData: FormData) {
             }
             return value;
         });
-        
-        const userId = await getCurrentUserId();
-        const { suggestions } = await generateMealSuggestionsLogic(userId, inventory, cravings);
+
+        // Fetch required user data
+        const personalDetails = await dataGetPersonalDetails(db, userId);
+        const settings = await dataGetSettings(db, userId);
+        const todaysMacros = await getTodaysMacros(db, userId);
+
+        // Helper function to format inventory for the prompt
+        const formatInventory = (inventory: InventoryItem[]) => {
+            const now = new Date();
+            if (inventory.length === 0) return "The user's inventory is empty.";
+            return inventory
+                .filter(item => item.totalQuantity > 0)
+                .map(item => {
+                    let expiryInfo = 'No expiry date';
+                    if (item.expiryDate) {
+                        const expiryDate = item.expiryDate instanceof Date ? item.expiryDate : parseISO(item.expiryDate as any);
+                        const daysUntilExpiry = differenceInDays(expiryDate, now);
+                        if (daysUntilExpiry < 0) {
+                            expiryInfo = `Expired ${-daysUntilExpiry} days ago`;
+                        } else if (daysUntilExpiry === 0) {
+                            expiryInfo = 'Expires today';
+                        } else {
+                            expiryInfo = `Expires in ${daysUntilExpiry} days`;
+                        }
+                    }
+                    return `${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} available. ${expiryInfo}.`;
+                })
+                .join('\n');
+        };
+
+        // Helper function to format macros for the prompt
+        const formatTodaysMacros = (macros: DailyMacros[]) => {
+            if (macros.length === 0) return "No meals logged yet today.";
+            const totals = macros.reduce((acc, meal) => {
+                acc.protein += meal.totals.protein;
+                acc.carbs += meal.totals.carbs;
+                acc.fat += meal.totals.fat;
+                return acc;
+            }, { protein: 0, carbs: 0, fat: 0 });
+
+            return `So far today, the user has consumed:
+- Protein: ${totals.protein.toFixed(1)}g
+- Carbs: ${totals.carbs.toFixed(1)}g
+- Fat: ${totals.fat.toFixed(1)}g
+`;
+        };
+
+        // Prepare the request for the Genkit flow
+        const suggestionRequest: SuggestionRequest = {
+            inventory: inventory.map(item => ({
+                ...item,
+                expiryDate: item.expiryDate ? item.expiryDate.toISOString() : null,
+            })),
+            personalDetails,
+            settings,
+            todaysMacros: todaysMacros.map(macro => ({
+                ...macro,
+                loggedAt: macro.loggedAt.toISOString(),
+            })),
+            cravings: cravings || "User has no specific cravings. Suggest a variety of healthy meals.",
+            formattedTodaysMacros: formatTodaysMacros(todaysMacros),
+            formattedInventory: formatInventory(inventory),
+        };
+
+        const suggestions = await generateSuggestions(suggestionRequest);
 
         return { error: null, suggestions: suggestions };
+
     } catch (e) {
         console.error("Error in handleGenerateSuggestions:", e);
         const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while generating suggestions.";
-        return { error: { form: [errorMessage] }, suggestions: null };
-    }
-}
-
-// This function is for API routes (like the Flutter app) that use an ID token
-export async function handleGenerateSuggestionsForApi(userId: string, inventory: InventoryItem[], cravings: string) {
-    try {
-        // The inventory from the API likely has date strings, so we convert them to Date objects first
-        const typedInventory = inventory.map(item => ({
-            ...item,
-            expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
-        }));
-        const { suggestions } = await generateMealSuggestionsLogic(userId, typedInventory, cravings);
-        return { error: null, suggestions };
-    } catch (e) {
-        console.error("Error in handleGenerateSuggestionsForApi:", e);
-        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
         return { error: { form: [errorMessage] }, suggestions: null };
     }
 }

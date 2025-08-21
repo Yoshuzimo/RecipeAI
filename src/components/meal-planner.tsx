@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React, { useState, useTransition, useMemo, useRef, useCallback } from "react";
+import React, { useState, useTransition, useMemo, useCallback } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails, getClientInventory } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [error, setError] = useState<any | null>(null);
   const [isPending, startTransition] = useTransition();
-  const cravingsRef = useRef<HTMLInputElement>(null);
+  const cravingsRef = React.useRef<HTMLInputElement>(null);
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -62,7 +61,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       return;
     }
     
-    console.log("Form submission intercepted. Preventing default POST.");
     setError(null);
     const cravings = cravingsRef.current?.value || "";
 

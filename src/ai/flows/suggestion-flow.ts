@@ -3,16 +3,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import {
-  differenceInDays,
-  parseISO,
-} from 'date-fns';
 
 /**
- * @fileOverview Suggestion generation AI flows.
+ * @fileOverview Suggestion generation AI flows. This file defines the data structures
+ * and the AI prompt for generating meal suggestions based on user inventory and preferences.
  *
- * - generateSuggestions - A function that handles the meal suggestion process.
- * - SuggestionRequest - The input type for the generateSuggestions function.
+ * - generateSuggestions - The primary function exported to be used by server actions.
+ * - SuggestionRequest - The Zod schema for the input required by the suggestion flow.
+ * - SuggestionResponse - The Zod schema for the output produced by the suggestion flow.
  */
 
 // Schemas for data types to be used in prompts
@@ -65,7 +63,7 @@ const DailyMacrosSchema = z.object({
   loggedAt: z.string(),
 });
 
-const SuggestionRequestSchema = z.object({
+export const SuggestionRequestSchema = z.object({
   inventory: z.array(InventoryItemSchema),
   personalDetails: PersonalDetailsSchema,
   settings: SettingsSchema,
@@ -74,7 +72,7 @@ const SuggestionRequestSchema = z.object({
   formattedTodaysMacros: z.string(),
   formattedInventory: z.string(),
 });
-export type SuggestionRequest = z.infer < typeof SuggestionRequestSchema > ;
+export type SuggestionRequest = z.infer<typeof SuggestionRequestSchema>;
 
 const RecipeIngredientSchema = z.object({
   name: z.string().describe("The name of the ingredient, e.g., 'chicken breast' or 'olive oil'."),
@@ -91,17 +89,15 @@ const RecipeSchema = z.object({
   macros: MacrosSchema,
 });
 
-export type SuggestionResponse = z.infer < typeof SuggestionResponseSchema > ;
-const SuggestionResponseSchema = z.array(RecipeSchema);
+export const SuggestionResponseSchema = z.array(RecipeSchema);
+export type SuggestionResponse = z.infer<typeof SuggestionResponseSchema>;
 
+
+// Define the prompt for the AI model
 export const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
-  input: {
-    schema: SuggestionRequestSchema
-  },
-  output: {
-    schema: SuggestionResponseSchema
-  },
+  input: { schema: SuggestionRequestSchema },
+  output: { schema: SuggestionResponseSchema },
   prompt: `You are an expert chef and nutritionist AI named CookSmart. Your goal is to provide three varied, healthy, and appealing meal suggestions based on the user's available inventory, personal details, and preferences.
 
 Analyze the user's situation:
@@ -150,23 +146,23 @@ User's Context:
 "{{{cravings}}}"
 ---
 
-Now, generate the three meal suggestions in the required format.`,
+Now, generate the three meal suggestions in the required JSON format.`,
 });
 
-
+// Define the main flow
 export const suggestionFlow = ai.defineFlow({
   name: 'suggestionFlow',
   inputSchema: SuggestionRequestSchema,
   outputSchema: SuggestionResponseSchema,
 }, async (input) => {
-  const {
-    output
-  } = await suggestionPrompt(input, { model: 'gemini-1.5-flash' });
+  const { output } = await suggestionPrompt(input, { model: 'gemini-1.5-flash' });
   return output || [];
 });
 
+
+// Exported function to be called from server actions
 export async function generateSuggestions(
   input: SuggestionRequest
-): Promise < SuggestionResponse > {
+): Promise<SuggestionResponse> {
   return await suggestionFlow(input);
 }
