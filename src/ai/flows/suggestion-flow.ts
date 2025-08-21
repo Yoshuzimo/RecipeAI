@@ -4,9 +4,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import {
-  InventoryItem,
-} from '@/lib/types';
-import {
   differenceInDays,
   parseISO,
 } from 'date-fns';
@@ -75,6 +72,7 @@ const SuggestionRequestSchema = z.object({
   todaysMacros: z.array(DailyMacrosSchema),
   cravings: z.string().optional(),
   formattedTodaysMacros: z.string(),
+  formattedInventory: z.string(),
 });
 export type SuggestionRequest = z.infer < typeof SuggestionRequestSchema > ;
 
@@ -95,29 +93,6 @@ const RecipeSchema = z.object({
 
 export type SuggestionResponse = z.infer < typeof SuggestionResponseSchema > ;
 const SuggestionResponseSchema = z.array(RecipeSchema);
-
-// Helper function to format inventory for the prompt
-const formatInventory = (inventory: InventoryItem[]) => {
-  const now = new Date();
-  return inventory
-    .filter(item => item.totalQuantity > 0)
-    .map(item => {
-      let expiryInfo = 'No expiry date';
-      if (item.expiryDate) {
-        const expiryDate = parseISO(item.expiryDate);
-        const daysUntilExpiry = differenceInDays(expiryDate, now);
-        if (daysUntilExpiry < 0) {
-          expiryInfo = `Expired ${-daysUntilExpiry} days ago`;
-        } else if (daysUntilExpiry === 0) {
-          expiryInfo = 'Expires today';
-        } else {
-          expiryInfo = `Expires in ${daysUntilExpiry} days`;
-        }
-      }
-      return `${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} available. ${expiryInfo}.`;
-    })
-    .join('\n');
-};
 
 export const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
@@ -169,16 +144,13 @@ User's Context:
 {{{formattedTodaysMacros}}}
 
 **Current Inventory:**
-{{{formatInventory inventory}}}
+{{{formattedInventory}}}
 
 **User's Request/Craving:**
 "{{{cravings}}}"
 ---
 
 Now, generate the three meal suggestions in the required format.`,
-  helpers: {
-    formatInventory,
-  },
 });
 
 

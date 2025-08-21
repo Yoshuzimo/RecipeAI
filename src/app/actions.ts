@@ -41,7 +41,7 @@ import {
     toggleItemPrivacy as dataToggleItemPrivacy,
     getPendingMemberInventory,
 } from "@/lib/data";
-import { addDays } from "date-fns";
+import { addDays, differenceInDays, parseISO } from "date-fns";
 import { generateSuggestions, SuggestionRequest } from "@/ai/flows/suggestion-flow";
 
 
@@ -99,6 +99,28 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
     `;
     };
     
+    // Helper function to format inventory for the prompt
+    const formatInventory = (inventory: InventoryItem[]) => {
+      const now = new Date();
+      return inventory
+        .filter(item => item.totalQuantity > 0)
+        .map(item => {
+          let expiryInfo = 'No expiry date';
+          if (item.expiryDate) {
+            const expiryDate = item.expiryDate instanceof Date ? item.expiryDate : parseISO(item.expiryDate as any);
+            const daysUntilExpiry = differenceInDays(expiryDate, now);
+            if (daysUntilExpiry < 0) {
+              expiryInfo = `Expired ${-daysUntilExpiry} days ago`;
+            } else if (daysUntilExpiry === 0) {
+              expiryInfo = 'Expires today';
+            } else {
+              expiryInfo = `Expires in ${daysUntilExpiry} days`;
+            }
+          }
+          return `${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} available. ${expiryInfo}.`;
+        })
+        .join('\n');
+    };
 
     // Explicitly format dates to strings for the AI prompt
     const suggestionRequest: SuggestionRequest = {
@@ -114,6 +136,7 @@ async function generateMealSuggestionsLogic(userId: string, inventory: Inventory
         })),
         cravings,
         formattedTodaysMacros: formatTodaysMacros(todaysMacrosData),
+        formattedInventory: formatInventory(inventory),
     };
 
     const suggestions = await generateSuggestions(suggestionRequest);
