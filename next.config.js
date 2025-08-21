@@ -19,12 +19,12 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Prevent firebase-admin from being bundled on the client
+    config.experiments = { ...config.experiments, asyncWebAssembly: true };
+
     if (!isServer) {
+      // Don't bundle 'firebase-admin' on the client
       config.externals.push('firebase-admin');
     }
-    
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
     
     return config;
   },
