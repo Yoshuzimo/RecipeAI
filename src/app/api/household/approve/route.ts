@@ -1,22 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
 import { handleApproveMember, handleApproveAndMerge, getClientPendingMemberInventory } from "@/app/actions";
+import { getUserIdFromToken } from "@/lib/auth";
 import { InventoryItem } from "@/lib/types";
-
-async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-    const idToken = authHeader.split("Bearer ")[1];
-    try {
-        const { auth } = getAdmin();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error("Error verifying ID token:", error);
-        return null;
-    }
-}
 
 // This is a new route handler specifically for fetching a pending member's inventory
 // to show in the confirmation dialog.

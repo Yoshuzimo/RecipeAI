@@ -1,22 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
 import { getClientShoppingList, addClientShoppingListItem, removeClientCheckedShoppingListItems } from "@/app/actions";
+import { getUserIdFromToken } from "@/lib/auth";
 import type { ShoppingListItem } from "@/lib/types";
-
-async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-    const idToken = authHeader.split("Bearer ")[1];
-    try {
-        const { auth } = getAdmin();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error("Error verifying ID token:", error);
-        return null;
-    }
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -67,7 +53,7 @@ export async function DELETE(request: NextRequest) {
         await removeClientCheckedShoppingListItems();
         return new NextResponse(null, { status: 204 });
 
-    } catch (error) {
+    } catch (error)
         console.error("Error in /api/shopping-list DELETE:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return new NextResponse(JSON.stringify({ error: "Failed to delete checked items", details: errorMessage }), { status: 500 });

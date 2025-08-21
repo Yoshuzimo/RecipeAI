@@ -1,22 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
 import { handleGenerateSuggestionsForApi } from "@/app/actions";
+import { getUserIdFromToken } from "@/lib/auth";
 import type { InventoryItem } from "@/lib/types";
-
-async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-    const idToken = authHeader.split("Bearer ")[1];
-    try {
-        const { auth } = getAdmin();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error("Error verifying ID token:", error);
-        return null;
-    }
-}
 
 export async function POST(request: NextRequest) {
     try {
@@ -47,5 +33,3 @@ export async function POST(request: NextRequest) {
         return new NextResponse(JSON.stringify({ error: "Failed to generate suggestions", details: errorMessage }), { status: 500 });
     }
 }
-
-    
