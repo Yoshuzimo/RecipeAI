@@ -13,14 +13,14 @@ export default genkit({
   plugins: [
     googleAI({
       apiVersion: ['v1', 'v1beta'],
+      models: [{
+        name: 'gemini-1.5-flash',
+        path: 'gemini-1.5-flash-latest',
+      }],
     }),
   ],
   prompts: [...dotprompts],
   flows: [suggestionFlow.suggestionFlow],
-  models: [{
-    name: 'gemini-1.5-flash',
-    path: 'gemini-1.5-flash-latest',
-  }],
   logLevel: 'debug',
   enableTracing: true,
 });
