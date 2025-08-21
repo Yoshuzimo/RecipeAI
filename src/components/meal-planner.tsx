@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useRef } from "react";
 import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const [error, setError] = useState<any | null>(null);
   const [debugInfo, setDebugInfo] = useState(initialState.debugInfo);
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
   
   const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
   const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
@@ -68,10 +69,16 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
 
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    console.log("Form submission intercepted. Preventing default POST.");
+
     if (!checkRateLimit()) {
       return;
     }
+    
+    if (!formRef.current) return;
+    const formData = new FormData(formRef.current);
 
     startTransition(async () => {
       recordRequest();
@@ -289,7 +296,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <form action={handleSubmit} className="space-y-4">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
              <input type="hidden" name="inventory" value={JSON.stringify(inventory)} />
             <div>
               <Label htmlFor="cravingsOrMood" className="sr-only">
