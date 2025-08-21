@@ -4,26 +4,48 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // By default, deny all reads and writes
+    // By default, deny all
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Match any document in the 'users' collection
-    match /users/{userId}/{document=**} {
-      // A user can read or write to their own documents if they are authenticated
-      // and their UID matches the userId in the document path.
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // HOUSEHOLD DATA
+    // This section defines access control for shared household data.
+    match /households/{householdId} {
+        // Allow any authenticated user who is a member of the household to read its main document.
+        allow read: if request.auth != null && exists(/databases/$(database)/documents/households/$(householdId)) &&
+                      (request.auth.uid in resource.data.activeMembers.map(m => m.userId) || request.auth.uid == resource.data.ownerId);
+
+        // Only the owner of the household can update the main household document (e.g., change owner, approve members).
+        allow write: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
-    
-    // Allow the server to seed initial data for a brand new user.
-    // This rule allows creating the user's document and subcollections only if the user document does not yet exist.
-    // This is crucial for the initial data seeding process during sign-up.
+
+    match /households/{householdId}/{path=**} {
+      // Allow any active member of the household to read and write documents in subcollections (e.g., inventory, shopping-list).
+      allow read, write: if request.auth != null &&
+                           exists(/databases/$(database)/documents/households/$(householdId)) &&
+                           get(/databases/$(database)/documents/households/$(householdId)).data.activeMembers.map(m => m.userId).hasAny([request.auth.uid]);
+    }
+
+
+    // USER-SPECIFIC DATA
+    // This section defines access control for a user's private data.
     match /users/{userId} {
-      allow create: if !exists(/databases/$(database)/documents/users/$(userId));
+      // A user can only be created if they don't already exist.
+      allow create: if request.auth != null && !exists(/databases/$(database)/documents/users/$(userId));
+
+      // Allow a user to read their own main document (which might store their householdId).
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow a user to update their own householdId.
+      allow update: if request.auth != null && request.auth.uid == userId;
     }
-     match /users/{userId}/{path=**} {
-      allow create: if !exists(/databases/$(database)/documents/users/$(userId));
+
+    // This rule governs all subcollections under a user's document (e.g., inventory, app-data).
+    match /users/{userId}/{document=**} {
+        // Allow a user to read and write to any document within their own user space.
+        allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
   }
 }
