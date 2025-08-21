@@ -5,23 +5,17 @@
 
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
-import * as firebasePlugin from '@genkit-ai/firebase';
+import { firebase } from '@genkit-ai/firebase';
 
-// Initialize Genkit with the Google AI plugin and Firebase plugins.
+// Initialize Genkit with the Google AI plugin and Firebase plugin.
 // This configuration will be used by all flows defined in the application.
 export const ai = genkit({
   plugins: [
     googleAI({
-      // The API version can be specified here. 'v1beta' is common for recent features.
-      // apiVersion: 'v1beta',
+      // apiVersion: 'v1beta', // optional
     }),
-    firebasePlugin.firebase(), // ✅ fixed import usage
+    firebase, // ✅ use as a plugin object, no ()
   ],
-  // This allows Genkit to store flow states in Firestore, which is useful for debugging
-  // and monitoring production flows. This requires Firestore to be set up in your Firebase project.
   flowStateStore: 'firebase',
-
-  // This enables tracing of AI flows, which can be viewed in a developer UI.
-  // Traces can be exported to various services, including Google Cloud Trace.
   traceStore: 'firebase',
 });
