@@ -93,8 +93,8 @@ const RecipeSchema = z.object({
   macros: MacrosSchema,
 });
 
-const SuggestionResponseSchema = z.array(RecipeSchema);
 export type SuggestionResponse = z.infer < typeof SuggestionResponseSchema > ;
+const SuggestionResponseSchema = z.array(RecipeSchema);
 
 // Helper function to format inventory for the prompt
 const formatInventory = (inventory: InventoryItem[]) => {
