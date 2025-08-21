@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { NextRequest } from "next/server";
@@ -13,7 +14,7 @@ export async function getUserIdFromToken(request: NextRequest): Promise<string |
 
     // 1. Try Authorization header first
     const authHeader = request.headers.get("Authorization");
-    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       const idToken = authHeader.split("Bearer ")[1];
       if (idToken) {
         const decoded = await auth.verifyIdToken(idToken);
