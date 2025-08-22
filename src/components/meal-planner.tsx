@@ -4,6 +4,7 @@
 import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
+import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -307,70 +308,76 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   };
 
   const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => (
-    <Card>
-        <AccordionItem value={recipe.title} className="border-b-0">
-            <CardHeader>
-                <AccordionTrigger disabled={isExpanded}>
-                    <div>
-                        <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
-                    </div>
-                </AccordionTrigger>
-            </CardHeader>
-            <AccordionContent className="px-6 pb-6">
-                <div className="space-y-6">
-                     <div className="flex items-center gap-4">
-                        <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
-                        <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-2">Ingredients</h4>
-                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                            {recipe.ingredients.map((ing, i) => {
-                                const status = getIngredientStatus(ing);
-                                return (
-                                   <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
-                                       {ing}
-                                       {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
-                                       {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
-                                   </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-2">Instructions</h4>
-                        <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                            {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-                        </ol>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-2">Macros (per serving)</h4>
-                        <div className="flex gap-2 flex-wrap">
-                            <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
-                            <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
-                            <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
-                            <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
-                        </div>
-                    </div>
-                     <Separator />
-                     <div className="flex flex-wrap gap-2">
-                         <Button onClick={() => handleCookItClick(recipe)}>
-                             <ChefHat className="mr-2 h-4 w-4" />
-                             Cook It
-                         </Button>
-                         <Button variant="outline" onClick={() => saveRecipeAction(recipe)} disabled={savedRecipeTitles.has(recipe.title)}>
-                             <Bookmark className="mr-2 h-4 w-4" />
-                             {savedRecipeTitles.has(recipe.title) ? 'Saved' : 'Save Recipe'}
-                         </Button>
-                     </div>
-                </div>
-            </AccordionContent>
-        </AccordionItem>
+    <Card className="relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 right-2 z-10"
+        onClick={() => saveRecipeAction(recipe)}
+        disabled={savedRecipeTitles.has(recipe.title)}
+        aria-label="Save recipe"
+      >
+        <Bookmark className={cn("h-5 w-5", savedRecipeTitles.has(recipe.title) && "fill-primary text-primary")} />
+      </Button>
+      <AccordionItem value={recipe.title} className="border-b-0">
+        <CardHeader>
+          <AccordionTrigger disabled={isExpanded} className="pr-10">
+            <div>
+              <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
+            </div>
+          </AccordionTrigger>
+        </CardHeader>
+        <AccordionContent className="px-6 pb-6">
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
+              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
+              <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
+              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Ingredients</h4>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                {recipe.ingredients.map((ing, i) => {
+                  const status = getIngredientStatus(ing);
+                  return (
+                    <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
+                      {ing}
+                      {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
+                      {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Instructions</h4>
+              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+              </ol>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Macros (per serving)</h4>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
+                <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
+                <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
+                <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => handleCookItClick(recipe)}>
+                <ChefHat className="mr-2 h-4 w-4" />
+                Cook It
+              </Button>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
     </Card>
-);
+  );
 
 
   return (
