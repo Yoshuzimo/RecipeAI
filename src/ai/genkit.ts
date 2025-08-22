@@ -10,8 +10,8 @@ import { firebase } from "@genkit-ai/firebase";
 
 export const ai = genkit({
   plugins: [
-    googleAI(),   // still a function
-    firebase,     // pass the object directly, no parentheses
+    googleAI(),   // call this
+    firebase,     // do NOT call this
   ],
   flowStateStore: "none",
   traceStore: "none",
