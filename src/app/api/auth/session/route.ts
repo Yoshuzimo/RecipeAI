@@ -1,10 +1,9 @@
 
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
+import { auth } from "@/lib/firebase-admin";
 
 export async function POST(request: NextRequest) {
-  const { auth } = getAdmin();
   const { idToken } = await request.json();
 
   if (!idToken) {

@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
+import { db } from "@/lib/firebase-admin";
 import { getStorageLocations, addStorageLocation } from "@/lib/data";
 import type { StorageLocation } from "@/lib/types";
 import { getUserIdFromToken } from "@/lib/auth";
@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
-        const { db } = getAdmin();
         const locations = await getStorageLocations(db, userId);
         return NextResponse.json(locations);
 
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
              return new NextResponse(JSON.stringify({ error: "Invalid location data provided" }), { status: 400 });
         }
 
-        const { db } = getAdmin();
         const newLocation = await addStorageLocation(db, userId, newLocationData);
 
         return NextResponse.json(newLocation, { status: 201 });

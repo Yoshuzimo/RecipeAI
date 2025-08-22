@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
+import { db } from "@/lib/firebase-admin";
 import { updateInventoryItem, removeInventoryItem, getInventory } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
 import { getUserIdFromToken } from "@/lib/auth";
@@ -20,8 +20,6 @@ export async function PUT(request: NextRequest, { params }: { params: { itemId: 
 
         const { itemId } = params;
         const updatedData: Partial<Omit<InventoryItem, 'id'>> = await request.json();
-
-        const { db } = getAdmin();
         
         const existingItem = await findItemById(db, userId, itemId);
         if (!existingItem) {
@@ -48,7 +46,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { itemI
         }
         
         const { itemId } = params;
-        const { db } = getAdmin();
 
         const itemToDelete = await findItemById(db, userId, itemId);
         if (!itemToDelete) {

@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
+import { db } from "@/lib/firebase-admin";
 import { getInventory, addInventoryItem } from "@/lib/data";
 import { NewInventoryItem } from "@/lib/types";
 import { getUserIdFromToken } from "@/lib/auth";
@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
-        const { db } = getAdmin();
         const inventory = await getInventory(db, userId);
 
         return NextResponse.json(inventory);
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
              return new NextResponse(JSON.stringify({ error: "Invalid item data provided" }), { status: 400 });
         }
 
-        const { db } = getAdmin();
         const newItem = await addInventoryItem(db, userId, newItemData);
 
         return NextResponse.json(newItem, { status: 201 });

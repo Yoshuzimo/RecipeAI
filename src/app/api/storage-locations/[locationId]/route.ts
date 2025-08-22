@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/firebase-admin";
+import { db } from "@/lib/firebase-admin";
 import { updateStorageLocation, removeStorageLocation } from "@/lib/data";
 import type { StorageLocation } from "@/lib/types";
 import { getUserIdFromToken } from "@/lib/auth";
@@ -16,7 +16,6 @@ export async function PUT(request: NextRequest, { params }: { params: { location
         const { locationId } = params;
         const updatedData: Omit<StorageLocation, 'id'> = await request.json();
 
-        const { db } = getAdmin();
         const locationToUpdate: StorageLocation = { id: locationId, ...updatedData };
 
         const updatedLocation = await updateStorageLocation(db, userId, locationToUpdate);
@@ -37,7 +36,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { locat
         }
         
         const { locationId } = params;
-        const { db } = getAdmin();
 
         await removeStorageLocation(db, userId, locationId);
         return new NextResponse(null, { status: 204 });
