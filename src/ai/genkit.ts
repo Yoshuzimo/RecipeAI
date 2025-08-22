@@ -5,15 +5,16 @@
 
 "use server";
 
-import { genkit } from "genkit";
+import { configureGenkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import { firebase } from "@genkit-ai/firebase"; // named import
+import { firebase } from "@genkit-ai/firebase"; 
 
-export const ai = genkit({
+export const ai = configureGenkit({
   plugins: [
     googleAI(),
     firebase(),    // invoke the Firebase plugin
   ],
-  flowStateStore: null,  // no flow-state storage
-  traceStore: null,      // tracing completely disabled
+  flowStateStore: "none",
+  traceStore: "none",
+  logLevel: "debug",
 });
