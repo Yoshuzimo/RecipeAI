@@ -43,6 +43,8 @@ const InventoryColumn = ({ title, icon, groupedData, onRowClick, storageLocation
                     const locationsOfType = storageLocations.filter(l => l.type === locationType);
                     const itemsForType = groupedData[locationType] || [];
 
+                    if (locationsOfType.length === 0) return null;
+
                     return (
                         <AccordionItem value={locationType} key={locationType} className="border-none">
                             <Card>

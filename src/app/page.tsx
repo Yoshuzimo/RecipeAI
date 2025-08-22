@@ -39,71 +39,73 @@ export default async function OverviewPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <TodaysMacros 
-            dailyData={dailyData} 
-            settings={settings} 
-            onDataChange={refreshData}
-        />
-        <p className="text-sm text-muted-foreground pt-2">
-            Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Inventory Items
-              </CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{inventory.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Different types of items
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Expiring Soon
-              </CardTitle>
-              <AlarmClock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{expiringSoon}</div>
-              <p className="text-xs text-muted-foreground">
-                Items expiring in the next 3 days
-              </p>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Expired Items
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{expired}</div>
-               <p className="text-xs text-muted-foreground">
-                Check your inventory for expired items
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Meal Plan Activity
-              </CardTitle>
-              <CookingPot className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">+5</div>
-              <p className="text-xs text-muted-foreground">
-                New meal suggestions this week
-              </p>
-            </CardContent>
-          </Card>
+        <div className="max-w-6xl mx-auto space-y-4">
+            <TodaysMacros 
+                dailyData={dailyData} 
+                settings={settings} 
+                onDataChange={refreshData}
+            />
+            <p className="text-sm text-muted-foreground pt-2">
+                Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Total Inventory Items
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">{inventory.length}</div>
+                <p className="text-xs text-muted-foreground">
+                    Different types of items
+                </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Expiring Soon
+                </CardTitle>
+                <AlarmClock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">{expiringSoon}</div>
+                <p className="text-xs text-muted-foreground">
+                    Items expiring in the next 3 days
+                </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Expired Items
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold text-red-600">{expired}</div>
+                <p className="text-xs text-muted-foreground">
+                    Check your inventory for expired items
+                </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Meal Plan Activity
+                </CardTitle>
+                <CookingPot className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">+5</div>
+                <p className="text-xs text-muted-foreground">
+                    New meal suggestions this week
+                </p>
+                </CardContent>
+            </Card>
+            </div>
         </div>
       </div>
     </MainLayout>
