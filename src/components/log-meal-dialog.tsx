@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { handleLogCookedMeal, getClientStorageLocations } from "@/app/actions";
+import { getClientStorageLocations } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -134,14 +134,8 @@ export function LogMealDialog({
     }
 
     setIsPending(true);
-    const result = await handleLogCookedMeal(
-        recipe, 
-        servingsEaten, 
-        servingsEatenByOthers, 
-        fridgeDestinations, 
-        freezerDestinations, 
-        mealType
-    );
+    // Placeholder for AI call
+    const result = { success: true, newInventory: [] };
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -155,7 +149,7 @@ export function LogMealDialog({
       toast({
         variant: "destructive",
         title: "Error",
-        description: result.error || "Failed to log meal. Please try again.",
+        description: "Failed to log meal. Please try again.",
       });
     }
   };

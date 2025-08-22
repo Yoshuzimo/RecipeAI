@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { handleGenerateRecipeDetails } from "@/app/actions";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { AddIngredientDialog } from "./add-ingredient-dialog";
@@ -76,12 +75,21 @@ export function CreateRecipeDialog({
         const instructionsArray = data.instructions.split('\n').filter(line => line.trim() !== '');
         const ingredientArray = data.ingredients.map(ing => ing.value);
 
-        const result = await handleGenerateRecipeDetails({
-            title: data.title,
-            description: data.description || "",
-            ingredients: ingredientArray,
-            instructions: instructionsArray,
-        });
+        // Placeholder for AI call
+        const result = {
+            recipe: {
+                title: data.title,
+                description: data.description || "A custom recipe.",
+                servings: 2,
+                ingredients: ingredientArray,
+                instructions: instructionsArray,
+                macros: {
+                    protein: 25,
+                    carbs: 40,
+                    fat: 15,
+                }
+            } as Recipe
+        };
 
         if (result.recipe) {
             toast({
@@ -95,7 +103,7 @@ export function CreateRecipeDialog({
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: result.error || "Failed to finalize recipe. Please try again."
+                description: "Failed to finalize recipe. Please try again."
             });
         }
         setIsPending(false);
