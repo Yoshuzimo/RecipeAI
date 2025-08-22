@@ -12,7 +12,7 @@ export default async function MealPlannerPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="max-w-6xl mx-auto space-y-4">
+        <div className="max-w-[108rem] mx-auto space-y-4">
             <MealPlanner initialInventory={inventory} initialSavedRecipes={savedRecipes} />
         </div>
       </div>
