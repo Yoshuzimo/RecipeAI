@@ -16,23 +16,13 @@ export async function generateMealSuggestions(
   prompt: MealSuggestionInput
 ): Promise<MealSuggestionOutput> {
   try {
-    const mealSuggestionFlow = ai.defineFlow(
-      {
-        name: 'mealSuggestionFlow',
-        inputSchema: MealSuggestionInputSchema,
-        outputSchema: MealSuggestionOutputSchema,
-      },
-      async (prompt) => {
-        const llmResponse = await ai.generate({
-          model: 'googleai/gemini-1.5-flash',
-          prompt,
-          config: { temperature: 0.8 },
-        });
-        return llmResponse.text;
-      }
-    );
+    const llmResponse = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt,
+      config: { temperature: 0.8 },
+    });
 
-    return await mealSuggestionFlow(prompt);
+    return llmResponse.text;
   } catch (e: any) {
     console.error("Error in generateMealSuggestions:", e);
     return { error: e.message || "Unknown AI error" };
