@@ -12,31 +12,29 @@ export const MealSuggestionOutputSchema = z.union([
 ]);
 export type MealSuggestionOutput = z.infer<typeof MealSuggestionOutputSchema>;
 
-const mealSuggestionFlow = ai.defineFlow(
-  {
-    name: 'mealSuggestionFlow',
-    inputSchema: MealSuggestionInputSchema,
-    outputSchema: MealSuggestionOutputSchema,
-  },
-  async (prompt) => {
-    try {
-      const llmResponse = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
-        prompt,
-        config: { temperature: 0.8 },
-      });
-
-      return llmResponse.text; // correct for 1.16.1
-    } catch (e: any) {
-      console.error("Error in mealSuggestionFlow:", e);
-      const errorMessage = e.message || "An unknown error occurred during AI generation.";
-      return { error: `AI Generation Failed: ${errorMessage}` };
-    }
-  }
-);
-
 export async function generateMealSuggestions(
   prompt: MealSuggestionInput
 ): Promise<MealSuggestionOutput> {
-  return await mealSuggestionFlow(prompt);
+  try {
+    const mealSuggestionFlow = ai.defineFlow(
+      {
+        name: 'mealSuggestionFlow',
+        inputSchema: MealSuggestionInputSchema,
+        outputSchema: MealSuggestionOutputSchema,
+      },
+      async (prompt) => {
+        const llmResponse = await ai.generate({
+          model: 'googleai/gemini-1.5-flash',
+          prompt,
+          config: { temperature: 0.8 },
+        });
+        return llmResponse.text;
+      }
+    );
+
+    return await mealSuggestionFlow(prompt);
+  } catch (e: any) {
+    console.error("Error in generateMealSuggestions:", e);
+    return { error: e.message || "Unknown AI error" };
+  }
 }
