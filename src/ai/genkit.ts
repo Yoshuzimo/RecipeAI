@@ -4,9 +4,9 @@
 
 "use server";
 
-import { genkit } from "genkit";
-import { googleAI } from "@genkit-ai/googleai";
-import { firebase } from "@genkit-ai/firebase";
+import * as genkitModule from "genkit";
+import * as googleAIModule from "@genkit-ai/googleai";
+import * as firebaseModule from "@genkit-ai/firebase";
 
 export const ai = genkit({
   plugins: [
