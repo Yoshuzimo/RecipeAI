@@ -10,7 +10,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { defineFlow, run } from 'genkit/flow';
 import { z } from 'zod';
 
 export const MealSuggestionInputSchema = z.string();
@@ -24,7 +23,7 @@ export const MealSuggestionOutputSchema = z.union([
 export type MealSuggestionOutput = z.infer<typeof MealSuggestionOutputSchema>;
 
 
-const mealSuggestionFlow = defineFlow(
+const mealSuggestionFlow = ai.defineFlow(
   {
     name: 'mealSuggestionFlow',
     inputSchema: MealSuggestionInputSchema,
@@ -32,17 +31,15 @@ const mealSuggestionFlow = defineFlow(
   },
   async (prompt) => {
     try {
-        const llmResponse = await run("generate-response", () => 
-            ai.generate({
-                prompt: prompt,
-                model: 'googleai/gemini-1.5-flash',
-                config: {
-                    temperature: 0.8,
-                },
-            })
-        );
+        const llmResponse = await ai.generate({
+            prompt: prompt,
+            model: 'googleai/gemini-1.5-flash',
+            config: {
+                temperature: 0.8,
+            },
+        });
 
-        return llmResponse.text();
+        return llmResponse.text;
     } catch (e: any) {
         console.error("Error in mealSuggestionFlow:", e);
         // Provide a more detailed error message
