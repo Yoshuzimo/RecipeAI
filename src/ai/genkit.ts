@@ -6,15 +6,12 @@
 
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import firebaseImport from "@genkit-ai/firebase";
-
-// Ensure firebase is callable regardless of default export style
-const firebase = (firebaseImport.default ?? firebaseImport) as () => any;
+import firebase from "@genkit-ai/firebase"; // import as default
 
 export const ai = genkit({
   plugins: [
-    googleAI(),   // must call this
-    firebase(),   // now safe to call
+    googleAI(),  // must call
+    firebase(),  // must call
   ],
   flowStateStore: "none",
   traceStore: "none",
