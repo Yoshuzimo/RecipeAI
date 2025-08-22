@@ -151,8 +151,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         
         try {
           const response = await generateMealSuggestions(finalPrompt);
-          setRawAiResponse(response);
-
+          
           if (typeof response === 'string') {
               const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
               const jsonString = jsonMatch ? jsonMatch[1] : response;
@@ -167,7 +166,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                         title: "AI Response Error",
                         description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
                    });
-                   setRawAiResponse(response);
+                   setRawAiResponse(jsonString);
               }
           } else {
             // Handle the case where the response is already an error object
@@ -325,6 +324,9 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
             <div>
               <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
               <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
+              <div className="text-left mt-2">
+                <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)} per serving</Badge>
+              </div>
             </div>
           </AccordionTrigger>
         </CardHeader>
@@ -360,7 +362,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
             <div>
               <h4 className="font-semibold mb-2">Macros (per serving)</h4>
               <div className="flex gap-2 flex-wrap">
-                <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
                 <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
                 <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
                 <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
@@ -427,6 +428,21 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                ))}
            </Accordion>
       )}
+
+      {/*
+      {rawAiResponse && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw AI Response</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="whitespace-pre-wrap text-xs bg-muted p-4 rounded-md">
+                <code>{typeof rawAiResponse === 'string' ? rawAiResponse : JSON.stringify(rawAiResponse, null, 2)}</code>
+              </pre>
+            </CardContent>
+          </Card>
+      )}
+      */}
 
       {/* <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />

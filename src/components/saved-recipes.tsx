@@ -81,6 +81,9 @@ export function SavedRecipes({ initialRecipes }: { initialRecipes: Recipe[] }) {
                                             <div>
                                                 <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
                                                 <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
+                                                <div className="text-left mt-2">
+                                                    {recipe.macros.calories && <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)} per serving</Badge>}
+                                                </div>
                                             </div>
                                         </AccordionTrigger>
                                     </CardHeader>
@@ -112,7 +115,6 @@ export function SavedRecipes({ initialRecipes }: { initialRecipes: Recipe[] }) {
                                                 <div>
                                                     <h4 className="font-semibold mb-2">Macros (per serving)</h4>
                                                     <div className="flex gap-2 flex-wrap">
-                                                        {recipe.macros.calories && <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>}
                                                         <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
                                                         <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
                                                         <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
