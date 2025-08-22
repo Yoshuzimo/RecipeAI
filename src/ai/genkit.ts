@@ -1,17 +1,15 @@
 /**
- * @fileoverview Initializes Genkit AI with Google AI and Firebase plugins.
+ * @fileoverview Initializes Genkit AI with the Google AI plugin.
  */
 
 "use server";
 
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import { firebase } from "@genkit-ai/firebase";
 
 export const ai = genkit({
   plugins: [
     googleAI(),  // call the Google AI plugin
-    firebase(),   // call the Firebase plugin
   ],
   flowStateStore: "none",
   traceStore: "none",
