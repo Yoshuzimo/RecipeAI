@@ -1,24 +1,22 @@
 /**
- * @fileoverview Initializes Genkit AI with Google AI and Firebase.
- * Supports optional OpenTelemetry tracing/logging.
+ * @fileoverview Initializes Genkit AI with Google AI and Firebase plugins.
+ * Designed for Next.js 15 server-side usage.
  */
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-import firebase from '@genkit-ai/firebase'; // ✅ default import for Genkit 1.x
+"use server"; // Ensures this file only runs on the server
 
-// Optional: Import OpenTelemetry exporters if you want full tracing support.
-// Install via: npm install @opentelemetry/winston-transport @opentelemetry/exporter-jaeger
-// Uncomment if needed:
-// import { NodeTracerProvider } from '@opentelemetry/sdk-node';
-// import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-// import { WinstonInstrumentation } from '@opentelemetry/instrumentation-winston';
+import { genkit } from "genkit";
+import { googleAI } from "@genkit-ai/googleai";
+import firebase from "@genkit-ai/firebase"; // ✅ default export in Genkit 1.x
 
+// Create the Genkit AI instance
 export const ai = genkit({
   plugins: [
-    googleAI({}),
-    firebase, // ✅ works in 1.x
+    googleAI({
+      // apiVersion: "v1beta", // optional
+    }),
+    firebase, // Firebase plugin as default export
   ],
-  flowStateStore: 'firebase',
-  traceStore: 'firebase',
+  flowStateStore: "firebase",
+  traceStore: "firebase",
 });
