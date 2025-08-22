@@ -44,6 +44,7 @@ export function MealPlanner({
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>(initialSavedRecipes);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
+  const [userRecipe, setUserRecipe] = useState<Recipe | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [rawAiResponse, setRawAiResponse] = useState<string | { error: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -66,6 +67,7 @@ export function MealPlanner({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     startTransition(async () => {
+        setUserRecipe(null);
         const allItems = [...inventory.privateItems, ...inventory.sharedItems];
         const now = new Date();
 
@@ -132,6 +134,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
       "Third step of the recipe."
     ],
     "macros": {
+      "calories": 250,
       "protein": 30,
       "carbs": 50,
       "fat": 15
@@ -150,7 +153,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           setRawAiResponse(response);
 
           if (typeof response === 'string') {
-              // The AI might wrap the JSON in ```json ... ```, so we extract it.
               const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
               const jsonString = jsonMatch ? jsonMatch[1] : response;
               
@@ -164,7 +166,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                         title: "AI Response Error",
                         description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
                    });
-                   // Keep the raw response for debugging
                    setRawAiResponse(response);
               }
           } else {
@@ -281,29 +282,95 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   }
 
   const handleRecipeCreated = (newRecipe: Recipe) => {
-    setSuggestions(prev => [newRecipe, ...(prev || [])]);
+    setSuggestions(null); // Clear AI suggestions
+    setUserRecipe(newRecipe);
   }
 
   const handleServingChange = (recipeTitle: string, newServingSize: number) => {
-    setSuggestions(prevSuggestions => {
-      if (!prevSuggestions) return null;
-
-      return prevSuggestions.map(recipe => {
+    const updateRecipe = (recipe: Recipe) => {
         if (recipe.title === recipeTitle) {
-          if (newServingSize <= 0) return recipe;
-
-          const newIngredients = scaleIngredients(recipe.ingredients, recipe.servings, newServingSize);
-          
-          return {
-            ...recipe,
-            servings: newServingSize,
-            ingredients: newIngredients,
-          };
+            if (newServingSize <= 0) return recipe;
+            const newIngredients = scaleIngredients(recipe.ingredients, recipe.servings, newServingSize);
+            return { ...recipe, servings: newServingSize, ingredients: newIngredients };
         }
         return recipe;
-      });
+    }
+
+    if (userRecipe && userRecipe.title === recipeTitle) {
+        setUserRecipe(updateRecipe(userRecipe));
+    }
+
+    setSuggestions(prevSuggestions => {
+      if (!prevSuggestions) return null;
+      return prevSuggestions.map(updateRecipe);
     });
   };
+
+  const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => (
+    <Card>
+        <AccordionItem value={recipe.title} className="border-b-0">
+            <CardHeader>
+                <AccordionTrigger disabled={isExpanded}>
+                    <div>
+                        <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
+                    </div>
+                </AccordionTrigger>
+            </CardHeader>
+            <AccordionContent className="px-6 pb-6">
+                <div className="space-y-6">
+                     <div className="flex items-center gap-4">
+                        <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
+                        <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold mb-2">Ingredients</h4>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                            {recipe.ingredients.map((ing, i) => {
+                                const status = getIngredientStatus(ing);
+                                return (
+                                   <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
+                                       {ing}
+                                       {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
+                                       {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
+                                   </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold mb-2">Instructions</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                            {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                        </ol>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold mb-2">Macros (per serving)</h4>
+                        <div className="flex gap-2 flex-wrap">
+                            <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
+                            <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
+                            <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
+                            <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
+                        </div>
+                    </div>
+                     <Separator />
+                     <div className="flex flex-wrap gap-2">
+                         <Button onClick={() => handleCookItClick(recipe)}>
+                             <ChefHat className="mr-2 h-4 w-4" />
+                             Cook It
+                         </Button>
+                         <Button variant="outline" onClick={() => saveRecipeAction(recipe)} disabled={savedRecipeTitles.has(recipe.title)}>
+                             <Bookmark className="mr-2 h-4 w-4" />
+                             {savedRecipeTitles.has(recipe.title) ? 'Saved' : 'Save Recipe'}
+                         </Button>
+                     </div>
+                </div>
+            </AccordionContent>
+        </AccordionItem>
+    </Card>
+);
 
 
   return (
@@ -344,100 +411,27 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           </Card>
       )}
 
+      {userRecipe && <RecipeCard recipe={userRecipe} isExpanded={true} />}
+
       {suggestions && suggestions.length > 0 && (
-           <Accordion type="single" collapsible className="w-full space-y-4">
+           <Accordion type="single" collapsible defaultValue="item-0" className="w-full space-y-4">
                {suggestions.map((recipe, index) => (
-                   <Card key={`${recipe.title}-${index}`}>
-                       <AccordionItem value={`item-${index}`} className="border-b-0">
-                           <CardHeader>
-                               <AccordionTrigger>
-                                   <div>
-                                       <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
-                                       <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
-                                   </div>
-                               </AccordionTrigger>
-                           </CardHeader>
-                           <AccordionContent className="px-6 pb-6">
-                               <div className="space-y-6">
-                                    <div className="flex items-center gap-4">
-                                       <Label htmlFor={`servings-${index}`}>Servings</Label>
-                                       <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
-                                       <Input id={`servings-${index}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
-                                       <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
-                                   </div>
-                                   <div>
-                                       <h4 className="font-semibold mb-2">Ingredients</h4>
-                                       <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                                           {recipe.ingredients.map((ing, i) => {
-                                               const status = getIngredientStatus(ing);
-                                               return (
-                                                  <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
-                                                      {ing}
-                                                      {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
-                                                      {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
-                                                  </li>
-                                               );
-                                           })}
-                                       </ul>
-                                   </div>
-                                   <div>
-                                       <h4 className="font-semibold mb-2">Instructions</h4>
-                                       <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                                           {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-                                       </ol>
-                                   </div>
-                                   <div>
-                                       <h4 className="font-semibold mb-2">Macros (per serving)</h4>
-                                       <div className="flex gap-2 flex-wrap">
-                                           <Badge variant="outline">Protein: {recipe.macros.protein}g</Badge>
-                                           <Badge variant="outline">Carbs: {recipe.macros.carbs}g</Badge>
-                                           <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
-                                       </div>
-                                   </div>
-                                    <Separator />
-                                    <div className="flex flex-wrap gap-2">
-                                        <Button onClick={() => handleCookItClick(recipe)}>
-                                            <ChefHat className="mr-2 h-4 w-4" />
-                                            Cook It
-                                        </Button>
-                                        <Button variant="outline" onClick={() => saveRecipeAction(recipe)} disabled={savedRecipeTitles.has(recipe.title)}>
-                                            <Bookmark className="mr-2 h-4 w-4" />
-                                            {savedRecipeTitles.has(recipe.title) ? 'Saved' : 'Save Recipe'}
-                                        </Button>
-                                    </div>
-                               </div>
-                           </AccordionContent>
-                       </AccordionItem>
-                   </Card>
+                   <RecipeCard recipe={recipe} key={`${recipe.title}-${index}`} />
                ))}
            </Accordion>
       )}
 
-      {/* {rawAiResponse && (
-          <Card>
-              <CardHeader>
-                  <CardTitle>Raw AI Response</CardTitle>
-                   <CardDescription>This is the raw response from the AI. We'll format this into recipe cards next.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <pre className={cn("p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono", typeof rawAiResponse !== 'string' && 'bg-destructive/20 text-destructive-foreground')}>
-                      {typeof rawAiResponse === 'string' ? rawAiResponse : JSON.stringify(rawAiResponse, null, 2)}
-                  </pre>
-              </CardContent>
-          </Card>
-      )} */}
-
-       <div className="text-center py-10 border-2 border-dashed rounded-lg">
+      {/* <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
         <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready to cook?</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create a meal to get started.
+          Generate some ideas or create your own meal.
         </p>
         <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Create a Meal
         </Button>
-      </div>
+      </div> */}
     </div>
      {isExpiredCheckDialogOpen && ingredientToCheck && (
          <CheckExpiredDialog 
@@ -482,5 +476,3 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
     </>
   );
 }
-
-    

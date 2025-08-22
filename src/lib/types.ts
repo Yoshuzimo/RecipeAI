@@ -67,6 +67,7 @@ export type Settings = {
 }
 
 export type Macros = {
+    calories: number;
     protein: number;
     carbs: number;
     fat: number;
@@ -82,7 +83,6 @@ export type Recipe = {
     description: string;
     servings: number;
     ingredients: string[];
-    parsedIngredients: RecipeIngredient[];
     instructions: string[];
     macros: Macros;
 };

@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { InventoryItem, Recipe } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { AddIngredientDialog } from "./add-ingredient-dialog";
+import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 
 
 const formSchema = z.object({
@@ -75,36 +76,35 @@ export function CreateRecipeDialog({
         const instructionsArray = data.instructions.split('\n').filter(line => line.trim() !== '');
         const ingredientArray = data.ingredients.map(ing => ing.value);
 
-        // Placeholder for AI call
-        const result = {
-            recipe: {
-                title: data.title,
-                description: data.description || "A custom recipe.",
-                servings: 2,
-                ingredients: ingredientArray,
-                instructions: instructionsArray,
-                macros: {
-                    protein: 25,
-                    carbs: 40,
-                    fat: 15,
-                }
-            } as Recipe
-        };
+        const result = await finalizeRecipe({
+            title: data.title,
+            ingredients: ingredientArray,
+            instructions: instructionsArray,
+        });
 
-        if (result.recipe) {
-            toast({
-                title: "Recipe Finalized!",
-                description: `We've calculated the servings and nutritional info for "${result.recipe.title}".`
-            });
-            onRecipeCreated(result.recipe);
-            setIsOpen(false);
-            form.reset();
-        } else {
+
+        if ('error' in result) {
             toast({
                 variant: "destructive",
-                title: "Error",
-                description: "Failed to finalize recipe. Please try again."
+                title: "Error Finalizing Recipe",
+                description: result.error || "Failed to finalize recipe. Please try again."
             });
+        } else {
+             const finalRecipe: Recipe = {
+                title: data.title,
+                description: data.description || "A custom recipe.",
+                servings: result.servings,
+                ingredients: ingredientArray,
+                instructions: instructionsArray,
+                macros: result.macros,
+            };
+            toast({
+                title: "Recipe Finalized!",
+                description: `We've calculated the servings and nutritional info for "${finalRecipe.title}".`
+            });
+            onRecipeCreated(finalRecipe);
+            setIsOpen(false);
+            form.reset();
         }
         setIsPending(false);
     }
