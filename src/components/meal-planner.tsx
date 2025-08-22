@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -188,17 +187,27 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   return (
     <>
     <div className="space-y-8">
-       <div className="text-center py-10 border-2 border-dashed rounded-lg">
-        <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready to cook?</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create a meal to get started.
-        </p>
-        <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create a Meal
-        </Button>
-      </div>
+      <Card>
+          <CardHeader>
+              <CardTitle>Meal Planner</CardTitle>
+              <CardDescription>
+                  Tell us what you're in the mood for, and we'll generate some ideas.
+              </CardDescription>
+          </CardHeader>
+          <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid w-full items-center gap-1.5">
+                      <Label htmlFor="cravings">Cravings, Mood, or Notes</Label>
+                      <Input ref={cravingsRef} id="cravings" placeholder="e.g., something spicy, quick & easy, I'm craving chicken..." />
+                  </div>
+                  <Button type="submit" disabled={true} className="w-full sm:w-auto">
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate Meal Ideas
+                  </Button>
+              </form>
+          </CardContent>
+      </Card>
+
 
       <div className="space-y-4">
         {isPending && !suggestions ? (
@@ -321,6 +330,18 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
           </Accordion>
         )}
       </div>
+
+       <div className="text-center py-10 border-2 border-dashed rounded-lg">
+        <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
+        <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready to cook?</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Create a meal to get started.
+        </p>
+        <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create a Meal
+        </Button>
+      </div>
     </div>
      {isExpiredCheckDialogOpen && ingredientToCheck && (
          <CheckExpiredDialog 
@@ -366,3 +387,5 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     </>
   );
 }
+
+    
