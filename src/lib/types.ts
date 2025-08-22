@@ -87,6 +87,8 @@ export type Recipe = {
     instructions: string[];
     macros: Macros;
     parsedIngredients?: any;
+    isPrivate?: boolean;
+    ownerName?: string;
 };
 
 export type AISuggestion = {

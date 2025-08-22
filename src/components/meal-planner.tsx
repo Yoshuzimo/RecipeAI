@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle, Edit } from "lucide-react";
+import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle, Edit, Lock, Unlock } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
@@ -306,80 +306,100 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
     });
   };
 
-  const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => (
-    <Card className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 z-10"
-        onClick={() => saveRecipeAction(recipe)}
-        disabled={savedRecipeTitles.has(recipe.title)}
-        aria-label="Save recipe"
-      >
-        <Bookmark className={cn("h-5 w-5", savedRecipeTitles.has(recipe.title) && "fill-primary text-primary")} />
-      </Button>
-      <AccordionItem value={recipe.title} className="border-b-0">
-        <CardHeader>
-          <AccordionTrigger disabled={isExpanded} className="pr-10">
-            <div>
-              <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
-              <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
-              <div className="text-left mt-2">
-                <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)} per serving</Badge>
-              </div>
-            </div>
-          </AccordionTrigger>
-        </CardHeader>
-        <AccordionContent className="px-6 pb-6">
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
-              <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Ingredients</h4>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                {recipe.ingredients.map((ing, i) => {
-                  const status = getIngredientStatus(ing);
-                  return (
-                    <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
-                      {ing}
-                      {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
-                      {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Instructions</h4>
-              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-              </ol>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Macros (per serving)</h4>
-              <div className="flex gap-2 flex-wrap">
-                <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
-                <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
-                <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => handleCookItClick(recipe)}>
-                <ChefHat className="mr-2 h-4 w-4" />
-                Cook It
-              </Button>
-            </div>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Card>
-  );
+  const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => {
+    // Local state for privacy toggle within the user-created recipe card
+    const [isPrivate, setIsPrivate] = useState(recipe.isPrivate ?? false);
 
+    const handlePrivacyToggle = () => {
+        setIsPrivate(prev => {
+            const newPrivacy = !prev;
+            if (userRecipe) {
+                setUserRecipe({ ...userRecipe, isPrivate: newPrivacy });
+            }
+            return newPrivacy;
+        });
+    };
+    
+    return (
+        <Card className="relative">
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                {isExpanded && ( // Only show lock on user-created expanded card
+                    <Button variant="ghost" size="icon" onClick={handlePrivacyToggle} aria-label="Toggle privacy">
+                        {isPrivate ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
+                    </Button>
+                )}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => saveRecipeAction(isExpanded && userRecipe ? { ...userRecipe, isPrivate } : recipe)}
+                    disabled={savedRecipeTitles.has(recipe.title)}
+                    aria-label="Save recipe"
+                >
+                    <Bookmark className={cn("h-5 w-5", savedRecipeTitles.has(recipe.title) && "fill-primary text-primary")} />
+                </Button>
+            </div>
+            <AccordionItem value={recipe.title} className="border-b-0">
+                <CardHeader>
+                <AccordionTrigger disabled={isExpanded} className="pr-10">
+                    <div>
+                    <h3 className="text-lg font-semibold text-left">{recipe.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-1 text-left">{recipe.description}</p>
+                    <div className="text-left mt-2">
+                        <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)} per serving</Badge>
+                    </div>
+                    </div>
+                </AccordionTrigger>
+                </CardHeader>
+                <AccordionContent className="px-6 pb-6">
+                <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                    <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
+                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
+                    <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
+                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div>
+                    <h4 className="font-semibold mb-2">Ingredients</h4>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                        {recipe.ingredients.map((ing, i) => {
+                        const status = getIngredientStatus(ing);
+                        return (
+                            <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
+                            {ing}
+                            {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
+                            {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
+                            </li>
+                        );
+                        })}
+                    </ul>
+                    </div>
+                    <div>
+                    <h4 className="font-semibold mb-2">Instructions</h4>
+                    <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                        {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                    </ol>
+                    </div>
+                    <div>
+                    <h4 className="font-semibold mb-2">Macros (per serving)</h4>
+                    <div className="flex gap-2 flex-wrap">
+                        <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
+                        <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
+                        <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
+                    </div>
+                    </div>
+                    <Separator />
+                    <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => handleCookItClick(recipe)}>
+                        <ChefHat className="mr-2 h-4 w-4" />
+                        Cook It
+                    </Button>
+                    </div>
+                </div>
+                </AccordionContent>
+            </AccordionItem>
+        </Card>
+    );
+}
 
   return (
     <>
@@ -388,7 +408,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           <CardHeader>
               <CardTitle>Meal Planner</CardTitle>
               <CardDescription>
-                  Tell us what you're in the mood for, and we'll generate some ideas.
+                  Tell us what you're in the mood for, and we'll generate some ideas. Or, create your own recipe!
               </CardDescription>
           </CardHeader>
           <CardContent>
@@ -397,10 +417,16 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                       <Label htmlFor="cravings">Cravings, Mood, or Notes</Label>
                       <Input ref={cravingsRef} id="cravings" placeholder="e.g., something spicy, quick & easy, I'm craving chicken..." />
                   </div>
-                  <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-                      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                      Generate Meal Ideas
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={isPending}>
+                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Generate Meal Ideas
+                    </Button>
+                     <Button type="button" variant="outline" onClick={() => setIsCreateRecipeDialogOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Create a Meal
+                    </Button>
+                  </div>
               </form>
           </CardContent>
       </Card>
@@ -429,32 +455,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
            </Accordion>
       )}
 
-      {/*
-      {rawAiResponse && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Raw AI Response</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="whitespace-pre-wrap text-xs bg-muted p-4 rounded-md">
-                <code>{typeof rawAiResponse === 'string' ? rawAiResponse : JSON.stringify(rawAiResponse, null, 2)}</code>
-              </pre>
-            </CardContent>
-          </Card>
-      )}
-      */}
-
-      {/* <div className="text-center py-10 border-2 border-dashed rounded-lg">
-        <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready to cook?</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Generate some ideas or create your own meal.
-        </p>
-        <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create a Meal
-        </Button>
-      </div> */}
     </div>
      {isExpiredCheckDialogOpen && ingredientToCheck && (
          <CheckExpiredDialog 

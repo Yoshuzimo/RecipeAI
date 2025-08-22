@@ -750,31 +750,44 @@ export async function getHouseholdRecipes(db: Firestore, currentUserId: string):
         return [];
     }
 
-    const allRecipes: Recipe[] = [];
     const recipesByTitle = new Map<string, Recipe>();
 
     for (const member of household.activeMembers) {
-        if (member.userId === currentUserId) continue; // Skip current user
-
+        // We want to fetch recipes from ALL users, but filter out private ones from OTHER users.
         const snapshot = await db.collection(`users/${member.userId}/saved-recipes`).get();
         snapshot.forEach(doc => {
             const recipe = { ...doc.data(), ownerName: member.userName } as Recipe;
-            // Avoid duplicates, keeping the first one found
+
+            // If the recipe is from another user, only add it if it's not private.
+            if (member.userId !== currentUserId) {
+                 if (recipe.isPrivate) {
+                    return; // Skip private recipes from other users
+                }
+            }
+            
+            // Avoid duplicates, keeping the first one found (arbitrarily)
             if (!recipesByTitle.has(recipe.title)) {
                 recipesByTitle.set(recipe.title, recipe);
             }
         });
     }
+    
+    // Filter out the current user's recipes from the final list, as they are shown in "My Recipes"
+    const finalHouseholdRecipes = Array.from(recipesByTitle.values()).filter(recipe => {
+        const member = household.activeMembers.find(m => m.userName === recipe.ownerName);
+        return member?.userId !== currentUserId;
+    });
 
-    return Array.from(recipesByTitle.values());
+
+    return finalHouseholdRecipes;
 }
 
 
 export async function saveRecipe(db: Firestore, userId: string, recipe: Recipe): Promise<Recipe> {
-    const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
-    const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
+    const { ownerName, ...recipeToSave } = recipe; // Don't save ownerName to the DB
+    const docId = recipeToSave.title.toLowerCase().replace(/\s+/g, '-');
     const docRef = db.collection(`users/${userId}/saved-recipes`).doc(docId);
-    await docRef.set(recipeForDb, { merge: true });
+    await docRef.set(recipeToSave, { merge: true });
     return recipe;
 }
 

@@ -20,9 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { InventoryItem, Recipe } from "@/lib/types";
-import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Lock } from "lucide-react";
 import { AddIngredientDialog } from "./add-ingredient-dialog";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
+import { Switch } from "./ui/switch";
 
 
 const formSchema = z.object({
@@ -32,6 +33,7 @@ const formSchema = z.object({
         value: z.string().min(1, "Ingredient cannot be empty.")
     })).min(1, "You must add at least one ingredient."),
     instructions: z.string().min(10, "Instructions must be at least 10 characters long."),
+    isPrivate: z.boolean().default(false),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -58,6 +60,7 @@ export function CreateRecipeDialog({
             description: "",
             ingredients: [],
             instructions: "",
+            isPrivate: false,
         },
     });
 
@@ -93,6 +96,7 @@ export function CreateRecipeDialog({
              const finalRecipe: Recipe = {
                 title: data.title,
                 description: data.description || "A custom recipe.",
+                isPrivate: data.isPrivate,
                 servings: result.servings,
                 ingredients: ingredientArray,
                 instructions: instructionsArray,
@@ -176,6 +180,28 @@ export function CreateRecipeDialog({
                                             <FormLabel>Instructions</FormLabel>
                                             <FormControl><Textarea placeholder="1. Chop vegetables.\n2. Sauté chicken...\n3. Serve hot." {...field} rows={6} /></FormControl>
                                             <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="isPrivate"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base">
+                                                Private Recipe
+                                            </FormLabel>
+                                            <p className="text-sm text-muted-foreground">
+                                                Private recipes will only be visible to you.
+                                            </p>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
                                         </FormItem>
                                     )}
                                 />
