@@ -15,7 +15,11 @@ import { z } from 'zod';
 export const MealSuggestionInputSchema = z.string();
 export type MealSuggestionInput = z.infer<typeof MealSuggestionInputSchema>;
 
-export const MealSuggestionOutputSchema = z.string();
+// The output can be a string (success) or an error object.
+export const MealSuggestionOutputSchema = z.union([
+    z.string(),
+    z.object({ error: z.string() })
+]);
 export type MealSuggestionOutput = z.infer<typeof MealSuggestionOutputSchema>;
 
 
@@ -26,15 +30,22 @@ const mealSuggestionFlow = ai.defineFlow(
     outputSchema: MealSuggestionOutputSchema,
   },
   async (prompt) => {
-    const llmResponse = await ai.generate({
-      prompt: prompt,
-      model: 'googleai/gemini-1.5-flash',
-      config: {
-        temperature: 0.8,
-      },
-    });
+    try {
+        const llmResponse = await ai.generate({
+        prompt: prompt,
+        model: 'googleai/gemini-1.5-flash',
+        config: {
+            temperature: 0.8,
+        },
+        });
 
-    return llmResponse.text;
+        return llmResponse.text;
+    } catch (e: any) {
+        console.error("Error in mealSuggestionFlow:", e);
+        // Provide a more detailed error message
+        const errorMessage = e.message || "An unknown error occurred during AI generation.";
+        return { error: `AI Generation Failed: ${errorMessage}` };
+    }
   }
 );
 

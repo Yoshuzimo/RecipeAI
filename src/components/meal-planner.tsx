@@ -45,7 +45,7 @@ export function MealPlanner({
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
-  const [rawAiResponse, setRawAiResponse] = useState<string | null>(null);
+  const [rawAiResponse, setRawAiResponse] = useState<string | { error: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const cravingsRef = useRef<HTMLInputElement>(null);
@@ -78,7 +78,7 @@ export function MealPlanner({
 
         const priorityItems = allItems.filter(item => 
             item.name.toLowerCase().startsWith('leftover') || 
-            (item.expiryDate && differenceInDays(item.expiryDate, now) <= 2)
+            (item.expiryDate && differenceInDays(new Date(item.expiryDate), now) <= 2)
         );
 
         const regularInventory = allItems.filter(item => !priorityItems.find(p => p.id === item.id));
@@ -147,13 +147,25 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         try {
           const response = await generateMealSuggestions(finalPrompt);
           setRawAiResponse(response);
+          // If the response is successful text, try to parse it.
+          if (typeof response === 'string') {
+              try {
+                  const parsedSuggestions = JSON.parse(response);
+                  setSuggestions(parsedSuggestions);
+              } catch (parseError) {
+                   console.error("Failed to parse AI response:", parseError);
+                   setRawAiResponse({ error: "The AI returned a response, but it was not in the expected format. Check the raw response below." });
+              }
+          }
         } catch (error) {
           console.error("AI Generation Error:", error);
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
           toast({
             variant: "destructive",
             title: "AI Error",
-            description: "Could not generate meal suggestions. Please try again."
+            description: `Could not generate meal suggestions: ${errorMessage}`
           });
+          setRawAiResponse({ error: errorMessage });
         }
     });
   };
@@ -242,10 +254,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   };
 
   const handleMealLogged = (newInventoryItems: InventoryItem[]) => {
-    // This function assumes the new inventory list is complete (private + shared)
-    // We need to re-group it. For now, we'll just set it.
-    // This might need adjustment based on what `handleLogCookedMeal` returns.
-    // For simplicity, let's assume it returns all items and we need to re-fetch.
     async function refreshInventory() {
         const fullInventory = await getClientInventory();
         setInventory(fullInventory);
@@ -281,7 +289,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
 
   return (
     <>
-    <div className="w-full max-w-7xl mx-auto space-y-8">
+    <div className="space-y-8">
       <Card>
           <CardHeader>
               <CardTitle>Meal Planner</CardTitle>
@@ -335,11 +343,11 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           <Card>
               <CardHeader>
                   <CardTitle>Raw AI Response</CardTitle>
-                  <CardDescription>This is the raw, unparsed response from the AI. We'll format this into recipe cards in the next step.</CardDescription>
+                   <CardDescription>This is the raw response from the AI. We'll format this into recipe cards next.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <pre className="p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono">
-                      {rawAiResponse}
+                  <pre className={cn("p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono", typeof rawAiResponse === 'object' && 'bg-destructive/20 text-destructive-foreground')}>
+                      {typeof rawAiResponse === 'string' ? rawAiResponse : rawAiResponse.error}
                   </pre>
               </CardContent>
           </Card>
@@ -370,7 +378,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           isOpen={isViewInventoryDialogOpen}
           setIsOpen={(open) => {
             if (!open) {
-                // When dialog closes, refresh inventory and check if substitutions are needed
                 handleInventoryUpdateAndCheck();
             }
             setIsViewInventoryDialogOpen(open);

@@ -25,6 +25,17 @@ const nextConfig = {
         ...(config.externals || []),
         'firebase-admin',
       ];
+      
+      // Provide empty fallbacks for Node.js modules that are not available in the browser
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "fs": false,
+        "net": false,
+        "tls": false,
+        "cardinal": false,
+        "@opentelemetry/winston-transport": false,
+        "@opentelemetry/exporter-jaeger": false,
+      };
     }
 
     return config;
