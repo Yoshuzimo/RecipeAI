@@ -71,19 +71,17 @@ export function MealPlanner({
         const formatItems = (items: InventoryItem[]) => {
             if (items.length === 0) return 'None';
             return items.map(item => {
-                const expiryInfo = item.expiryDate 
-                    ? `(expires in ${formatDistanceToNow(item.expiryDate, { addSuffix: true })})`
-                    : '';
-                return `- ${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} ${expiryInfo}`;
+                return `- ${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit}`;
             }).join('\\n');
         };
 
         const expiringItems = allItems.filter(item => 
-            item.expiryDate && differenceInDays(item.expiryDate, now) <= 3 && differenceInDays(item.expiryDate, now) >= 0
+            item.expiryDate && differenceInDays(item.expiryDate, now) <= 2
         );
 
         const leftovers = allItems.filter(item => item.name.toLowerCase().startsWith('leftover'));
-        const regularInventory = allItems.filter(item => !expiringItems.includes(item) && !leftovers.includes(item));
+        const priorityItems = [...leftovers, ...expiringItems.filter(exp => !leftovers.find(l => l.id === exp.id))];
+        const regularInventory = allItems.filter(item => !priorityItems.find(p => p.id === item.id));
 
         const prompt = `
 You are an expert chef and nutritionist AI. Your task is to generate 3-5 creative and delicious meal recipes based on the user's available inventory, preferences, and health data.
@@ -92,11 +90,9 @@ You are an expert chef and nutritionist AI. Your task is to generate 3-5 creativ
 
 *   **Cravings / Mood:** ${cravingsRef.current?.value || 'Not specified'}
 
-*   **Inventory to Use First (Leftovers & Expiring Soon):**
-    *   Leftovers:
-        ${formatItems(leftovers)}
-    *   Expiring Soon (use these urgently):
-        ${formatItems(expiringItems)}
+*   **Inventory to Use First (Leftovers & Expiring Items):**
+    *   Give preference to using these items if possible.
+        ${formatItems(priorityItems)}
 
 *   **Main Inventory:**
     ${formatItems(regularInventory)}
