@@ -15,9 +15,11 @@ import {
     logMacros,
     updateMealTime as dataUpdateMealTime,
     saveRecipe as dataSaveRecipe,
+    removeSavedRecipe as dataRemoveSavedRecipe,
     removeInventoryItems as dataRemoveInventoryItems,
     getStorageLocations as dataGetStorageLocations,
     getSavedRecipes as dataGetSavedRecipes,
+    getHouseholdRecipes as dataGetHouseholdRecipes,
     getTodaysMacros as dataGetTodaysMacros,
     addStorageLocation as dataAddStorageLocation,
     updateStorageLocation as dataUpdateStorageLocation,
@@ -139,6 +141,16 @@ export async function handleSaveRecipe(recipe: Recipe): Promise<{ success: boole
     }
 }
 
+export async function handleRemoveSavedRecipe(recipeTitle: string): Promise<{ success: boolean; error?: string }> {
+    const userId = await getCurrentUserId();
+    try {
+        await dataRemoveSavedRecipe(db, userId, recipeTitle);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Failed to remove the recipe." };
+    }
+}
+
 export async function handleRemoveInventoryPackageGroup(itemsToRemove: InventoryItem[]): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
     const userId = await getCurrentUserId();
     try {
@@ -224,6 +236,11 @@ export async function getClientStorageLocations() {
 export async function getClientSavedRecipes() {
     const userId = await getCurrentUserId();
     return dataGetSavedRecipes(db, userId);
+}
+
+export async function getClientHouseholdRecipes() {
+    const userId = await getCurrentUserId();
+    return dataGetHouseholdRecipes(db, userId);
 }
 
 export async function getClientPersonalDetails() {
@@ -428,4 +445,3 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const currentUserId = await getCurrentUserId();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
-

@@ -744,12 +744,44 @@ export async function getSavedRecipes(db: Firestore, userId: string): Promise<Re
     return snapshot.docs.map(doc => doc.data() as Recipe);
 }
 
+export async function getHouseholdRecipes(db: Firestore, currentUserId: string): Promise<Recipe[]> {
+    const household = await getHousehold(db, currentUserId);
+    if (!household) {
+        return [];
+    }
+
+    const allRecipes: Recipe[] = [];
+    const recipesByTitle = new Map<string, Recipe>();
+
+    for (const member of household.activeMembers) {
+        if (member.userId === currentUserId) continue; // Skip current user
+
+        const snapshot = await db.collection(`users/${member.userId}/saved-recipes`).get();
+        snapshot.forEach(doc => {
+            const recipe = { ...doc.data(), ownerName: member.userName } as Recipe;
+            // Avoid duplicates, keeping the first one found
+            if (!recipesByTitle.has(recipe.title)) {
+                recipesByTitle.set(recipe.title, recipe);
+            }
+        });
+    }
+
+    return Array.from(recipesByTitle.values());
+}
+
+
 export async function saveRecipe(db: Firestore, userId: string, recipe: Recipe): Promise<Recipe> {
     const recipeForDb = { ...recipe, parsedIngredients: JSON.parse(JSON.stringify(recipe.parsedIngredients)) };
     const docId = recipe.title.toLowerCase().replace(/\s+/g, '-');
     const docRef = db.collection(`users/${userId}/saved-recipes`).doc(docId);
     await docRef.set(recipeForDb, { merge: true });
     return recipe;
+}
+
+export async function removeSavedRecipe(db: Firestore, userId: string, recipeTitle: string): Promise<{title: string}> {
+    const docId = recipeTitle.toLowerCase().replace(/\s+/g, '-');
+    await db.collection(`users/${userId}/saved-recipes`).doc(docId).delete();
+    return { title: recipeTitle };
 }
 
 
