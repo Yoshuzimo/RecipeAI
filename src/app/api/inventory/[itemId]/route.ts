@@ -3,20 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/firebase-admin";
 import { updateInventoryItem, removeInventoryItem, getInventory } from "@/lib/data";
 import type { InventoryItem } from "@/lib/types";
+import { getUserIdFromToken } from "@/lib/auth";
 
-async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return null;
-    const idToken = authHeader.split("Bearer ")[1];
-    try {
-        const { auth } = getAdmin();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error("Error verifying ID token:", error);
-        return null;
-    }
-}
 
 async function findItemById(db: any, userId: string, itemId: string): Promise<InventoryItem | null> {
     const { privateItems, sharedItems } = await getInventory(db, userId);
