@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
-import { handleGenerateSuggestions, handleSaveRecipe, handleGenerateRecipeDetails, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
+import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,8 +14,6 @@ import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { SubstitutionsDialog } from "./substitutions-dialog";
-import { Textarea } from "./ui/textarea";
 import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
@@ -25,13 +23,6 @@ import { CreateRecipeDialog } from "./create-recipe-dialog";
 import { cn } from "@/lib/utils";
 import { parseIngredient, scaleIngredients } from "@/lib/utils";
 
-
-const initialState = {
-  suggestions: null,
-  adjustedRecipe: null,
-  originalRecipeTitle: null,
-  error: null,
-};
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
 
@@ -47,9 +38,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const cravingsRef = useRef<HTMLInputElement>(null);
   
-  const [isSubstitutionsDialogOpen, setIsSubstitutionsDialogOpen] = useState(false);
-  const [recipeForSubstitutions, setRecipeForSubstitutions] = useState<Recipe | null>(null);
-  
   const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
   const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
 
@@ -63,22 +51,12 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
-
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!checkRateLimit()) {
-      return;
-    }
-
-    startTransition(async () => {
-      recordRequest();
-      const cravings = cravingsRef.current?.value || "";
-      const result = await handleGenerateSuggestions(cravings);
-      setError(result.error);
-      
-      if (result.suggestions) {
-        setSuggestions(result.suggestions);
-      }
+    toast({
+        variant: "destructive",
+        title: "AI Not Connected",
+        description: "The AI suggestion feature has been disconnected.",
     });
   };
 
@@ -122,23 +100,14 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       if (status.startsWith('expired')) {
           setIngredientToCheck({recipe, ingredient});
           setIsExpiredCheckDialogOpen(true);
-      } else {
-          handleOpenSubstitutions(recipe);
       }
-  }
-
-  const handleOpenSubstitutions = (recipe: Recipe) => {
-      setRecipeForSubstitutions(recipe);
-      setIsSubstitutionsDialogOpen(true);
   }
   
   const handleExpiredCheckComplete = (isGood: boolean) => {
       setIsExpiredCheckDialogOpen(false);
       const allItems = [...inventory.privateItems, ...inventory.sharedItems];
       if (ingredientToCheck) {
-          if(isGood) {
-            handleOpenSubstitutions(ingredientToCheck.recipe);
-          } else {
+          if(!isGood) {
             const inventoryItem = allItems.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
             const ingredientName = inventoryItem?.name;
             if (ingredientName) {
@@ -164,66 +133,17 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
       }
   }
 
-  const handleSubstitutionsApplied = async (originalRecipeTitle: string, newIngredients: string[]) => {
-      const originalRecipe = suggestions?.find(s => s.title === originalRecipeTitle);
-      if (!originalRecipe) return;
-
-      const newRecipeData = {
-          title: originalRecipe.title,
-          description: originalRecipe.description,
-          ingredients: newIngredients,
-          instructions: originalRecipe.instructions,
-      };
-
-      startTransition(async () => {
-        const result = await handleGenerateRecipeDetails(newRecipeData);
-        if (result.recipe) {
-            setSuggestions(prev => prev?.map(s => s.title === originalRecipeTitle ? result.recipe! : s) || null);
-            toast({
-                title: "Recipe Updated!",
-                description: "Substitutions applied and nutrition info recalculated."
-            });
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Update Failed",
-                description: result.error
-            });
-        }
-      });
-  }
-
-  const handleInventoryUpdateAndCheckSubstitutions = async () => {
+  const handleInventoryUpdateAndCheck = async () => {
     const updatedInventory = await getClientInventory();
     setInventory(updatedInventory);
-    const allItems = [...updatedInventory.privateItems, ...updatedInventory.sharedItems];
-
-    if (ingredientToCheck) {
-        const { recipe, ingredient } = ingredientToCheck;
-        const ingredientName = allItems.find(i => ingredient.toLowerCase().includes(i.name.toLowerCase()))?.name;
-        
-        const itemStillExists = allItems.some(i => i.name === ingredientName && i.totalQuantity > 0);
-        
-        if (!itemStillExists) {
-            toast({
-                title: "Item Removed",
-                description: `${ingredientName} was removed from inventory. Opening substitutions.`,
-            });
-            handleOpenSubstitutions(recipe);
-        } else {
-            toast({
-                title: "Inventory Updated",
-                description: `Inventory for ${ingredientName} has been updated.`,
-            })
-        }
-    }
-    setIngredientToCheck(null);
-    setGroupToView(null);
   };
   
   const handleCookItClick = (recipe: Recipe) => {
-    setRecipeToLog(recipe);
-    setIsLogMealDialogOpen(true);
+    toast({
+        variant: "destructive",
+        title: "AI Not Connected",
+        description: "The meal logging feature has been disconnected.",
+    });
   };
 
   const handleMealLogged = (newInventoryItems: InventoryItem[]) => {
@@ -268,48 +188,17 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   return (
     <>
     <div className="space-y-8">
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="cravingsOrMood" className="sr-only">
-                Any specific cravings or ideas? (Optional)
-              </Label>
-              <Input
-                id="cravingsOrMood"
-                name="cravingsOrMood"
-                ref={cravingsRef}
-                placeholder="Any cravings or ideas? (e.g., 'spicy thai curry', 'healthy snack')... (Optional)"
-                className="mt-1"
-                disabled={isPending || isRateLimited}
-              />
-            </div>
-            <div className="space-y-2">
-                <Button type="submit" disabled={isPending || isRateLimited} className="w-full sm:w-auto">
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : isRateLimited ? (
-                    `Please wait (${timeToWait}s)`
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Suggestions
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                    AI can make mistakes. The results are based on the information you provide, not a healthcare professional. Always follow your doctor's advice.
-                </p>
-            </div>
-            {error?.form && (
-                <p className="text-sm font-medium text-destructive mt-2">{error.form[0]}</p>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+       <div className="text-center py-10 border-2 border-dashed rounded-lg">
+        <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
+        <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready to cook?</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Create a meal to get started.
+        </p>
+        <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create a Meal
+        </Button>
+      </div>
 
       <div className="space-y-4">
         {isPending && !suggestions ? (
@@ -338,7 +227,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
               </Card>
             ))}
           </div>
-        ) : suggestions ? (
+        ) : suggestions && (
           <Accordion type="single" collapsible className="w-full space-y-4">
             {suggestions.map((recipe, index) => {
               const isSaved = savedRecipeTitles.has(recipe.title);
@@ -415,11 +304,11 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                                 </div>
                                 <Separator />
                                 <div className="flex gap-2">
-                                    <Button onClick={() => handleOpenSubstitutions(recipe)} variant="outline">
+                                    <Button onClick={() => {}} variant="outline" disabled>
                                         <Edit className="mr-2 h-4 w-4" />
                                         Make substitutions
                                     </Button>
-                                    <Button onClick={() => handleCookItClick(recipe)}>
+                                    <Button onClick={() => handleCookItClick(recipe)} disabled>
                                         <ChefHat className="mr-2 h-4 w-4" />
                                         Cook It!
                                     </Button>
@@ -430,30 +319,9 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                </Card>
             )})}
           </Accordion>
-        ) : (
-          <div className="text-center py-10 border-2 border-dashed rounded-lg">
-            <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready for some recipes?</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Enter your preferences above to get some delicious meal ideas!
-            </p>
-            <Button variant="outline" className="mt-4" onClick={() => setIsCreateRecipeDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create a Meal
-            </Button>
-          </div>
         )}
       </div>
     </div>
-     {isSubstitutionsDialogOpen && recipeForSubstitutions && (
-        <SubstitutionsDialog
-            isOpen={isSubstitutionsDialogOpen}
-            setIsOpen={setIsSubstitutionsDialogOpen}
-            recipe={recipeForSubstitutions}
-            inventory={[...inventory.privateItems, ...inventory.sharedItems]}
-            onSubstitutionsApplied={handleSubstitutionsApplied}
-        />
-     )}
      {isExpiredCheckDialogOpen && ingredientToCheck && (
          <CheckExpiredDialog 
             isOpen={isExpiredCheckDialogOpen}
@@ -468,7 +336,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
           setIsOpen={(open) => {
             if (!open) {
                 // When dialog closes, refresh inventory and check if substitutions are needed
-                handleInventoryUpdateAndCheckSubstitutions();
+                handleInventoryUpdateAndCheck();
             }
             setIsViewInventoryDialogOpen(open);
           }}
@@ -477,7 +345,7 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
           onUpdateComplete={async () => {
               const fullInventory = await getClientInventory();
               setInventory(fullInventory);
-              handleInventoryUpdateAndCheckSubstitutions();
+              handleInventoryUpdateAndCheck();
           }}
         />
       )}

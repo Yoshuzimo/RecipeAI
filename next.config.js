@@ -25,22 +25,6 @@ const nextConfig = {
         ...(config.externals || []),
         'firebase-admin',
       ];
-
-      // Provide empty fallbacks for Node.js + optional tracing modules
-      config.resolve.fallback = {
-        ...(config.resolve.fallback || {}),
-        fs: false,
-        net: false,
-        tls: false,
-        cardinal: false,
-
-        // Ignore optional OpenTelemetry / tracing transports
-        '@opentelemetry/winston-transport': false,
-        '@opentelemetry/exporter-jaeger': false,
-        '@opentelemetry/exporter-zipkin': false,
-        '@opentelemetry/exporter-trace-otlp-http': false,
-        '@opentelemetry/exporter-trace-otlp-grpc': false,
-      };
     }
 
     return config;

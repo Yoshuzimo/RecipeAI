@@ -5,7 +5,6 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import type { InventoryItem, PersonalDetails, ShoppingListItem } from "@/lib/types";
 import { 
-    handleGenerateShoppingList,
     addClientShoppingListItem,
     updateClientShoppingListItem,
     removeClientShoppingListItem,
@@ -27,18 +26,12 @@ import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { useToast } from "@/hooks/use-toast";
 
 
-type AIListItem = {
-    item: string;
-    quantity: string;
-    reason: string;
-}
-
 type AddItemForm = {
     item: string;
 };
 
 type Section = {
-  id: 'myList' | 'restock' | 'aiGuide';
+  id: 'myList' | 'restock';
   title: string;
   isVisible: boolean;
 }
@@ -46,7 +39,6 @@ type Section = {
 const initialSections: Section[] = [
     { id: 'myList', title: 'My Shopping List', isVisible: true },
     { id: 'restock', title: 'Items to Restock', isVisible: true },
-    { id: 'aiGuide', title: 'AI Shopping Guide', isVisible: true },
 ];
 
 
@@ -56,13 +48,10 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
     initialShoppingList: ShoppingListItem[]
 }) {
   const [isPending, startTransition] = useTransition();
-  const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const { toast } = useToast();
 
   const [inventory, setInventory] = useState<InventoryItem[]>([...initialInventoryData.privateItems, ...initialInventoryData.sharedItems]);
-  const [aiShoppingList, setAiShoppingList] = useState<AIListItem[] | null>(null);
   const [myShoppingList, setMyShoppingList] = useState<ShoppingListItem[]>(initialShoppingList);
-  const [error, setError] = useState<string | null>(null);
   
   const [itemToAdd, setItemToAdd] = useState<Omit<ShoppingListItem, 'id' | 'addedAt' | 'checked'> | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -86,23 +75,6 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
 
   const checkedItems = useMemo(() => myShoppingList.filter(item => item.checked), [myShoppingList]);
   const hasCheckedItems = checkedItems.length > 0;
-
-  const handleGenerate = () => {
-    if (!checkRateLimit()) {
-        return;
-    }
-    startTransition(async () => {
-      recordRequest();
-      setError(null);
-      const result = await handleGenerateShoppingList(initialInventoryData, personalDetails);
-      if (result.error) {
-        setError(result.error);
-        setAiShoppingList(null);
-      } else {
-        setAiShoppingList(result.shoppingList);
-      }
-    });
-  };
 
   const onAddItem: SubmitHandler<AddItemForm> = async (data) => {
     if (data.item.trim() === "") return;
@@ -248,85 +220,9 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
     </Card>
   );
 
-  const AIGuideComponent = (
-     <Card>
-        <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <CardTitle>AI Shopping Guide</CardTitle>
-                    <CardDescription>Get smart recommendations for your next shopping trip. Click to add them to your list.</CardDescription>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                     <Button onClick={handleGenerate} disabled={isPending || isRateLimited}>
-                        {isPending ? (
-                            <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                            </>
-                        ) : isRateLimited ? (
-                           `Please wait (${timeToWait}s)`
-                        ) : (
-                            <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Generate AI Shopping List
-                            </>
-                        )}
-                    </Button>
-                     <p className="text-xs text-muted-foreground text-right">
-                        AI can make mistakes. This is based on your inventory, personal details, and consumption habits.
-                    </p>
-                </div>
-            </div>
-        </CardHeader>
-        <CardContent>
-            {isPending ? (
-                <div className="space-y-4">
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                </div>
-            ) : error ? (
-                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            ) : aiShoppingList ? (
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Reason</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {aiShoppingList.map((item, index) => (
-                        <TableRow key={index} onClick={() => handleSuggestionClick(item)} className="cursor-pointer">
-                            <TableCell className="font-medium">{item.item}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell className="text-muted-foreground">{item.reason}</TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            ) : (
-                <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                    <Sparkles className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ready for suggestions?</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Click the button to generate a personalized shopping list.
-                    </p>
-                </div>
-            )}
-        </CardContent>
-      </Card>
-  );
-
     const sectionComponents: Record<Section['id'], React.ReactNode> = {
         myList: MyShoppingListComponent,
-        restock: RestockComponent,
-        aiGuide: AIGuideComponent
+        restock: RestockComponent
     };
 
   return (
