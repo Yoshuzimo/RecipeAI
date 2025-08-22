@@ -1,4 +1,5 @@
 
+
 import MainLayout from "@/components/main-layout";
 import InventoryClient from "@/components/inventory-client";
 import { getClientInventory, getClientStorageLocations } from "@/app/actions";

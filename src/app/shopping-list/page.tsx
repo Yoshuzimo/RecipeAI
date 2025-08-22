@@ -1,4 +1,5 @@
 
+
 import MainLayout from "@/components/main-layout";
 import { ShoppingList } from "@/components/shopping-list";
 import { getClientInventory, getClientPersonalDetails, getClientShoppingList } from "@/app/actions";

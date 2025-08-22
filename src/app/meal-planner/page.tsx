@@ -1,4 +1,5 @@
 
+
 import MainLayout from "@/components/main-layout";
 import { MealPlanner } from "@/components/meal-planner";
 import { getClientInventory, getClientSavedRecipes } from "@/app/actions";
