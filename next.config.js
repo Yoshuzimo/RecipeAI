@@ -23,10 +23,10 @@ const nextConfig = {
     if (!isServer) {
       // Exclude server-side packages from the client-side bundle
       config.externals = [
-          ...(config.externals || []), 
-          'firebase-admin',
+        ...(config.externals || []),
+        'firebase-admin',
       ];
-      
+
       // Provide empty fallbacks for Node.js modules that should not be in the browser
       config.resolve.fallback = {
         ...(config.resolve.fallback || {}),
@@ -34,9 +34,11 @@ const nextConfig = {
         "net": false,
         "tls": false,
         "cardinal": false,
+        "@opentelemetry/winston-transport": false,
+        "@opentelemetry/exporter-jaeger": false,
       };
     }
-    
+
     return config;
   },
 };

@@ -7,14 +7,12 @@
 
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import firebase from "@genkit-ai/firebase"; // ✅ default export in Genkit 1.x
+import { firebase } from "@genkit-ai/firebase"; // ✅ default export in Genkit 1.x
 
 // Create the Genkit AI instance
 export const ai = genkit({
   plugins: [
-    googleAI({
-      // apiVersion: "v1beta", // optional
-    }),
+    googleAI(),
     firebase, // Firebase plugin as default export
   ],
   flowStateStore: "firebase",

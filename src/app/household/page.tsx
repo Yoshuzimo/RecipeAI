@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest, getClientStorageLocations, getHouseholdByInviteCode } from "@/app/actions";
+import { getClientHousehold, handleCreateHousehold, handleJoinHousehold, handleLeaveHousehold, handleApproveMember, handleRejectMember, handleApproveAndMerge, getClientInventory, handleReviewLeaveRequest, getClientStorageLocations } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import type { Household, InventoryItem, RequestedItem, LeaveRequest, StorageLocation, ItemMigrationMapping } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
@@ -614,10 +614,13 @@ export default function HouseholdPage() {
         if (joinCode.length < 4) return;
         setIsJoining(true);
         try {
-            const household = await getHouseholdByInviteCode(joinCode);
-            if (!household) {
-                throw new Error("Could not find a household with that invite code.");
+            const res = await fetch(`/api/household/invite/${joinCode.toUpperCase()}`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Could not find a household with that invite code.");
             }
+            const household = await res.json();
+            
             setHouseholdToJoin(household);
 
             if (allInventory.privateItems.length === 0) {
