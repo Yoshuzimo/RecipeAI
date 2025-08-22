@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -21,18 +22,29 @@ import { Separator } from "./ui/separator";
 import { CreateRecipeDialog } from "./create-recipe-dialog";
 import { cn } from "@/lib/utils";
 import { parseIngredient, scaleIngredients } from "@/lib/utils";
+import { differenceInDays, formatDistanceToNow } from "date-fns";
 
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
 
-export function MealPlanner({ initialInventory, initialSavedRecipes }: { initialInventory: { privateItems: InventoryItem[], sharedItems: InventoryItem[] }, initialSavedRecipes: Recipe[] }) {
+export function MealPlanner({ 
+    initialInventory, 
+    initialSavedRecipes,
+    personalDetails,
+    todaysMacros,
+}: { 
+    initialInventory: { privateItems: InventoryItem[], sharedItems: InventoryItem[] }, 
+    initialSavedRecipes: Recipe[],
+    personalDetails: PersonalDetails,
+    todaysMacros: DailyMacros[],
+}) {
   const { toast } = useToast();
   const { isRateLimited, timeToWait, checkRateLimit, recordRequest } = useRateLimiter();
   const [inventory, setInventory] = useState<{ privateItems: InventoryItem[], sharedItems: InventoryItem[] }>(initialInventory);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>(initialSavedRecipes);
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
-  const [error, setError] = useState<any | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const cravingsRef = useRef<HTMLInputElement>(null);
@@ -52,10 +64,89 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast({
-        variant: "destructive",
-        title: "AI Not Connected",
-        description: "The AI suggestion feature has been disconnected.",
+    startTransition(() => {
+        const allItems = [...inventory.privateItems, ...inventory.sharedItems];
+        const now = new Date();
+
+        const formatItems = (items: InventoryItem[]) => {
+            if (items.length === 0) return 'None';
+            return items.map(item => {
+                const expiryInfo = item.expiryDate 
+                    ? `(expires in ${formatDistanceToNow(item.expiryDate, { addSuffix: true })})`
+                    : '';
+                return `- ${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit} ${expiryInfo}`;
+            }).join('\\n');
+        };
+
+        const expiringItems = allItems.filter(item => 
+            item.expiryDate && differenceInDays(item.expiryDate, now) <= 3 && differenceInDays(item.expiryDate, now) >= 0
+        );
+
+        const leftovers = allItems.filter(item => item.name.toLowerCase().startsWith('leftover'));
+        const regularInventory = allItems.filter(item => !expiringItems.includes(item) && !leftovers.includes(item));
+
+        const prompt = `
+You are an expert chef and nutritionist AI. Your task is to generate 3-5 creative and delicious meal recipes based on the user's available inventory, preferences, and health data.
+
+**USER'S CONTEXT:**
+
+*   **Cravings / Mood:** ${cravingsRef.current?.value || 'Not specified'}
+
+*   **Inventory to Use First (Leftovers & Expiring Soon):**
+    *   Leftovers:
+        ${formatItems(leftovers)}
+    *   Expiring Soon (use these urgently):
+        ${formatItems(expiringItems)}
+
+*   **Main Inventory:**
+    ${formatItems(regularInventory)}
+
+*   **Kitchen Equipment Available:**
+    ${personalDetails.specializedEquipment || 'Standard kitchen equipment'}
+
+*   **Health & Dietary Profile:**
+    *   Health Goals: ${personalDetails.healthGoals || 'Not specified'}
+    *   Dietary Restrictions: ${personalDetails.dietaryRestrictions || 'None'}
+    *   Allergies: ${personalDetails.allergies || 'None'}
+    *   Health Conditions: ${personalDetails.healthConditions || 'None'}
+    *   Medications: ${personalDetails.medications || 'None'}
+
+*   **Food Preferences:**
+    *   Likes: ${personalDetails.favoriteFoods || 'Not specified'}
+    *   Dislikes: ${personalDetails.dislikedFoods || 'None'}
+
+**YOUR TASK:**
+
+Generate 3-5 diverse recipes. For each recipe, provide the output in the following JSON format. Do not include any text outside of the main JSON array.
+
+**JSON OUTPUT FORMAT:**
+
+\`\`\`json
+[
+  {
+    "title": "Recipe Title",
+    "description": "A brief, enticing description of the dish.",
+    "servings": 2,
+    "ingredients": [
+      "1 cup ingredient A",
+      "2 tbsp ingredient B",
+      "Pinch of ingredient C"
+    ],
+    "instructions": [
+      "First step of the recipe.",
+      "Second step of the recipe.",
+      "Third step of the recipe."
+    ],
+    "macros": {
+      "protein": 30,
+      "carbs": 50,
+      "fat": 15
+    }
+  }
+]
+\`\`\`
+`;
+        setGeneratedPrompt(prompt.trim());
     });
   };
 
@@ -138,11 +229,8 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
   };
   
   const handleCookItClick = (recipe: Recipe) => {
-    toast({
-        variant: "destructive",
-        title: "AI Not Connected",
-        description: "The meal logging feature has been disconnected.",
-    });
+    setRecipeToLog(recipe);
+    setIsLogMealDialogOpen(true);
   };
 
   const handleMealLogged = (newInventoryItems: InventoryItem[]) => {
@@ -175,7 +263,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
             ...recipe,
             servings: newServingSize,
             ingredients: newIngredients,
-            parsedIngredients: newIngredients.map(ing => parseIngredient(ing))
           };
         }
         return recipe;
@@ -200,17 +287,31 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
                       <Label htmlFor="cravings">Cravings, Mood, or Notes</Label>
                       <Input ref={cravingsRef} id="cravings" placeholder="e.g., something spicy, quick & easy, I'm craving chicken..." />
                   </div>
-                  <Button type="submit" disabled={true} className="w-full sm:w-auto">
-                      <Sparkles className="mr-2 h-4 w-4" />
+                  <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+                      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                       Generate Meal Ideas
                   </Button>
               </form>
           </CardContent>
       </Card>
 
+      {generatedPrompt && (
+          <Card>
+              <CardHeader>
+                  <CardTitle>Generated AI Prompt</CardTitle>
+                  <CardDescription>This is the prompt that would be sent to the AI. Review it to ensure all your data is captured correctly.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <pre className="p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono">
+                      {generatedPrompt}
+                  </pre>
+              </CardContent>
+          </Card>
+      )}
 
+      {/* This is the placeholder for where suggestions would go */}
       <div className="space-y-4">
-        {isPending && !suggestions ? (
+        {isPending && !suggestions && !generatedPrompt && (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
                <Card key={i}>
@@ -236,98 +337,6 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
               </Card>
             ))}
           </div>
-        ) : suggestions && (
-          <Accordion type="single" collapsible className="w-full space-y-4">
-            {suggestions.map((recipe, index) => {
-              const isSaved = savedRecipeTitles.has(recipe.title);
-              return (
-               <Card key={`${recipe.title}-${index}`}>
-                    <AccordionItem value={`item-${index}`} className="border-b-0">
-                        <CardHeader className="flex flex-row items-start justify-between p-6">
-                            <AccordionTrigger className="flex-1 text-left p-0">
-                              <div>
-                                  <h3 className="text-lg font-semibold">{recipe.title}</h3>
-                                  <p className="text-sm text-muted-foreground mt-1">{recipe.description}</p>
-                              </div>
-                            </AccordionTrigger>
-                            <Button variant="ghost" size="icon" className="ml-4 shrink-0" onClick={(e) => { e.stopPropagation(); saveRecipeAction(recipe); }} disabled={isSaved}>
-                                <Bookmark className={cn("h-5 w-5", isSaved && "fill-current text-primary")} />
-                                <span className="sr-only">Save Recipe</span>
-                            </Button>
-                        </CardHeader>
-                        <AccordionContent className="px-6 pb-6">
-                            <div className="space-y-6">
-                                 <div className="flex items-center gap-4">
-                                     <h4 className="font-semibold">Servings</h4>
-                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}
-                                            disabled={recipe.servings <= 1}
-                                            size="icon"
-                                            variant="outline"
-                                        >
-                                            <Minus className="h-4 w-4" />
-                                        </Button>
-                                        <span className="font-bold text-lg w-8 text-center">{recipe.servings}</span>
-                                        <Button
-                                            onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}
-                                            size="icon"
-                                            variant="outline"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h4 className="font-semibold mb-2">Ingredients</h4>
-                                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                                        {recipe.ingredients.map((ing, i) => {
-                                            const status = getIngredientStatus(ing);
-                                            const isExpired = status.startsWith('expired');
-                                            return (
-                                                <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className="cursor-pointer hover:text-primary">
-                                                    <span className={status === 'expired-high-risk' ? 'text-red-600 font-bold' : status === 'expired-low-risk' ? 'text-yellow-600 font-bold' : ''}>
-                                                        {ing}
-                                                        {isExpired && <TriangleAlert className="inline-block ml-2 h-4 w-4" />}
-                                                    </span>
-                                                </li>
-                                            )
-                                        })}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold mb-2">Instructions</h4>
-                                     <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                                        {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-                                    </ol>
-                                </div>
-                                <div>
-                                     <h4 className="font-semibold mb-2">Macros (per serving)</h4>
-                                     <div className="flex gap-2 flex-wrap">
-                                        <Badge variant="outline">Protein: {recipe.macros.protein}g</Badge>
-                                        <Badge variant="outline">Carbs: {recipe.macros.carbs}g</Badge>
-                                        <Badge variant="outline">Fat: {recipe.macros.fat}g</Badge>
-                                     </div>
-                                     <p className="text-xs text-muted-foreground mt-2">(These are approximate)</p>
-                                </div>
-                                <Separator />
-                                <div className="flex gap-2">
-                                    <Button onClick={() => {}} variant="outline" disabled>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Make substitutions
-                                    </Button>
-                                    <Button onClick={() => handleCookItClick(recipe)} disabled>
-                                        <ChefHat className="mr-2 h-4 w-4" />
-                                        Cook It!
-                                    </Button>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-               </Card>
-            )})}
-          </Accordion>
         )}
       </div>
 
@@ -387,5 +396,3 @@ export function MealPlanner({ initialInventory, initialSavedRecipes }: { initial
     </>
   );
 }
-
-    
