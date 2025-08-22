@@ -1,15 +1,6 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getAdmin } from './lib/firebase-admin';
-
-export const runtime = 'nodejs';
-
-async function verifySessionCookie(sessionCookie: string) {
-    const { auth } = getAdmin();
-    await auth.verifySessionCookie(sessionCookie, true);
-}
-
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,26 +8,22 @@ export async function middleware(request: NextRequest) {
   
   const publicPaths = ['/login', '/signup'];
 
+  // Allow access to public paths
   if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
 
+  // If there's no session cookie, redirect to login
   if (!sessionCookie) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  try {
-    await verifySessionCookie(sessionCookie);
-    return NextResponse.next();
-  } catch (error) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    response.cookies.delete('__session');
-    return response;
-  }
+  // The cookie exists, allow the request to proceed.
+  // The actual validation of the cookie will happen in server actions/components
+  // that need to access protected data.
+  return NextResponse.next();
 }
 
 export const config = {
