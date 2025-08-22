@@ -1,4 +1,5 @@
 
+
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon';
 
 export type StorageLocation = {
@@ -85,6 +86,7 @@ export type Recipe = {
     ingredients: string[];
     instructions: string[];
     macros: Macros;
+    parsedIngredients?: any;
 };
 
 export type AISuggestion = {
