@@ -31,8 +31,8 @@ export type SuggestionOutput = z.infer<typeof SuggestionOutputSchema>;
 // The main prompt that drives the suggestion logic
 const suggestionPrompt = ai.definePrompt({
   name: 'suggestionPrompt',
-  inputSchema: SuggestionInputSchema,
-  outputSchema: SuggestionOutputSchema,
+  input: { schema: SuggestionInputSchema },
+  output: { schema: SuggestionOutputSchema },
   prompt: `
     You are a world-class chef and nutritionist who specializes in creating delicious, healthy, and practical meal plans.
     Your goal is to suggest 3-5 meal ideas based on the user's current inventory, personal preferences, and health goals.
@@ -66,8 +66,8 @@ const suggestionFlow = ai.defineFlow(
     outputSchema: SuggestionOutputSchema,
   },
   async (input) => {
-    const response = await suggestionPrompt.generate({input});
-    return response.output()!;
+    const { output } = await suggestionPrompt(input);
+    return output!;
   }
 );
 

@@ -36,8 +36,8 @@ export type SubstitutionOutput = z.infer<typeof SubstitutionOutputSchema>;
 // The main prompt for the flow
 const substitutionPrompt = ai.definePrompt({
     name: 'substitutionPrompt',
-    inputSchema: SubstitutionInputSchema,
-    outputSchema: SubstitutionOutputSchema,
+    input: { schema: SubstitutionInputSchema },
+    output: { schema: SubstitutionOutputSchema },
     prompt: `
         You are a culinary expert with a deep knowledge of ingredient substitutions. A user needs help modifying a recipe.
 
@@ -70,8 +70,8 @@ const substitutionFlow = ai.defineFlow(
     outputSchema: SubstitutionOutputSchema,
   },
   async (input) => {
-    const response = await substitutionPrompt.generate({input});
-    return response.output()!;
+    const { output } = await substitutionPrompt(input);
+    return output!;
   }
 );
 

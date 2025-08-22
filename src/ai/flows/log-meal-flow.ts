@@ -47,8 +47,8 @@ export type LogMealOutput = z.infer<typeof LogMealOutputSchema>;
 // The main prompt for the flow
 const logMealPrompt = ai.definePrompt({
     name: 'logMealPrompt',
-    inputSchema: LogMealInputSchema,
-    outputSchema: LogMealOutputSchema,
+    input: { schema: LogMealInputSchema },
+    output: { schema: LogMealOutputSchema },
     prompt: `
         You are an expert kitchen inventory manager and nutritionist. Your task is to process a meal that has been cooked and consumed, and determine the impact on the user's inventory and their daily nutritional intake.
 
@@ -85,8 +85,8 @@ const logMealFlow = ai.defineFlow(
     outputSchema: LogMealOutputSchema,
   },
   async (input) => {
-    const response = await logMealPrompt.generate({input});
-    return response.output()!;
+    const { output } = await logMealPrompt(input);
+    return output!;
   }
 );
 

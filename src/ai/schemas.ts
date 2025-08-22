@@ -7,6 +7,7 @@
 import {z} from 'zod';
 
 export const UnitSchema = z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]);
+export type Unit = z.infer<typeof UnitSchema>;
 
 export const StorageLocationSchema = z.object({
   id: z.string(),
@@ -20,7 +21,7 @@ export const InventoryItemSchema = z.object({
   originalQuantity: z.number(),
   totalQuantity: z.number(),
   unit: UnitSchema,
-  expiryDate: z.date(),
+  expiryDate: z.date().nullable(),
   locationId: z.string(),
   isPrivate: z.boolean(),
 });
@@ -35,17 +36,20 @@ export const PersonalDetailsSchema = z.object({
   medications: z.string().optional(),
   specializedEquipment: z.string().optional(),
 });
+export type PersonalDetails = z.infer<typeof PersonalDetailsSchema>;
 
 export const MacrosSchema = z.object({
   protein: z.number().describe('Grams of protein.'),
   carbs: z.number().describe('Grams of carbohydrates.'),
   fat: z.number().describe('Grams of fat.'),
 });
+export type Macros = z.infer<typeof MacrosSchema>;
 
 export const RecipeIngredientSchema = z.object({
     name: z.string(),
     notes: z.string().optional(),
 });
+export type RecipeIngredient = z.infer<typeof RecipeIngredientSchema>;
 
 export const RecipeSchema = z.object({
   title: z.string(),
@@ -56,6 +60,7 @@ export const RecipeSchema = z.object({
   instructions: z.array(z.string()),
   macros: MacrosSchema,
 });
+export type Recipe = z.infer<typeof RecipeSchema>;
 
 export const LeftoverDestinationSchema = z.object({
     locationId: z.string(),

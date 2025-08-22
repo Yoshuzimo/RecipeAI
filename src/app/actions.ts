@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, Substitution, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros } from "@/lib/types";
 import {
     seedInitialData as dataSeedInitialData,
     getPersonalDetails as dataGetPersonalDetails,
@@ -47,6 +47,7 @@ import type { SubstitutionInput, SubstitutionOutput } from "@/ai/flows/substitut
 import type { RecipeDetailsInput } from "@/ai/flows/recipe-details-flow";
 import type { LogMealInput, LogMealOutput } from "@/ai/flows/log-meal-flow";
 import type { ShoppingListInput, ShoppingListOutput } from "@/ai/flows/shopping-list-flow";
+import { Substitution } from "@/lib/types";
 
 
 // --- Server Actions ---
@@ -172,7 +173,7 @@ export async function handleGenerateRecipeDetails(recipeData: Omit<Recipe, "serv
      try {
         const input: RecipeDetailsInput = {
             title: recipeData.title,
-            description: recipeData.description,
+            description: recipeData.description || "",
             ingredients: recipeData.ingredients,
             instructions: recipeData.instructions,
         };
@@ -213,12 +214,13 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
         // Process the results to update Firestore
         const batch = db.batch();
         const userDoc = await db.collection('users').doc(userId).get();
+        const householdId = userDoc.data()?.householdId;
 
         // 1. Remove items
         result.itemsToRemove.forEach(item => {
             const itemToDelete = inventory.find(i => i.id === item.id);
             if (itemToDelete) {
-                const collectionPath = (itemToDelete.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+                const collectionPath = (itemToDelete.isPrivate || !householdId) ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
                 batch.delete(db.collection(collectionPath).doc(item.id));
             }
         });
@@ -227,14 +229,14 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
         result.itemsToUpdate.forEach(item => {
             const itemToUpdate = inventory.find(i => i.id === item.id);
             if (itemToUpdate) {
-                const collectionPath = (itemToUpdate.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+                const collectionPath = (itemToUpdate.isPrivate || !householdId) ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
                 batch.update(db.collection(collectionPath).doc(item.id), { totalQuantity: item.newQuantity });
             }
         });
         
         // 3. Add leftover items
         result.leftoverItems.forEach(item => {
-            const collectionPath = (item.isPrivate) ? `users/${userId}/inventory` : `households/${userDoc.data()?.householdId}/inventory`;
+            const collectionPath = (item.isPrivate || !householdId) ? `users/${userId}/inventory` : `households/${householdId}/inventory`;
             const newLeftoverRef = db.collection(collectionPath).doc();
             batch.set(newLeftoverRef, item);
         });
@@ -249,7 +251,7 @@ export async function handleLogCookedMeal(recipe: Recipe, servingsEaten: number,
 
     } catch (e: any) {
         console.error("Error logging meal:", e);
-        return { success: false, error: e.message || "An unexpected error occurred." };
+        return { success: false, error: e.message || "An unexpected error occurred.", newInventory: [] };
     }
 }
 

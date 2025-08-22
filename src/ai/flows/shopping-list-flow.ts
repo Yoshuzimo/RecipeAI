@@ -32,8 +32,8 @@ export type ShoppingListOutput = z.infer<typeof ShoppingListOutputSchema>;
 // The main prompt for the flow
 const shoppingListPrompt = ai.definePrompt({
     name: 'shoppingListPrompt',
-    inputSchema: ShoppingListInputSchema,
-    outputSchema: ShoppingListOutputSchema,
+    input: { schema: ShoppingListInputSchema },
+    output: { schema: ShoppingListOutputSchema },
     prompt: `
         You are a smart shopping assistant. Your goal is to create a helpful and personalized shopping list for a user.
 
@@ -60,8 +60,8 @@ const shoppingListFlow = ai.defineFlow(
     outputSchema: ShoppingListOutputSchema,
   },
   async (input) => {
-    const response = await shoppingListPrompt.generate({input});
-    return response.output()!;
+    const { output } = await shoppingListPrompt(input);
+    return output!;
   }
 );
 
