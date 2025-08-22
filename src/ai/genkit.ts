@@ -6,7 +6,7 @@
 
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import firebase from "@genkit-ai/firebase";
+const firebase = (firebaseModule.default ?? firebaseModule) as () => any;
 
 export const ai = genkit({
   plugins: [
