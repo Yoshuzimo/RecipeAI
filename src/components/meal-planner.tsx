@@ -164,7 +164,17 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                         title: "AI Response Error",
                         description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
                    });
+                   // Keep the raw response for debugging
+                   setRawAiResponse(response);
               }
+          } else {
+            // Handle the case where the response is already an error object
+            toast({
+                variant: "destructive",
+                title: "AI Error",
+                description: response.error || "An unknown AI error occurred.",
+            });
+            setRawAiResponse(response);
           }
         } catch (error) {
           console.error("AI Generation Error:", error);
@@ -403,7 +413,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
            </Accordion>
       )}
 
-      {rawAiResponse && (
+      {/* {rawAiResponse && (
           <Card>
               <CardHeader>
                   <CardTitle>Raw AI Response</CardTitle>
@@ -411,11 +421,11 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
               </CardHeader>
               <CardContent>
                   <pre className={cn("p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono", typeof rawAiResponse !== 'string' && 'bg-destructive/20 text-destructive-foreground')}>
-                      {typeof rawAiResponse === 'string' ? rawAiResponse : rawAiResponse.error}
+                      {typeof rawAiResponse === 'string' ? rawAiResponse : JSON.stringify(rawAiResponse, null, 2)}
                   </pre>
               </CardContent>
           </Card>
-      )}
+      )} */}
 
        <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
