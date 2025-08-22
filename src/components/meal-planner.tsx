@@ -154,7 +154,13 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                   setSuggestions(parsedSuggestions);
               } catch (parseError) {
                    console.error("Failed to parse AI response:", parseError);
-                   setRawAiResponse({ error: "The AI returned a response, but it was not in the expected format. Check the raw response below." });
+                   // Keep the raw response so it can be debugged
+                   setRawAiResponse(response);
+                   toast({
+                        variant: "destructive",
+                        title: "AI Response Error",
+                        description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
+                   });
               }
           }
         } catch (error) {
@@ -346,7 +352,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                    <CardDescription>This is the raw response from the AI. We'll format this into recipe cards next.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <pre className={cn("p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono", typeof rawAiResponse === 'object' && 'bg-destructive/20 text-destructive-foreground')}>
+                  <pre className={cn("p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono", typeof rawAiResponse !== 'string' && 'bg-destructive/20 text-destructive-foreground')}>
                       {typeof rawAiResponse === 'string' ? rawAiResponse : rawAiResponse.error}
                   </pre>
               </CardContent>
