@@ -7,7 +7,7 @@
 
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
-import { firebase } from "@genkit-ai/firebase"; // ✅ default export, must be called
+import firebase from "@genkit-ai/firebase"; // ✅ default export, must be called
 
 // Create the Genkit AI instance
 export const ai = genkit({
@@ -15,6 +15,6 @@ export const ai = genkit({
     googleAI(),
     firebase(), // ✅ invoke the firebase plugin
   ],
-  flowStateStore: "firebase",
-  traceStore: "firebase",
+  flowStateStore: null,
+  traceStore: null,
 });
