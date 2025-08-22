@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Initializes Genkit AI with Google AI and Firebase plugins.
  * Tracing and flow state are disabled for cleaner builds on Vercel.

@@ -1,9 +1,9 @@
 
-
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
+import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -45,6 +45,7 @@ export function MealPlanner({
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [rawAiResponse, setRawAiResponse] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const cravingsRef = useRef<HTMLInputElement>(null);
@@ -64,7 +65,7 @@ export function MealPlanner({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    startTransition(() => {
+    startTransition(async () => {
         const allItems = [...inventory.privateItems, ...inventory.sharedItems];
         const now = new Date();
 
@@ -75,12 +76,11 @@ export function MealPlanner({
             }).join('\\n');
         };
 
-        const expiringItems = allItems.filter(item => 
-            item.expiryDate && differenceInDays(item.expiryDate, now) <= 2
+        const priorityItems = allItems.filter(item => 
+            item.name.toLowerCase().startsWith('leftover') || 
+            (item.expiryDate && differenceInDays(item.expiryDate, now) <= 2)
         );
 
-        const leftovers = allItems.filter(item => item.name.toLowerCase().startsWith('leftover'));
-        const priorityItems = [...leftovers, ...expiringItems.filter(exp => !leftovers.find(l => l.id === exp.id))];
         const regularInventory = allItems.filter(item => !priorityItems.find(p => p.id === item.id));
 
         const prompt = `
@@ -115,8 +115,6 @@ You are an expert chef and nutritionist AI. Your task is to generate 3-5 creativ
 
 Generate 3-5 diverse recipes. For each recipe, provide the output in the following JSON format. Do not include any text outside of the main JSON array.
 
-**JSON OUTPUT FORMAT:**
-
 \`\`\`json
 [
   {
@@ -142,7 +140,21 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
 ]
 \`\`\`
 `;
-        setGeneratedPrompt(prompt.trim());
+        const finalPrompt = prompt.trim();
+        setGeneratedPrompt(finalPrompt);
+        setRawAiResponse(null); // Clear previous response
+        
+        try {
+          const response = await generateMealSuggestions(finalPrompt);
+          setRawAiResponse(response);
+        } catch (error) {
+          console.error("AI Generation Error:", error);
+          toast({
+            variant: "destructive",
+            title: "AI Error",
+            description: "Could not generate meal suggestions. Please try again."
+          });
+        }
     });
   };
 
@@ -269,7 +281,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
 
   return (
     <>
-    <div className="space-y-8">
+    <div className="w-full max-w-7xl mx-auto space-y-8">
       <Card>
           <CardHeader>
               <CardTitle>Meal Planner</CardTitle>
@@ -291,11 +303,25 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           </CardContent>
       </Card>
 
+      {isPending && (
+          <Card>
+              <CardHeader>
+                  <CardTitle>Generating...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+                  <p>The AI is thinking...</p>
+                </div>
+              </CardContent>
+          </Card>
+      )}
+
       {generatedPrompt && (
           <Card>
               <CardHeader>
                   <CardTitle>Generated AI Prompt</CardTitle>
-                  <CardDescription>This is the prompt that would be sent to the AI. Review it to ensure all your data is captured correctly.</CardDescription>
+                  <CardDescription>This is the prompt being sent to the AI. Review it to ensure all your data is captured correctly.</CardDescription>
               </CardHeader>
               <CardContent>
                   <pre className="p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono">
@@ -305,36 +331,19 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           </Card>
       )}
 
-      {/* This is the placeholder for where suggestions would go */}
-      <div className="space-y-4">
-        {isPending && !suggestions && !generatedPrompt && (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-               <Card key={i}>
-                <CardHeader>
-                   <Skeleton className="h-6 w-3/4" />
-                   <Skeleton className="h-4 w-full mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Skeleton className="h-5 w-1/4" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-5/6" />
-                        <Skeleton className="h-4 w-full" />
-                    </div>
-                     <Skeleton className="h-5 w-1/4" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-4/6" />
-                         <Skeleton className="h-4 w-full" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      {rawAiResponse && (
+          <Card>
+              <CardHeader>
+                  <CardTitle>Raw AI Response</CardTitle>
+                  <CardDescription>This is the raw, unparsed response from the AI. We'll format this into recipe cards in the next step.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <pre className="p-4 bg-muted rounded-md text-sm whitespace-pre-wrap font-mono">
+                      {rawAiResponse}
+                  </pre>
+              </CardContent>
+          </Card>
+      )}
 
        <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
