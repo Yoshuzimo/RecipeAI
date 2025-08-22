@@ -11,7 +11,7 @@ export default async function SavedRecipesPage() {
 
   return (
     <MainLayout>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 max-w-[108rem] mx-auto">
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <SavedRecipes initialRecipes={savedRecipes} />
       </div>
     </MainLayout>

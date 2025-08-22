@@ -112,7 +112,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset className="flex-1 bg-background">{children}</SidebarInset>
+        <SidebarInset className="flex-1 bg-background">
+          <div className="w-full max-w-[108rem] mx-auto">
+            {children}
+          </div>
+        </SidebarInset>
       </div>
     </SidebarProvider>
   );
