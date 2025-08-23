@@ -20,11 +20,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMacros } from "@/lib/types";
 import { handleUpdateMealTime } from "@/app/actions";
-import { Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { cn } from "@/lib/utils";
 
 
 const formSchema = z.object({
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Please enter a valid time in HH:mm format."),
+  date: z.date(),
 });
 
 
@@ -46,17 +50,25 @@ export function EditMealTimeDialog({
         resolver: zodResolver(formSchema),
         defaultValues: {
             time: format(new Date(meal.loggedAt), "HH:mm"),
+            date: new Date(meal.loggedAt),
         }
     });
 
     useEffect(() => {
-        form.reset({ time: format(new Date(meal.loggedAt), "HH:mm") });
+        form.reset({ 
+            time: format(new Date(meal.loggedAt), "HH:mm"),
+            date: new Date(meal.loggedAt),
+        });
     }, [meal, form]);
 
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsPending(true);
-        const result = await handleUpdateMealTime(meal.id, values.time);
+        const [hours, minutes] = values.time.split(':').map(Number);
+        const newDate = new Date(values.date);
+        newDate.setHours(hours, minutes, 0, 0);
+
+        const result = await handleUpdateMealTime(meal.id, newDate);
         setIsPending(false);
 
         if (result.success) {
@@ -86,6 +98,38 @@ export function EditMealTimeDialog({
         </DialogHeader>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                        <FormLabel>Date</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant={"outline"}
+                                className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                                >
+                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                            </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) => date > new Date()}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
                  <FormField
                     control={form.control}
                     name="time"

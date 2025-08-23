@@ -263,7 +263,7 @@ export function LogMealDialog({
                      <div className="space-y-2">
                         <Label htmlFor={`fridge-location-${index}`}>Fridge Location</Label>
                         <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'fridge')} disabled={fridgeLocations.length === 0}>
-                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue placeholder="No fridges..."/></SelectTrigger>
+                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue placeholder={fridgeLocations.length > 0 ? "Select fridge..." : "No fridges"} /></SelectTrigger>
                             <SelectContent>
                                 {fridgeLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>
@@ -286,7 +286,7 @@ export function LogMealDialog({
                     <div className="space-y-2">
                         <Label htmlFor={`freezer-location-${index}`}>Freezer Location</Label>
                          <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'freezer')} disabled={freezerLocations.length === 0}>
-                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue placeholder="No freezers..."/></SelectTrigger>
+                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue placeholder={freezerLocations.length > 0 ? "Select freezer..." : "No freezers"} /></SelectTrigger>
                             <SelectContent>
                                 {freezerLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>

@@ -150,7 +150,7 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dataForCharts} timeframe={timeframe} onDataChange={fetchData} />
+                <CalorieLineChart data={dataForCharts} timeframe={timeframe} onDataChange={fetchData} settings={settings} />
             </CardContent>
          </Card>
         <NutritionChart data={dataForCharts} timeframe={timeframe} />

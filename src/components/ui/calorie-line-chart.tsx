@@ -3,15 +3,16 @@
 
 import * as React from "react"
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip, Dot } from "recharts"
-import { format, startOfDay, endOfDay } from "date-fns"
+import { format, startOfDay, endOfDay, addDays } from "date-fns"
 
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import type { DailyMacros } from "@/lib/types"
+import type { DailyMacros, Settings } from "@/lib/types"
 import { EditMealTimeDialog } from "../edit-meal-time-dialog"
+import { getUserDayBoundaries } from "@/lib/utils"
 
 type ChartDataPoint = {
     time: number; // Daily
@@ -80,11 +81,13 @@ const DailyCustomTick = (props: any) => {
 export function CalorieLineChart({ 
     data, 
     goal,
+    settings,
     timeframe,
     onDataChange,
 }: { 
     data: any[],
     goal?: number, 
+    settings: Settings | null,
     timeframe: "daily" | "weekly" | "monthly",
     onDataChange: () => void;
 }) {
@@ -123,8 +126,10 @@ export function CalorieLineChart({
     setMealToEdit(null);
   }
   
-  const todayStart = startOfDay(new Date()).getTime();
-  const todayEnd = endOfDay(new Date()).getTime();
+  const { start: dayStart, end: dayEnd } = React.useMemo(() => {
+    return getUserDayBoundaries(new Date(), settings?.dayStartTime || "00:00");
+  }, [settings?.dayStartTime]);
+
   
   const mealTicks = timeframe === 'daily' ? chartData.map(d => d.time) : [];
 
@@ -145,7 +150,7 @@ export function CalorieLineChart({
                 <XAxis
                     dataKey="time"
                     type="number"
-                    domain={[todayStart, todayEnd]}
+                    domain={[dayStart.getTime(), dayEnd.getTime()]}
                     scale="time"
                     ticks={mealTicks}
                     tick={<DailyCustomTick data={chartData} />}
@@ -234,4 +239,3 @@ export function CalorieLineChart({
     </>
   )
 }
-

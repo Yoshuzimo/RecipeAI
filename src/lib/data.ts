@@ -748,24 +748,18 @@ export async function logMacros(db: Firestore, userId: string, mealType: "Breakf
     }
 }
 
-export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: string): Promise<DailyMacros | null> {
+export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: Date): Promise<DailyMacros | null> {
     const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);
+    await docRef.update({ loggedAt: newTime });
     const mealLogDoc = await docRef.get();
-    if (mealLogDoc.exists) {
-        const mealLogData = mealLogDoc.data()!;
-        const mealLog = {
-            ...mealLogData,
-            loggedAt: mealLogData.loggedAt?.toDate() || new Date(),
-        } as DailyMacros;
-
-        const [hours, minutes] = newTime.split(':').map(Number);
-        const newDate = new Date(mealLog.loggedAt); 
-        newDate.setHours(hours, minutes);
-        
-        await docRef.update({ loggedAt: newDate });
-        return { ...mealLog, id: mealId, loggedAt: newDate };
-    }
-    return null;
+    if (!mealLogDoc.exists) return null;
+    
+    const mealLogData = mealLogDoc.data()!;
+     return {
+        ...mealLogData,
+        id: mealId,
+        loggedAt: mealLogData.loggedAt?.toDate() || new Date(),
+    } as DailyMacros;
 }
 
 // Recipes

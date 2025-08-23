@@ -126,7 +126,7 @@ export function TodaysMacros({ dailyData, settings, onDataChange }: {
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={todaysData} goal={goals.calories} timeframe="daily" onDataChange={onDataChange} />
+        <CalorieLineChart data={todaysData} goal={goals.calories} settings={settings} timeframe="daily" onDataChange={onDataChange} />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
