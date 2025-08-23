@@ -15,7 +15,6 @@ import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckExpiredDialog } from "./check-expired-dialog";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { useRateLimiter } from "@/hooks/use-rate-limiter.tsx";
 import { LogMealDialog } from "./log-meal-dialog";
@@ -26,6 +25,8 @@ import { parseIngredient, scaleIngredients } from "@/lib/utils";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
 import { UserSubstitutionDialog } from "./user-substitution-dialog";
 import { AISubstitutionDialog } from "./ai-substitution-dialog";
+import { IngredientActionDialog } from "./ingredient-action-dialog";
+import { ReportSpoilageDialog } from "./report-spoilage-dialog";
 
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
@@ -56,8 +57,8 @@ export function MealPlanner({
 
   const cravingsRef = useRef<HTMLInputElement>(null);
   
-  const [isExpiredCheckDialogOpen, setIsExpiredCheckDialogOpen] = useState(false);
-  const [ingredientToCheck, setIngredientToCheck] = useState<{recipe: Recipe, ingredient: string} | null>(null);
+  const [isIngredientActionOpen, setIsIngredientActionOpen] = useState(false);
+  const [selectedIngredientInfo, setSelectedIngredientInfo] = useState<{recipe: Recipe, ingredient: string} | null>(null);
 
   const [isViewInventoryDialogOpen, setIsViewInventoryDialogOpen] = useState(false);
   const [groupToView, setGroupToView] = useState<InventoryItemGroup | null>(null);
@@ -69,8 +70,12 @@ export function MealPlanner({
   
   const [isUserSubDialogOpen, setIsUserSubDialogOpen] = useState(false);
   const [isAISubDialogOpen, setIsAISubDialogOpen] = useState(false);
+  const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
+
   const [recipeToSubstitute, setRecipeToSubstitute] = useState<Recipe | null>(null);
   const [ingredientToSubstitute, setIngredientToSubstitute] = useState<string | null>(null);
+
+  const [groupToReportSpoilage, setGroupToReportSpoilage] = useState<InventoryItemGroup | null>(null);
 
 
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
@@ -244,50 +249,47 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   }
 
   const handleIngredientClick = (recipe: Recipe, ingredient: string) => {
-      const status = getIngredientStatus(ingredient);
-      if (status.startsWith('expired')) {
-          setIngredientToCheck({recipe, ingredient});
-          setIsExpiredCheckDialogOpen(true);
-      } else {
-          setRecipeToSubstitute(recipe);
-          setIngredientToSubstitute(ingredient);
-          setIsAISubDialogOpen(true);
-      }
+      setSelectedIngredientInfo({ recipe, ingredient });
+      setIsIngredientActionOpen(true);
   }
   
-  const handleExpiredCheckComplete = (isGood: boolean) => {
-      setIsExpiredCheckDialogOpen(false);
-      const allItems = [...inventory.privateItems, ...inventory.sharedItems];
-      if (ingredientToCheck) {
-          if(!isGood) {
-            const inventoryItem = allItems.find(item => ingredientToCheck.ingredient.toLowerCase().includes(item.name.toLowerCase()));
-            const ingredientName = inventoryItem?.name;
-            if (ingredientName) {
-                const items = allItems.filter(item => item.name === ingredientName);
-                const group: InventoryItemGroup = {
-                    name: ingredientName,
-                    items: items,
-                    packageInfo: '',
-                    nextExpiry: items.length > 0 ? items.sort((a,b) => {
-                        if (a.expiryDate === null) return 1;
-                        if (b.expiryDate === null) return -1;
-                        return a.expiryDate.getTime() - b.expiryDate.getTime()
-                    })[0].expiryDate : null,
-                    unit: items[0]?.unit || 'pcs',
-                    isPrivate: items[0]?.isPrivate,
-                    locationId: items[0]?.locationId,
-                    locationName: '', // This isn't critical for the dialog
-                };
-                setGroupToView(group);
-                setIsViewInventoryDialogOpen(true);
-            }
-          } else {
-              setRecipeToSubstitute(ingredientToCheck.recipe);
-              setIngredientToSubstitute(ingredientToCheck.ingredient);
-              setIsAISubDialogOpen(true);
-          }
-      }
-  }
+  const handleIngredientAction = (action: 'substitute' | 'spoilage') => {
+    if (!selectedIngredientInfo) return;
+    const { recipe, ingredient } = selectedIngredientInfo;
+
+    if (action === 'substitute') {
+        setRecipeToSubstitute(recipe);
+        setIngredientToSubstitute(ingredient);
+        setIsAISubDialogOpen(true);
+    } else { // spoilage
+        const allItems = [...inventory.privateItems, ...inventory.sharedItems];
+        const inventoryItem = allItems.find(item => ingredient.toLowerCase().includes(item.name.toLowerCase()));
+        if (inventoryItem) {
+            const itemsForGroup = allItems.filter(i => i.name === inventoryItem.name);
+            const group: InventoryItemGroup = {
+                name: inventoryItem.name,
+                items: itemsForGroup,
+                packageInfo: '',
+                nextExpiry: itemsForGroup.length > 0 ? itemsForGroup.sort((a,b) => (a.expiryDate?.getTime() ?? 0) - (b.expiryDate?.getTime() ?? 0))[0].expiryDate : null,
+                unit: inventoryItem.unit,
+                isPrivate: inventoryItem.isPrivate,
+                locationId: inventoryItem.locationId,
+                locationName: '',
+            };
+            setGroupToReportSpoilage(group);
+            setIsSpoilageDialogOpen(true);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Item not in inventory',
+                description: `Could not find "${ingredient}" in your inventory to report spoilage.`,
+            });
+        }
+    }
+
+    setIsIngredientActionOpen(false);
+  };
+
 
   const handleInventoryUpdateAndCheck = async () => {
     const updatedInventory = await getClientInventory();
@@ -537,14 +539,16 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
       )} */}
 
     </div>
-     {isExpiredCheckDialogOpen && ingredientToCheck && (
-         <CheckExpiredDialog 
-            isOpen={isExpiredCheckDialogOpen}
-            onClose={() => setIsExpiredCheckDialogOpen(false)}
-            onConfirm={handleExpiredCheckComplete}
-            ingredientName={ingredientToCheck.ingredient}
-         />
-     )}
+    
+      {isIngredientActionOpen && selectedIngredientInfo && (
+        <IngredientActionDialog
+            isOpen={isIngredientActionOpen}
+            onClose={() => setIsIngredientActionOpen(false)}
+            onSelectAction={handleIngredientAction}
+            ingredientName={selectedIngredientInfo.ingredient}
+        />
+      )}
+
       {isViewInventoryDialogOpen && groupToView && (
         <ViewInventoryItemDialog
           isOpen={isViewInventoryDialogOpen}
@@ -563,6 +567,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           }}
         />
       )}
+
       {isLogMealDialogOpen && recipeToLog && (
         <LogMealDialog
             isOpen={isLogMealDialogOpen}
@@ -596,6 +601,30 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
             personalDetails={personalDetails}
             onSubstitution={handleSubstitution}
         />
+      )}
+      {isSpoilageDialogOpen && groupToReportSpoilage && (
+          <ReportSpoilageDialog
+            isOpen={isSpoilageDialogOpen}
+            setIsOpen={setIsSpoilageDialogOpen}
+            group={groupToReportSpoilage}
+            packageGroups={Object.values(groupToReportSpoilage.items.reduce((acc, item) => {
+                const size = item.originalQuantity;
+                if (!acc[size]) {
+                    acc[size] = { size, fullPackages: [], partialPackage: null, items: [] };
+                }
+                acc[size].items.push(item);
+                if (item.totalQuantity === item.originalQuantity) {
+                    acc[size].fullPackages.push(item);
+                } else {
+                    acc[size].partialPackage = item;
+                }
+                return acc;
+            }, {} as Record<number, any>))}
+            onUpdateComplete={async () => {
+                 const { privateItems, sharedItems } = await getClientInventory();
+                 handleInventoryUpdateAndCheck();
+            }}
+          />
       )}
     </>
   );
