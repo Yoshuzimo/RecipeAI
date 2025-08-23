@@ -100,7 +100,7 @@ export function scaleIngredients(ingredients: string[], oldServings: number, new
     });
 }
 
-function getUserDayBoundaries(date: Date, dayStartTime: string): { start: Date, end: Date } {
+export function getUserDayBoundaries(date: Date, dayStartTime: string): { start: Date, end: Date } {
     const [startHours, startMinutes] = dayStartTime.split(':').map(Number);
     
     let userDayStart = new Date(date);
