@@ -70,49 +70,43 @@ export function LogMealDialog({
   const otherMembers = household?.activeMembers.filter(m => m.userId !== user?.uid) || [];
 
   useEffect(() => {
-    async function fetchInitialData() {
-      const [locations, hh] = await Promise.all([
-          getClientStorageLocations(),
-          getClientHousehold()
-      ]);
-      setHousehold(hh);
-
-      const fridges = locations.filter(l => l.type === 'Fridge');
-      const freezers = locations.filter(l => l.type === 'Freezer');
-      setFridgeLocations(fridges);
-      setFreezerLocations(freezers);
-      // Initialize with one destination for each type if locations exist
-      if (fridges.length > 0) {
-        setFridgeDestinations([{ locationId: fridges[0].id, servings: 0 }]);
-      }
-       if (freezers.length > 0) {
-        setFreezerDestinations([{ locationId: freezers[0].id, servings: 0 }]);
-      }
-    }
-    fetchInitialData();
-  }, []);
-
-  // Reset state and calculate initial leftovers when dialog opens or recipe changes
-  useEffect(() => {
     if (isOpen) {
-      const initialServingsEaten = 1;
-      const remaining = recipe.servings - initialServingsEaten;
-      
-      setServingsEaten(initialServingsEaten);
-      setMealType(getDefaultMealType());
-      setServingsForOthers(0);
-      setSelectedMembers({});
+      async function fetchInitialData() {
+        const [locations, hh] = await Promise.all([
+            getClientStorageLocations(),
+            getClientHousehold()
+        ]);
+        setHousehold(hh);
 
-      // Reset destinations
-      const newFridgeDestinations: LeftoverDestination[] = [];
-      if (fridgeLocations.length > 0) {
-        newFridgeDestinations.push({ locationId: fridgeLocations[0].id, servings: Math.max(0, remaining) });
+        const fridges = locations.filter(l => l.type === 'Fridge');
+        const freezers = locations.filter(l => l.type === 'Freezer');
+        setFridgeLocations(fridges);
+        setFreezerLocations(freezers);
+        
+        const initialServingsEaten = 1;
+        const remaining = recipe.servings - initialServingsEaten;
+        
+        setServingsEaten(initialServingsEaten);
+        setMealType(getDefaultMealType());
+        setServingsForOthers(0);
+        setSelectedMembers({});
+
+        // Reset destinations
+        const newFridgeDestinations: LeftoverDestination[] = [];
+        if (fridges.length > 0) {
+          newFridgeDestinations.push({ locationId: fridges[0].id, servings: Math.max(0, remaining) });
+        }
+        setFridgeDestinations(newFridgeDestinations);
+        
+        const newFreezerDestinations: LeftoverDestination[] = [];
+        if (freezers.length > 0) {
+            newFreezerDestinations.push({ locationId: freezers[0].id, servings: 0 });
+        }
+        setFreezerDestinations(newFreezerDestinations);
       }
-      setFridgeDestinations(newFridgeDestinations);
-      setFreezerDestinations(freezerLocations.length > 0 ? [{ locationId: freezerLocations[0].id, servings: 0 }] : []);
-
+      fetchInitialData();
     }
-  }, [isOpen, recipe.servings, fridgeLocations, freezerLocations]);
+  }, [isOpen, recipe]);
   
   const totalFridgeServings = fridgeDestinations.reduce((sum, dest) => sum + dest.servings, 0);
   const totalFreezerServings = freezerDestinations.reduce((sum, dest) => sum + dest.servings, 0);
@@ -264,8 +258,8 @@ export function LogMealDialog({
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor={`fridge-location-${index}`}>Fridge Location</Label>
-                        <Select value={dest.locationId} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'fridge')}>
-                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue/></SelectTrigger>
+                        <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'fridge')} disabled={fridgeLocations.length === 0}>
+                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue placeholder="No fridges..."/></SelectTrigger>
                             <SelectContent>
                                 {fridgeLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>
@@ -287,8 +281,8 @@ export function LogMealDialog({
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor={`freezer-location-${index}`}>Freezer Location</Label>
-                         <Select value={dest.locationId} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'freezer')}>
-                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue/></SelectTrigger>
+                         <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'freezer')} disabled={freezerLocations.length === 0}>
+                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue placeholder="No freezers..."/></SelectTrigger>
                             <SelectContent>
                                 {freezerLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                             </SelectContent>

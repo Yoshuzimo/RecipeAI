@@ -514,7 +514,12 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           </Card>
       )}
 
-      {userRecipe && <RecipeCard recipe={userRecipe} isExpanded={true} />}
+      {userRecipe && (
+          <Accordion type="single" collapsible defaultValue={userRecipe.title} className="w-full space-y-4">
+            <RecipeCard recipe={userRecipe} isExpanded={true} />
+          </Accordion>
+      )}
+
 
       {suggestions && suggestions.length > 0 && (
            <Accordion type="single" collapsible defaultValue="item-0" className="w-full space-y-4">
