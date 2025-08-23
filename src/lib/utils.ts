@@ -1,6 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { subDays, startOfDay, endOfDay } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -97,4 +98,31 @@ export function scaleIngredients(ingredients: string[], oldServings: number, new
         }
         return ingredient; // Return original if it can't be parsed
     });
+}
+
+/**
+ * Checks if a given date falls within the user's custom "day".
+ * A user's day can start at a time other than midnight (e.g., 6 PM).
+ * @param date The date to check.
+ * @param dayStartTime The start time of the user's day in "HH:mm" format.
+ * @returns True if the date is within the user's current day.
+ */
+export function isWithinUserDay(date: Date, dayStartTime: string): boolean {
+    const now = new Date();
+    const [startHours, startMinutes] = dayStartTime.split(':').map(Number);
+
+    let userDayStart = new Date(now);
+    userDayStart.setHours(startHours, startMinutes, 0, 0);
+
+    // If the start time is in the future relative to "now", the user's day started yesterday.
+    if (userDayStart > now) {
+        userDayStart = subDays(userDayStart, 1);
+    }
+    
+    const userDayEnd = new Date(userDayStart);
+    userDayEnd.setDate(userDayEnd.getDate() + 1);
+    userDayEnd.setSeconds(userDayEnd.getSeconds() - 1);
+
+
+    return date >= userDayStart && date <= userDayEnd;
 }

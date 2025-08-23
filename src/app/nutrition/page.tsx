@@ -4,7 +4,7 @@
 import * as React from "react";
 import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
-import { getClientTodaysMacros, getClientHousehold } from "@/app/actions";
+import { getClientTodaysMacros, getClientHousehold, getSettings } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import { CalorieLineChart } from "@/components/ui/calorie-line-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,10 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { DailyMacros, Household } from "@/lib/types";
-import { isToday, isWithinInterval, startOfWeek, endOfWeek, format } from "date-fns";
+import type { DailyMacros, Household, Settings } from "@/lib/types";
+import { isWithinInterval, startOfWeek, endOfWeek, format } from "date-fns";
 import { useAuth } from "@/components/auth-provider";
 import { PendingMealCard } from "@/components/pending-meal-card";
+import { isWithinUserDay } from "@/lib/utils";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,15 +29,18 @@ export default function NutritionPage() {
   const { user } = useAuth();
   const [allDailyData, setAllDailyData] = React.useState<DailyMacros[]>([]);
   const [household, setHousehold] = React.useState<Household | null>(null);
+  const [settings, setSettings] = React.useState<Settings | null>(null);
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily");
   
   const fetchData = React.useCallback(async () => {
-    const [macrosData, householdData] = await Promise.all([
+    const [macrosData, householdData, settingsData] = await Promise.all([
       getClientTodaysMacros(),
       getClientHousehold(),
+      getSettings(),
     ]);
     setAllDailyData(macrosData);
     setHousehold(householdData);
+    setSettings(settingsData);
   }, []);
 
   React.useEffect(() => {
@@ -50,6 +54,8 @@ export default function NutritionPage() {
 
   const { dataForCharts, description } = React.useMemo(() => {
     const now = new Date();
+    const dayStartTime = settings?.dayStartTime || "00:00";
+    
     switch (timeframe) {
       case "weekly": {
         const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
@@ -89,7 +95,7 @@ export default function NutritionPage() {
         }
       case "daily":
       default: {
-        const todaysData = allDailyData.filter(d => isToday(d.loggedAt));
+        const todaysData = allDailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
         const sortedTodaysData = todaysData.sort((a, b) => mealOrder.indexOf(a.meal) - mealOrder.indexOf(b.meal));
         return { 
             dataForCharts: sortedTodaysData,
@@ -97,7 +103,7 @@ export default function NutritionPage() {
         }
       }
     }
-  }, [timeframe, allDailyData]);
+  }, [timeframe, allDailyData, settings]);
 
   return (
     <MainLayout>

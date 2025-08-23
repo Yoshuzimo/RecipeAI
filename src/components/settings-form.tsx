@@ -108,30 +108,6 @@ export function SettingsForm() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Unit System</CardTitle>
-            <CardDescription>
-              Choose the unit system for measurements throughout the app.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={settings.unitSystem}
-              onValueChange={(value) => handleSettingChange("unitSystem", value)}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="us" id="us" />
-                <Label htmlFor="us">US (Imperial - lbs, oz)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="metric" id="metric" />
-                <Label htmlFor="metric">Metric (kg, g)</Label>
-              </div>
-            </RadioGroup>
-          </CardContent>
-        </Card>
-
-        <Card>
             <CardHeader>
                  <CardTitle>Storage Locations</CardTitle>
                 <CardDescription>
@@ -167,6 +143,35 @@ export function SettingsForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="dayStartTime">Day Start Time</Label>
+                <Input 
+                    id="dayStartTime"
+                    type="time"
+                    value={settings.dayStartTime || "00:00"}
+                    onChange={(e) => handleSettingChange('dayStartTime', e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                    Set the time your day begins for accurate daily tracking.
+                </p>
+            </div>
+             <div className="space-y-2">
+                <Label>Unit System</Label>
+                <RadioGroup
+                value={settings.unitSystem}
+                onValueChange={(value) => handleSettingChange("unitSystem", value)}
+                className="flex items-center space-x-4"
+                >
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="us" id="us" />
+                    <Label htmlFor="us">US (Imperial - lbs, oz)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="metric" id="metric" />
+                    <Label htmlFor="metric">Metric (kg, g)</Label>
+                </div>
+                </RadioGroup>
+            </div>
             <div className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="ai-features" className="text-base">

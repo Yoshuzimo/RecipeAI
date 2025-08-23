@@ -3,7 +3,6 @@
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import { isToday } from "date-fns"
 
 import {
   Card,
@@ -22,6 +21,7 @@ import {
 import { Separator } from "./ui/separator"
 import type { DailyMacros, Settings } from "@/lib/types"
 import { CalorieLineChart } from "./calorie-line-chart"
+import { isWithinUserDay } from "@/lib/utils"
 
 
 const chartConfig = {
@@ -51,8 +51,9 @@ export function TodaysMacros({ dailyData, settings, onDataChange }: {
 }) {
   
   const todaysData = React.useMemo(() => {
-    return dailyData.filter(d => isToday(d.loggedAt));
-  }, [dailyData]);
+    const dayStartTime = settings?.dayStartTime || "00:00";
+    return dailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
+  }, [dailyData, settings]);
 
   const totals = React.useMemo(() => {
     return todaysData.reduce((acc, meal) => {

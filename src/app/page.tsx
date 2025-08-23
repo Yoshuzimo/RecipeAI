@@ -4,10 +4,12 @@ import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientInventory, getClientTodaysMacros, getSettings } from "@/app/actions";
 import { differenceInDays, isToday } from "date-fns";
-import { CookingPot, Package, AlarmClock, TrendingUp } from 'lucide-react';
+import { CookingPot, Package, AlarmClock, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
 import type { DailyMacros, Settings, InventoryItem } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +41,18 @@ export default async function OverviewPage() {
   return (
     <MainLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+           <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+                    <p className="text-muted-foreground">A snapshot of your day and inventory.</p>
+                </div>
+                <Button variant="outline" size="icon" asChild>
+                    <Link href="/settings">
+                        <SettingsIcon className="h-4 w-4" />
+                        <span className="sr-only">Go to Settings</span>
+                    </Link>
+                </Button>
+            </div>
           <TodaysMacros 
               dailyData={dailyData} 
               settings={settings} 

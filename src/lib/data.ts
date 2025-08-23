@@ -40,6 +40,7 @@ export const seedInitialData = async (db: Firestore, userId: string) => {
         proteinGoal: 150,
         carbsGoal: 250,
         fatGoal: 70,
+        dayStartTime: "00:00",
     });
 
     const personalDetailsRef = userRef.collection("app-data").doc("personal-details");
@@ -691,6 +692,7 @@ export async function getSettings(db: Firestore, userId: string): Promise<Settin
             proteinGoal: 150,
             carbsGoal: 250,
             fatGoal: 70,
+            dayStartTime: "00:00",
         };
         await settingsDocRef.set(defaultSettings);
         settingsDoc = await settingsDocRef.get();

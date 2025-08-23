@@ -66,6 +66,7 @@ export type Settings = {
     proteinGoal?: number;
     carbsGoal?: number;
     fatGoal?: number;
+    dayStartTime?: string;
 }
 
 export type Macros = {
