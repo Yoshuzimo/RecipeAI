@@ -36,7 +36,6 @@ import {
 import { MoveItemDialog } from "./move-item-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
 import { getClientStorageLocations } from "@/app/actions";
-import { MarkPrivateDialog } from "./mark-private-dialog";
 import { Switch } from "./ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +52,7 @@ export function ViewInventoryItemDialog({
   isOpen,
   setIsOpen,
   group,
-  isPrivate,
+  isPrivate: initialIsPrivate,
   onUpdateComplete,
 }: {
   isOpen: boolean;
@@ -69,6 +68,8 @@ export function ViewInventoryItemDialog({
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
+
 
   const packageGroups = useMemo(() => {
     return group.items.reduce((acc, item) => {
@@ -108,30 +109,34 @@ export function ViewInventoryItemDialog({
   
   useEffect(() => {
     reset(defaultValues);
+    setIsPrivate(initialIsPrivate);
     async function checkHousehold() {
       const household = await getClientHousehold();
       setIsInHousehold(!!household);
     }
     checkHousehold();
-  }, [group, defaultValues, reset]);
+  }, [group, defaultValues, reset, initialIsPrivate]);
 
 
   const watchedValues = watch();
 
-  const handleTogglePrivacy = async () => {
+  const handleTogglePrivacy = async (newPrivacyState: boolean) => {
     if (!isInHousehold) return;
     
     setIsPending(true);
-    const result = await handleToggleItemPrivacy(group.items, !isPrivate);
+    const result = await handleToggleItemPrivacy(group.items, newPrivacyState);
     setIsPending(false);
 
     if (result.success) {
       toast({ title: "Privacy Updated", description: `${group.name} has been moved.` });
       const { privateItems, sharedItems } = await getClientInventory();
       onUpdateComplete(privateItems, sharedItems);
-      setIsOpen(false);
+      setIsPrivate(newPrivacyState);
+      setIsOpen(false); // Close the dialog after successful toggle
     } else {
       toast({ variant: "destructive", title: "Update Failed", description: result.error });
+      // Revert the switch on failure
+      setIsPrivate(!newPrivacyState);
     }
   };
 
@@ -199,12 +204,29 @@ export function ViewInventoryItemDialog({
         <DialogHeader>
           <DialogTitle>Manage {group.name}</DialogTitle>
           <DialogDescription>
-            Adjust quantities or move items between inventories.
+            Adjust quantities or move items between storage locations.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
             <ScrollArea className="h-96 pr-6 my-4">
                 <div className="space-y-8">
+                {isInHousehold && (
+                   <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <Label className="text-base">
+                                Keep Item Private
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                Private items are only visible to you. Uncheck to move to shared household inventory.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={isPrivate}
+                            onCheckedChange={handleTogglePrivacy}
+                            disabled={isPending}
+                        />
+                    </div>
+                )}
                 {Object.keys(packageGroups).length > 0 ? (
                     Object.values(packageGroups).map(({ size }) => (
                         <div key={size} className="space-y-4 p-4 border rounded-lg">
@@ -283,12 +305,6 @@ export function ViewInventoryItemDialog({
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
                 <div className="flex gap-2">
-                   {isInHousehold && (
-                     <Button type="button" variant="outline" onClick={handleTogglePrivacy} disabled={isPending}>
-                        {isPrivate ? <Share2 className="mr-2 h-4 w-4" /> : <User className="mr-2 h-4 w-4" />}
-                        {isPrivate ? "Move to Shared" : "Move to Private"}
-                    </Button>
-                   )}
                   <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
                       <Move className="mr-2 h-4 w-4" /> Move To...
                   </Button>
