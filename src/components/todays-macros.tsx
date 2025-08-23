@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/chart"
 import { Separator } from "./ui/separator"
 import type { DailyMacros, Settings } from "@/lib/types"
-import { CalorieLineChart } from "./calorie-line-chart"
+import { CalorieLineChart } from "./ui/calorie-line-chart"
 import { isWithinUserDay } from "@/lib/utils"
 
 

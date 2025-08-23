@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
 
@@ -718,11 +718,12 @@ export async function getTodaysMacros(db: Firestore, userId: string): Promise<Da
     });
 }
 
-export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros): Promise<DailyMacros> {
+export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros, loggedAt?: Date): Promise<DailyMacros> {
     const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
     const q = dailyMacrosCollection.where("meal", "==", mealType);
     const snapshot = await q.get();
     const newDish = { name: dishName, ...macros };
+    const timestamp = loggedAt || new Date();
 
     if (!snapshot.empty) {
         const docRef = snapshot.docs[0].ref;
@@ -733,14 +734,14 @@ export async function logMacros(db: Firestore, userId: string, mealType: "Breakf
             carbs: existingLog.totals.carbs + macros.carbs,
             fat: existingLog.totals.fat + macros.fat,
         };
-        await docRef.update({ dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() });
-        return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: new Date() };
+        await docRef.update({ dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp });
+        return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp };
     } else {
         const newMealLog: Omit<DailyMacros, 'id'> = {
             meal: mealType,
             dishes: [newDish],
             totals: { ...macros },
-            loggedAt: new Date(),
+            loggedAt: timestamp,
         };
         const docRef = await dailyMacrosCollection.add(newMealLog);
         return { ...newMealLog, id: docRef.id };
@@ -879,4 +880,56 @@ export async function removeCheckedShoppingListItems(db: Firestore, userId: stri
     const batch = db.batch();
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
+}
+
+
+export async function createPendingMeal(db: Firestore, cookUserId: string, householdId: string, recipe: Recipe, memberIds: string[]): Promise<void> {
+    const householdRef = db.collection('households').doc(householdId);
+    const cookSettings = await getSettings(db, cookUserId);
+    
+    const pendingMeal: PendingMeal = {
+        id: db.collection('households').doc().id,
+        recipe,
+        cookId: cookUserId,
+        cookName: cookSettings.displayName || 'A household member',
+        pendingUserIds: memberIds,
+        createdAt: new Date(),
+    };
+
+    await householdRef.update({
+        pendingMeals: FieldValue.arrayUnion(pendingMeal)
+    });
+}
+
+export async function processMealConfirmation(db: Firestore, confirmingUserId: string, householdId: string, pendingMealId: string): Promise<void> {
+    const householdRef = db.collection('households').doc(householdId);
+    
+    return db.runTransaction(async (transaction) => {
+        const householdDoc = await transaction.get(householdRef);
+        if (!householdDoc.exists) {
+            throw new Error("Household not found.");
+        }
+        
+        const householdData = householdDoc.data() as Household;
+        const pendingMeals = householdData.pendingMeals || [];
+        
+        let mealToUpdate: PendingMeal | undefined;
+        const updatedMeals = pendingMeals.map(meal => {
+            if (meal.id === pendingMealId) {
+                mealToUpdate = meal;
+                return {
+                    ...meal,
+                    pendingUserIds: meal.pendingUserIds.filter(id => id !== confirmingUserId),
+                };
+            }
+            return meal;
+        }).filter(meal => meal.pendingUserIds.length > 0); // Remove meal if no users are pending
+
+        if (!mealToUpdate) {
+            console.warn("Pending meal not found, it may have already been processed.");
+            return;
+        }
+
+        transaction.update(householdRef, { pendingMeals: updatedMeals });
+    });
 }
