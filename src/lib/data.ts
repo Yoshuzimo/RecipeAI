@@ -2,6 +2,7 @@
 
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
+import { FieldValue as ClientFieldValue } from "firebase/firestore";
 
 const MOCK_STORAGE_LOCATIONS: Omit<StorageLocation, 'id'>[] = [
     { name: 'Main Fridge', type: 'Fridge' },
@@ -564,6 +565,32 @@ export async function updateInventoryItem(db: Firestore, userId: string, updated
         return updatedItem;
     }
 }
+
+export async function updateItemThreshold(db: Firestore, userId: string, itemId: string, threshold: number | null): Promise<void> {
+    const { privateItems, sharedItems } = await getInventory(db, userId);
+    const allItems = [...privateItems, ...sharedItems];
+    const item = allItems.find(i => i.id === itemId);
+
+    if (!item) {
+        throw new Error("Item not found");
+    }
+
+    const household = await getHousehold(db, userId);
+    const collectionPath = (household && !item.isPrivate)
+        ? `households/${household.id}/inventory`
+        : `users/${userId}/inventory`;
+
+    const docRef = db.collection(collectionPath).doc(itemId);
+    
+    if (threshold === null) {
+        await docRef.update({
+            restockThreshold: ClientFieldValue.delete()
+        });
+    } else {
+        await docRef.update({ restockThreshold: threshold });
+    }
+}
+
 
 export async function removeInventoryItem(db: Firestore, userId: string, item: InventoryItem): Promise<{ id: string }> {
     const household = await getHousehold(db, userId);

@@ -42,6 +42,7 @@ import {
     removeCheckedShoppingListItems as dataRemoveCheckedShoppingListItems,
     toggleItemPrivacy as dataToggleItemPrivacy,
     getPendingMemberInventory,
+    updateItemThreshold as dataUpdateItemThreshold,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 
@@ -219,6 +220,17 @@ export async function handleToggleItemPrivacy(items: InventoryItem[], makePrivat
         return { success: true, newInventory, error: null };
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
+    }
+}
+
+export async function handleUpdateItemThreshold(itemId: string, threshold: number | null): Promise<{success: boolean, error?: string | null}> {
+    const userId = await getCurrentUserId();
+    try {
+        await dataUpdateItemThreshold(db, userId, itemId, threshold);
+        return { success: true, error: null };
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "An unknown error occurred.";
+        return { success: false, error: error };
     }
 }
 

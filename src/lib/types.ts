@@ -17,6 +17,7 @@ export type InventoryItem = {
   expiryDate: Date | null;
   locationId: string;
   isPrivate: boolean;
+  restockThreshold?: number;
 };
 
 // Type for adding a new item, with an optional flag for privacy
@@ -198,3 +199,9 @@ export type ShoppingListItem = {
     checked: boolean;
     addedAt: Date;
 };
+
+export type AIShoppingSuggestion = {
+    item: string;
+    quantity: string;
+    reason: string;
+}
