@@ -86,7 +86,6 @@ export type Recipe = {
     ingredients: string[];
     instructions: string[];
     macros: Macros;
-    parsedIngredients?: any;
     isPrivate?: boolean;
     ownerName?: string;
 };

@@ -5,12 +5,12 @@ import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros, handleRemoveSavedRecipe } from "@/app/actions";
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
-import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
+import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros, AISuggestion } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle, Edit, Lock, Unlock } from "lucide-react";
+import { Loader2, Sparkles, ChefHat, Bookmark, Minus, Plus, TriangleAlert, PlusCircle, Edit, Lock, Unlock, Replace } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
@@ -24,6 +24,8 @@ import { CreateRecipeDialog } from "./create-recipe-dialog";
 import { cn } from "@/lib/utils";
 import { parseIngredient, scaleIngredients } from "@/lib/utils";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { UserSubstitutionDialog } from "./user-substitution-dialog";
+import { AISubstitutionDialog } from "./ai-substitution-dialog";
 
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
@@ -46,6 +48,8 @@ export function MealPlanner({
   
   const [suggestions, setSuggestions] = useState<Recipe[] | null>(null);
   const [userRecipe, setUserRecipe] = useState<Recipe | null>(null);
+  const [modifiedRecipes, setModifiedRecipes] = useState<Record<string, Recipe>>({});
+
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [rawAiResponse, setRawAiResponse] = useState<string | { error: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -62,6 +66,12 @@ export function MealPlanner({
   const [recipeToLog, setRecipeToLog] = useState<Recipe | null>(null);
 
   const [isCreateRecipeDialogOpen, setIsCreateRecipeDialogOpen] = useState(false);
+  
+  const [isUserSubDialogOpen, setIsUserSubDialogOpen] = useState(false);
+  const [isAISubDialogOpen, setIsAISubDialogOpen] = useState(false);
+  const [recipeToSubstitute, setRecipeToSubstitute] = useState<Recipe | null>(null);
+  const [ingredientToSubstitute, setIngredientToSubstitute] = useState<string | null>(null);
+
 
   const savedRecipeTitles = useMemo(() => new Set(savedRecipes.map(r => r.title)), [savedRecipes]);
 
@@ -153,7 +163,6 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
             const response = await generateMealSuggestions(finalPrompt);
             
             if (typeof response === 'string') {
-                // Try to extract JSON from a markdown code block
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
                 const jsonString = jsonMatch ? jsonMatch[1] : response;
                 
@@ -167,11 +176,9 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                           title: "AI Response Error",
                           description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
                      });
-                     // Preserve the raw string for debugging
                      setRawAiResponse(jsonString); 
                 }
             } else {
-              // Handle the case where the response is already an error object
               toast({
                   variant: "destructive",
                   title: "AI Error",
@@ -241,6 +248,10 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
       if (status.startsWith('expired')) {
           setIngredientToCheck({recipe, ingredient});
           setIsExpiredCheckDialogOpen(true);
+      } else {
+          setRecipeToSubstitute(recipe);
+          setIngredientToSubstitute(ingredient);
+          setIsAISubDialogOpen(true);
       }
   }
   
@@ -270,6 +281,10 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                 setGroupToView(group);
                 setIsViewInventoryDialogOpen(true);
             }
+          } else {
+              setRecipeToSubstitute(ingredientToCheck.recipe);
+              setIngredientToSubstitute(ingredientToCheck.ingredient);
+              setIsAISubDialogOpen(true);
           }
       }
   }
@@ -280,7 +295,8 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   };
   
   const handleCookItClick = (recipe: Recipe) => {
-    setRecipeToLog(recipe);
+    const currentRecipe = modifiedRecipes[recipe.title] || recipe;
+    setRecipeToLog(currentRecipe);
     setIsLogMealDialogOpen(true);
   };
 
@@ -295,6 +311,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   const handleRecipeCreated = (newRecipe: Recipe) => {
     setSuggestions(null); // Clear AI suggestions
     setUserRecipe(newRecipe);
+    setModifiedRecipes(prev => ({ ...prev, [newRecipe.title]: newRecipe }));
   }
 
   const handleServingChange = (recipeTitle: string, newServingSize: number) => {
@@ -302,13 +319,15 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         if (recipe.title === recipeTitle) {
             if (newServingSize <= 0) return recipe;
             const newIngredients = scaleIngredients(recipe.ingredients, recipe.servings, newServingSize);
-            return { ...recipe, servings: newServingSize, ingredients: newIngredients };
+            const updatedRecipe = { ...recipe, servings: newServingSize, ingredients: newIngredients };
+            setModifiedRecipes(prev => ({...prev, [recipeTitle]: updatedRecipe}));
+            return updatedRecipe;
         }
         return recipe;
     }
-
-    if (userRecipe && userRecipe.title === recipeTitle) {
-        setUserRecipe(updateRecipe(userRecipe));
+    
+    if (userRecipe?.title === recipeTitle) {
+      setUserRecipe(prev => prev ? updateRecipe(prev) : null);
     }
 
     setSuggestions(prevSuggestions => {
@@ -316,8 +335,39 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
       return prevSuggestions.map(updateRecipe);
     });
   };
+  
+  const handleSubstitution = (recipe: Recipe, originalIngredient: string, newIngredient: string) => {
+        const newIngredients = recipe.ingredients.map(ing => ing.toLowerCase() === originalIngredient.toLowerCase() ? newIngredient : ing);
+        const updatedRecipe: Recipe = { ...recipe, ingredients: newIngredients };
 
-  const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => {
+        startTransition(async () => {
+            const finalizationResult = await finalizeRecipe({
+                title: updatedRecipe.title,
+                ingredients: newIngredients,
+                instructions: updatedRecipe.instructions
+            });
+
+            if ('error' in finalizationResult) {
+                toast({ variant: "destructive", title: "Update Failed", description: "Could not recalculate nutrition for the new ingredient." });
+                return;
+            }
+
+            const finalUpdatedRecipe = { ...updatedRecipe, macros: finalizationResult.macros, servings: finalizationResult.servings };
+            
+            if (userRecipe?.title === recipe.title) {
+                setUserRecipe(finalUpdatedRecipe);
+            }
+
+            setSuggestions(prev => prev?.map(r => r.title === recipe.title ? finalUpdatedRecipe : r) || null);
+            setModifiedRecipes(prev => ({...prev, [recipe.title]: finalUpdatedRecipe }));
+
+            toast({ title: "Recipe Updated", description: "Nutrition information has been recalculated." });
+        });
+  };
+
+
+  const RecipeCard = ({ recipe: initialRecipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => {
+    const recipe = modifiedRecipes[initialRecipe.title] || initialRecipe;
     const [isPrivate, setIsPrivate] = useState(recipe.isPrivate ?? false);
     const isSaved = savedRecipeTitles.has(recipe.title);
 
@@ -325,7 +375,9 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         setIsPrivate(prev => {
             const newPrivacy = !prev;
             if (userRecipe) {
-                setUserRecipe({ ...userRecipe, isPrivate: newPrivacy });
+                const updatedRecipe = { ...userRecipe, isPrivate: newPrivacy };
+                setUserRecipe(updatedRecipe);
+                setModifiedRecipes(prevMods => ({...prevMods, [updatedRecipe.title]: updatedRecipe}));
             }
             return newPrivacy;
         });
@@ -342,7 +394,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleSaveToggle(isExpanded && userRecipe ? { ...userRecipe, isPrivate } : recipe)}
+                    onClick={() => handleSaveToggle(recipe)}
                     aria-label="Save recipe"
                 >
                     <Bookmark className={cn("h-5 w-5", isSaved && "fill-primary text-primary")} />
@@ -374,7 +426,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                         {recipe.ingredients.map((ing, i) => {
                         const status = getIngredientStatus(ing);
                         return (
-                            <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={status.startsWith('expired') ? 'cursor-pointer' : ''}>
+                            <li key={i} onClick={() => handleIngredientClick(recipe, ing)} className={cn("cursor-pointer hover:text-primary", status.startsWith('expired') ? 'text-destructive' : '')}>
                             {ing}
                             {status === 'expired-high-risk' && <Badge variant="destructive" className="ml-2">Expired</Badge>}
                             {status === 'expired-low-risk' && <Badge variant="secondary" className="ml-2">Expired</Badge>}
@@ -400,10 +452,14 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                     </div>
                     <Separator />
                     <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => handleCookItClick(recipe)}>
-                        <ChefHat className="mr-2 h-4 w-4" />
-                        Cook It
-                    </Button>
+                        <Button onClick={() => handleCookItClick(recipe)}>
+                            <ChefHat className="mr-2 h-4 w-4" />
+                            Cook It
+                        </Button>
+                        <Button variant="outline" onClick={() => { setRecipeToSubstitute(recipe); setIsUserSubDialogOpen(true); }}>
+                            <Replace className="mr-2 h-4 w-4" />
+                            Make Substitutions
+                        </Button>
                     </div>
                 </div>
                 </AccordionContent>
@@ -442,7 +498,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
           </CardContent>
       </Card>
 
-      {isPending && (
+      {isPending && !suggestions && !userRecipe && (
           <Card>
               <CardHeader>
                   <CardTitle>Generating...</CardTitle>
@@ -521,6 +577,26 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         inventory={[...inventory.privateItems, ...inventory.sharedItems]}
         onRecipeCreated={handleRecipeCreated}
       />
+       {isUserSubDialogOpen && recipeToSubstitute && (
+        <UserSubstitutionDialog
+            isOpen={isUserSubDialogOpen}
+            setIsOpen={setIsUserSubDialogOpen}
+            recipe={recipeToSubstitute}
+            inventory={[...inventory.privateItems, ...inventory.sharedItems]}
+            onSubstitution={handleSubstitution}
+        />
+      )}
+      {isAISubDialogOpen && recipeToSubstitute && ingredientToSubstitute && (
+        <AISubstitutionDialog
+            isOpen={isAISubDialogOpen}
+            setIsOpen={() => { setIsAISubDialogOpen(false); setIngredientToSubstitute(null); }}
+            recipe={recipeToSubstitute}
+            ingredientToReplace={ingredientToSubstitute}
+            inventory={[...inventory.privateItems, ...inventory.sharedItems]}
+            personalDetails={personalDetails}
+            onSubstitution={handleSubstitution}
+        />
+      )}
     </>
   );
 }
