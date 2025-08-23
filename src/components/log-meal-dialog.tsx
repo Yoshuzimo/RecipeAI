@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination, HouseholdMember } from "@/lib/types";
+import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination, HouseholdMember, Household } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,11 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getClientStorageLocations } from "@/app/actions";
+import { getClientStorageLocations, getClientHousehold } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Separator } from "./ui/separator";
+import { Checkbox } from "./ui/checkbox";
+import { useAuth } from "./auth-provider";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 
@@ -49,6 +51,7 @@ export function LogMealDialog({
   onMealLogged: (newInventory: InventoryItem[]) => void;
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [servingsEaten, setServingsEaten] = useState(1);
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
@@ -59,12 +62,21 @@ export function LogMealDialog({
   const [fridgeLocations, setFridgeLocations] = useState<StorageLocation[]>([]);
   const [freezerLocations, setFreezerLocations] = useState<StorageLocation[]>([]);
 
-  // This is a placeholder for future household functionality
-  const [servingsEatenByOthers, setServingsEatenByOthers] = useState(0);
+  // New state for household functionality
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [servingsForOthers, setServingsForOthers] = useState(0);
+  const [selectedMembers, setSelectedMembers] = useState<Record<string, boolean>>({});
+
+  const otherMembers = household?.activeMembers.filter(m => m.userId !== user?.uid) || [];
 
   useEffect(() => {
-    async function fetchLocations() {
-      const locations = await getClientStorageLocations();
+    async function fetchInitialData() {
+      const [locations, hh] = await Promise.all([
+          getClientStorageLocations(),
+          getClientHousehold()
+      ]);
+      setHousehold(hh);
+
       const fridges = locations.filter(l => l.type === 'Fridge');
       const freezers = locations.filter(l => l.type === 'Freezer');
       setFridgeLocations(fridges);
@@ -77,19 +89,19 @@ export function LogMealDialog({
         setFreezerDestinations([{ locationId: freezers[0].id, servings: 0 }]);
       }
     }
-    fetchLocations();
+    fetchInitialData();
   }, []);
 
   // Reset state and calculate initial leftovers when dialog opens or recipe changes
   useEffect(() => {
     if (isOpen) {
       const initialServingsEaten = 1;
-      const initialServingsByOthers = 0;
-      const remaining = recipe.servings - initialServingsEaten - initialServingsByOthers;
+      const remaining = recipe.servings - initialServingsEaten;
       
       setServingsEaten(initialServingsEaten);
       setMealType(getDefaultMealType());
-      setServingsEatenByOthers(initialServingsByOthers);
+      setServingsForOthers(0);
+      setSelectedMembers({});
 
       // Reset destinations
       const newFridgeDestinations: LeftoverDestination[] = [];
@@ -104,7 +116,7 @@ export function LogMealDialog({
   
   const totalFridgeServings = fridgeDestinations.reduce((sum, dest) => sum + dest.servings, 0);
   const totalFreezerServings = freezerDestinations.reduce((sum, dest) => sum + dest.servings, 0);
-  const totalServingsDistributed = servingsEaten + servingsEatenByOthers + totalFridgeServings + totalFreezerServings;
+  const totalServingsDistributed = servingsEaten + servingsForOthers + totalFridgeServings + totalFreezerServings;
   const remainingServings = recipe.servings - totalServingsDistributed;
   const isOverallocated = remainingServings < 0;
 
@@ -135,7 +147,8 @@ export function LogMealDialog({
 
     setIsPending(true);
     // Placeholder for AI call
-    const result = { success: true, newInventory: [] };
+    // This will need a new server action that also creates the confirmation requests
+    const result = { success: true, newInventory: [] }; 
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -143,6 +156,12 @@ export function LogMealDialog({
         title: "Meal Logged!",
         description: `"${recipe.title}" has been deducted, and leftovers are now in your inventory.`,
       });
+      if (servingsForOthers > 0) {
+           toast({
+                title: "Confirmation Sent",
+                description: "Requests have been sent to your household members to confirm their servings.",
+           });
+      }
       onMealLogged(result.newInventory);
       setIsOpen(false);
     } else {
@@ -179,28 +198,55 @@ export function LogMealDialog({
             </Select>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-                <Label htmlFor="servings-eaten">Servings You Ate</Label>
-                <Input
-                id="servings-eaten"
-                type="number"
-                value={servingsEaten}
-                onChange={(e) => handleNumericChange(e.target.value, setServingsEaten)}
-                min={0}
-                />
-            </div>
-             <div className="space-y-2">
-                <Label htmlFor="servings-others">Servings Eaten by Others</Label>
-                <Input
-                id="servings-others"
-                type="number"
-                value={servingsEatenByOthers}
-                onChange={(e) => handleNumericChange(e.target.value, setServingsEatenByOthers)}
-                min={0}
-                />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="servings-eaten">Servings You Ate</Label>
+            <Input
+            id="servings-eaten"
+            type="number"
+            value={servingsEaten}
+            onChange={(e) => handleNumericChange(e.target.value, setServingsEaten)}
+            min={0}
+            />
           </div>
+
+          {household && otherMembers.length > 0 && (
+             <div className="space-y-4 rounded-md border p-4">
+                <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    <h4 className="font-medium">Shared with Household</h4>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="servings-others">Total Servings Eaten by Others</Label>
+                    <Input
+                        id="servings-others"
+                        type="number"
+                        value={servingsForOthers}
+                        onChange={(e) => handleNumericChange(e.target.value, setServingsForOthers)}
+                        min={0}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        This will send a request to the members you select below to confirm their meal and log their nutrition.
+                    </p>
+                </div>
+                {servingsForOthers > 0 && (
+                     <div className="space-y-2">
+                        <Label>Select members to notify</Label>
+                        <div className="space-y-2">
+                            {otherMembers.map(member => (
+                                <div key={member.userId} className="flex items-center space-x-2">
+                                    <Checkbox 
+                                        id={`member-${member.userId}`}
+                                        checked={selectedMembers[member.userId] || false}
+                                        onCheckedChange={(checked) => setSelectedMembers(prev => ({...prev, [member.userId]: !!checked}))}
+                                    />
+                                    <Label htmlFor={`member-${member.userId}`} className="font-normal">{member.userName}</Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+             </div>
+          )}
           
            <div className="space-y-4 rounded-md border p-4">
             <h4 className="font-medium">Store Leftovers</h4>
@@ -284,3 +330,5 @@ export function LogMealDialog({
     </Dialog>
   );
 }
+
+    
