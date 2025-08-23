@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -70,7 +71,8 @@ function formatQuantity(quantity: number) {
         result += fractionStr;
     } else if (fractionalPart > 0) {
         if (integerPart > 0) result += " ";
-        result += fractionalPart.toFixed(2).replace(/\.?0+$/, "");
+        // Format to 2 decimal places and remove trailing zeros
+        result += parseFloat(fractionalPart.toFixed(2));
     }
 
     return result.trim();

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
-import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
+import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros, handleRemoveSavedRecipe } from "@/app/actions";
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros } from "@/lib/types";
@@ -150,61 +150,72 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         setRawAiResponse(null);
         
         try {
-          const response = await generateMealSuggestions(finalPrompt);
-          
-          if (typeof response === 'string') {
-              const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
-              const jsonString = jsonMatch ? jsonMatch[1] : response;
-              
-              try {
-                  const parsedSuggestions = JSON.parse(jsonString);
-                  setSuggestions(parsedSuggestions);
-              } catch (parseError) {
-                   console.error("Failed to parse AI response:", parseError);
-                   toast({
-                        variant: "destructive",
-                        title: "AI Response Error",
-                        description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
-                   });
-                   setRawAiResponse(jsonString);
-              }
-          } else {
-            // Handle the case where the response is already an error object
+            const response = await generateMealSuggestions(finalPrompt);
+            
+            if (typeof response === 'string') {
+                // Try to extract JSON from a markdown code block
+                const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+                const jsonString = jsonMatch ? jsonMatch[1] : response;
+                
+                try {
+                    const parsedSuggestions = JSON.parse(jsonString);
+                    setSuggestions(parsedSuggestions);
+                } catch (parseError) {
+                     console.error("Failed to parse AI response:", parseError);
+                     toast({
+                          variant: "destructive",
+                          title: "AI Response Error",
+                          description: "The AI returned a response, but it was not in the expected format. Check the raw response below.",
+                     });
+                     // Preserve the raw string for debugging
+                     setRawAiResponse(jsonString); 
+                }
+            } else {
+              // Handle the case where the response is already an error object
+              toast({
+                  variant: "destructive",
+                  title: "AI Error",
+                  description: response.error || "An unknown AI error occurred.",
+              });
+              setRawAiResponse(response);
+            }
+          } catch (error) {
+            console.error("AI Generation Error:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
-                variant: "destructive",
-                title: "AI Error",
-                description: response.error || "An unknown AI error occurred.",
+              variant: "destructive",
+              title: "AI Error",
+              description: `Could not generate meal suggestions: ${errorMessage}`
             });
-            setRawAiResponse(response);
+            setRawAiResponse({ error: errorMessage });
           }
-        } catch (error) {
-          console.error("AI Generation Error:", error);
-          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-          toast({
-            variant: "destructive",
-            title: "AI Error",
-            description: `Could not generate meal suggestions: ${errorMessage}`
-          });
-          setRawAiResponse({ error: errorMessage });
-        }
     });
   };
 
-  const saveRecipeAction = async (recipe: Recipe) => {
-    const result = await handleSaveRecipe(recipe);
-    if (result.success) {
-      toast({
-        title: "Recipe Saved!",
-        description: `"${recipe.title}" has been added to your saved recipes.`,
-      });
-      // Add to local state to update UI instantly
-      setSavedRecipes(prev => [...prev, recipe]);
+  const handleSaveToggle = async (recipe: Recipe) => {
+    const isSaved = savedRecipeTitles.has(recipe.title);
+    if (isSaved) {
+      const result = await handleRemoveSavedRecipe(recipe.title);
+      if (result.success) {
+        toast({
+          title: "Recipe Unsaved",
+          description: `"${recipe.title}" has been removed from your saved recipes.`,
+        });
+        setSavedRecipes(prev => prev.filter(r => r.title !== recipe.title));
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      }
     } else {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: result.error,
-      });
+      const result = await handleSaveRecipe(recipe);
+      if (result.success) {
+        toast({
+          title: "Recipe Saved!",
+          description: `"${recipe.title}" has been added to your saved recipes.`,
+        });
+        setSavedRecipes(prev => [...prev, recipe]);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      }
     }
   };
 
@@ -307,8 +318,8 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
   };
 
   const RecipeCard = ({ recipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => {
-    // Local state for privacy toggle within the user-created recipe card
     const [isPrivate, setIsPrivate] = useState(recipe.isPrivate ?? false);
+    const isSaved = savedRecipeTitles.has(recipe.title);
 
     const handlePrivacyToggle = () => {
         setIsPrivate(prev => {
@@ -323,7 +334,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
     return (
         <Card className="relative">
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                {isExpanded && ( // Only show lock on user-created expanded card
+                {isExpanded && (
                     <Button variant="ghost" size="icon" onClick={handlePrivacyToggle} aria-label="Toggle privacy">
                         {isPrivate ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
                     </Button>
@@ -331,11 +342,10 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => saveRecipeAction(isExpanded && userRecipe ? { ...userRecipe, isPrivate } : recipe)}
-                    disabled={savedRecipeTitles.has(recipe.title)}
+                    onClick={() => handleSaveToggle(isExpanded && userRecipe ? { ...userRecipe, isPrivate } : recipe)}
                     aria-label="Save recipe"
                 >
-                    <Bookmark className={cn("h-5 w-5", savedRecipeTitles.has(recipe.title) && "fill-primary text-primary")} />
+                    <Bookmark className={cn("h-5 w-5", isSaved && "fill-primary text-primary")} />
                 </Button>
             </div>
             <AccordionItem value={recipe.title} className="border-b-0">
@@ -355,7 +365,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                     <div className="flex items-center gap-4">
                     <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
                     <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
-                    <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10))} />
+                    <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10) || 1)} />
                     <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
                     </div>
                     <div>
@@ -382,6 +392,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                     <div>
                     <h4 className="font-semibold mb-2">Macros (per serving)</h4>
                     <div className="flex gap-2 flex-wrap">
+                        <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
                         <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
                         <Badge variant="outline">Carbs: {recipe.macros.carbs.toFixed(0)}g</Badge>
                         <Badge variant="outline">Fat: {recipe.macros.fat.toFixed(0)}g</Badge>
@@ -454,6 +465,20 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                ))}
            </Accordion>
       )}
+      
+      {/* {rawAiResponse && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Raw AI Response</CardTitle>
+            <CardDescription>For debugging purposes.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="p-4 bg-muted rounded-md overflow-x-auto text-sm">
+                <code>{typeof rawAiResponse === 'string' ? rawAiResponse : JSON.stringify(rawAiResponse, null, 2)}</code>
+            </pre>
+          </CardContent>
+        </Card>
+      )} */}
 
     </div>
      {isExpiredCheckDialogOpen && ingredientToCheck && (
