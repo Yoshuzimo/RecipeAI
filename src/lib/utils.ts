@@ -100,22 +100,14 @@ export function scaleIngredients(ingredients: string[], oldServings: number, new
     });
 }
 
-/**
- * Checks if a given date falls within the user's custom "day".
- * A user's day can start at a time other than midnight (e.g., 6 PM).
- * @param date The date to check.
- * @param dayStartTime The start time of the user's day in "HH:mm" format.
- * @returns True if the date is within the user's current day.
- */
-export function isWithinUserDay(date: Date, dayStartTime: string): boolean {
-    const now = new Date();
+function getUserDayBoundaries(date: Date, dayStartTime: string): { start: Date, end: Date } {
     const [startHours, startMinutes] = dayStartTime.split(':').map(Number);
-
-    let userDayStart = new Date(now);
+    
+    let userDayStart = new Date(date);
     userDayStart.setHours(startHours, startMinutes, 0, 0);
 
-    // If the start time is in the future relative to "now", the user's day started yesterday.
-    if (userDayStart > now) {
+    // If the check date is *before* today's start time, the user's day belongs to the previous calendar day.
+    if (date < userDayStart) {
         userDayStart = subDays(userDayStart, 1);
     }
     
@@ -123,6 +115,29 @@ export function isWithinUserDay(date: Date, dayStartTime: string): boolean {
     userDayEnd.setDate(userDayEnd.getDate() + 1);
     userDayEnd.setSeconds(userDayEnd.getSeconds() - 1);
 
+    return { start: userDayStart, end: userDayEnd };
+}
 
-    return date >= userDayStart && date <= userDayEnd;
+/**
+ * Checks if a given date falls within the user's current custom "day".
+ * @param date The date to check.
+ * @param dayStartTime The start time of the user's day in "HH:mm" format.
+ * @returns True if the date is within the user's current day.
+ */
+export function isWithinUserDay(date: Date, dayStartTime: string): boolean {
+    const { start, end } = getUserDayBoundaries(new Date(), dayStartTime);
+    return date >= start && date <= end;
+}
+
+
+/**
+ * Determines which calendar date a meal should be logged against, based on the user's custom day start time.
+ * For example, a meal logged at 2 AM on Tuesday might belong to "Monday's user day".
+ * @param date The timestamp of the meal.
+ * @param dayStartTime The start time of the user's day in "HH:mm" format.
+ * @returns The Date object representing the calendar day the meal belongs to.
+ */
+export function getUserDay(date: Date, dayStartTime: string): Date {
+     const { start } = getUserDayBoundaries(date, dayStartTime);
+     return startOfDay(start);
 }

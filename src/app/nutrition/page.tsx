@@ -16,10 +16,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DailyMacros, Household, Settings } from "@/lib/types";
-import { isWithinInterval, startOfWeek, endOfWeek, format } from "date-fns";
+import { startOfWeek, endOfWeek, format, addDays } from "date-fns";
 import { useAuth } from "@/components/auth-provider";
 import { PendingMealCard } from "@/components/pending-meal-card";
-import { isWithinUserDay } from "@/lib/utils";
+import { getUserDay, isWithinUserDay } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Settings as SettingsIcon } from 'lucide-react';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -59,32 +63,34 @@ export default function NutritionPage() {
     switch (timeframe) {
       case "weekly": {
         const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        const weekData = allDailyData.filter(d => isWithinInterval(d.loggedAt, { start: weekStart, end: weekEnd }));
-        
+
         const dailyTotals = Array.from({ length: 7 }, (_, i) => {
-            const day = new Date(weekStart);
-            day.setDate(day.getDate() + i);
+            const day = addDays(weekStart, i);
             return {
-                day: format(day, 'E M/d'), // e.g. Mon 8/19
+                day: format(day, 'E M/d'),
+                date: day,
                 calories: 0,
                 protein: 0,
                 carbs: 0,
                 fat: 0,
             }
         });
-
-        weekData.forEach(meal => {
-            const dayIndex = (meal.loggedAt.getDay() + 6) % 7; // Monday is 0
-            const mealCalories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
-            dailyTotals[dayIndex].calories += mealCalories;
-            dailyTotals[dayIndex].protein += meal.totals.protein;
-            dailyTotals[dayIndex].carbs += meal.totals.carbs;
-            dailyTotals[dayIndex].fat += meal.totals.fat;
+        
+        allDailyData.forEach(meal => {
+            const userDay = getUserDay(meal.loggedAt, dayStartTime);
+            const dayIndex = dailyTotals.findIndex(d => d.date.toDateString() === userDay.toDateString());
+            
+            if (dayIndex !== -1) {
+                const mealCalories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
+                dailyTotals[dayIndex].calories += mealCalories;
+                dailyTotals[dayIndex].protein += meal.totals.protein;
+                dailyTotals[dayIndex].carbs += meal.totals.carbs;
+                dailyTotals[dayIndex].fat += meal.totals.fat;
+            }
         });
 
         return { 
-            dataForCharts: dailyTotals, 
+            dataForCharts: dailyTotals.filter(d => d.calories > 0), 
             description: "Your total calorie and macronutrient intake per day for the current week.",
         }
       }
@@ -115,7 +121,8 @@ export default function NutritionPage() {
               Track your macronutrient and calorie consumption over time.
             </p>
           </div>
-           <Select value={timeframe} onValueChange={(value) => setTimeframe(value as any)}>
+          <div className="flex items-center gap-2">
+            <Select value={timeframe} onValueChange={(value) => setTimeframe(value as any)}>
             <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select timeframe" />
             </SelectTrigger>
@@ -125,6 +132,13 @@ export default function NutritionPage() {
                 <SelectItem value="monthly" disabled>Monthly (Coming Soon)</SelectItem>
             </SelectContent>
             </Select>
+            <Button variant="outline" size="icon" asChild>
+                <Link href="/settings">
+                    <SettingsIcon className="h-4 w-4" />
+                    <span className="sr-only">Go to Settings</span>
+                </Link>
+            </Button>
+           </div>
         </div>
         <p className="text-sm text-muted-foreground pt-2">
             Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional medical advice. Always consult your doctor.
