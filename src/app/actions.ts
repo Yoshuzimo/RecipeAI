@@ -12,7 +12,7 @@ import {
     addInventoryItem as dataAddInventoryItem,
     removeInventoryItem as dataRemoveInventoryItem,
     getInventory,
-    logMacros,
+    logMacros as dataLogMacros,
     updateMealTime as dataUpdateMealTime,
     saveRecipe as dataSaveRecipe,
     removeSavedRecipe as dataRemoveSavedRecipe,
@@ -45,6 +45,7 @@ import {
     updateItemThreshold as dataUpdateItemThreshold,
 } from "@/lib/data";
 import { addDays } from "date-fns";
+import { parseIngredient } from "@/lib/utils";
 
 
 // --- Server Actions ---
@@ -232,6 +233,54 @@ export async function handleUpdateItemThreshold(itemId: string, threshold: numbe
         const error = e instanceof Error ? e.message : "An unknown error occurred.";
         return { success: false, error: error };
     }
+}
+
+export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealType: string, selectedMembers: string[]) {
+    const userId = await getCurrentUserId();
+    const { privateItems, sharedItems } = await getClientInventory();
+    const allItems = [...privateItems, ...sharedItems];
+
+    const macrosPerServing = {
+        calories: recipe.macros.calories / recipe.servings,
+        protein: recipe.macros.protein / recipe.servings,
+        carbs: recipe.macros.carbs / recipe.servings,
+        fat: recipe.macros.fat / recipe.servings,
+    };
+    
+    // Log macros for the current user
+    if (servingsEaten > 0) {
+        const macrosConsumed = {
+            calories: macrosPerServing.calories * servingsEaten,
+            protein: macrosPerServing.protein * servingsEaten,
+            carbs: macrosPerServing.carbs * servingsEaten,
+            fat: macrosPerServing.fat * servingsEaten,
+        };
+        await dataLogMacros(db, userId, mealType as any, recipe.title, macrosConsumed);
+    }
+    
+    const itemsToRemove: { item: InventoryItem; amountToRemove: number }[] = [];
+
+    // Deduct ingredients from inventory
+    for (const ingredientString of recipe.ingredients) {
+        const parsed = parseIngredient(ingredientString);
+        const inventoryMatch = allItems.find(item => item.name.toLowerCase() === parsed.name.toLowerCase());
+
+        if (inventoryMatch && parsed.quantity) {
+             const amountNeededPerServing = parsed.quantity / recipe.servings;
+             const totalAmountNeeded = amountNeededPerServing * servingsEaten;
+             itemsToRemove.push({ item: inventoryMatch, amountToRemove: totalAmountNeeded });
+        }
+    }
+    
+    // Batch update inventory
+    const promises = itemsToRemove.map(async ({item, amountToRemove}) => {
+        const updatedQuantity = item.totalQuantity - amountToRemove;
+        await dataUpdateInventoryItem(db, userId, {...item, totalQuantity: updatedQuantity});
+    });
+
+    await Promise.all(promises);
+
+    return { success: true, newInventory: await getClientInventory() };
 }
 
 // Client Data Fetchers

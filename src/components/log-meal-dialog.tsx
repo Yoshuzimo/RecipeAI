@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getClientStorageLocations, getClientHousehold } from "@/app/actions";
+import { getClientStorageLocations, getClientHousehold, handleLogMeal } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader2, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -48,7 +48,7 @@ export function LogMealDialog({
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   recipe: Recipe;
-  onMealLogged: (newInventory: InventoryItem[]) => void;
+  onMealLogged: (newInventory: any) => void;
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -140,9 +140,13 @@ export function LogMealDialog({
     }
 
     setIsPending(true);
-    // Placeholder for AI call
-    // This will need a new server action that also creates the confirmation requests
-    const result = { success: true, newInventory: [] }; 
+    
+    const selectedMemberIds = Object.entries(selectedMembers)
+        .filter(([, isSelected]) => isSelected)
+        .map(([id]) => id);
+
+    const result = await handleLogMeal(recipe, servingsEaten, mealType, selectedMemberIds);
+    
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -324,5 +328,3 @@ export function LogMealDialog({
     </Dialog>
   );
 }
-
-    

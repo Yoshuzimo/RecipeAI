@@ -89,6 +89,7 @@ export type Recipe = {
     macros: Macros;
     isPrivate?: boolean;
     ownerName?: string;
+    householdId?: string | null;
 };
 
 export type AISuggestion = {
