@@ -4,7 +4,7 @@
 import * as React from "react";
 import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
-import { getClientTodaysMacros } from "@/app/actions";
+import { getClientTodaysMacros, getClientHousehold } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import { CalorieLineChart } from "@/components/ui/calorie-line-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,25 +15,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { DailyMacros } from "@/lib/types";
+import type { DailyMacros, Household } from "@/lib/types";
 import { isToday, isWithinInterval, startOfWeek, endOfWeek, format } from "date-fns";
+import { useAuth } from "@/components/auth-provider";
+import { PendingMealCard } from "@/components/pending-meal-card";
 
 export const dynamic = 'force-dynamic';
 
 const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 export default function NutritionPage() {
+  const { user } = useAuth();
   const [allDailyData, setAllDailyData] = React.useState<DailyMacros[]>([]);
+  const [household, setHousehold] = React.useState<Household | null>(null);
   const [timeframe, setTimeframe] = React.useState<"daily" | "weekly" | "monthly">("daily");
   
   const fetchData = React.useCallback(async () => {
-    const data = await getClientTodaysMacros();
-    setAllDailyData(data);
+    const [macrosData, householdData] = await Promise.all([
+      getClientTodaysMacros(),
+      getClientHousehold(),
+    ]);
+    setAllDailyData(macrosData);
+    setHousehold(householdData);
   }, []);
 
   React.useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  const myPendingMeals = React.useMemo(() => {
+    if (!household || !user) return [];
+    return household.pendingMeals?.filter(meal => meal.pendingUserIds.includes(user.uid)) || [];
+  }, [household, user]);
 
   const { dataForCharts, description } = React.useMemo(() => {
     const now = new Date();
@@ -121,8 +134,24 @@ export default function NutritionPage() {
             </CardContent>
          </Card>
         <NutritionChart data={dataForCharts} timeframe={timeframe} />
+        
+        {myPendingMeals.length > 0 && (
+          <div className="space-y-4">
+             <Separator />
+             <div className="space-y-0.5">
+                <h2 className="text-2xl font-bold tracking-tight">Meal Confirmations</h2>
+                <p className="text-muted-foreground">
+                  Confirm the meals you've shared with your household.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {myPendingMeals.map(meal => (
+                  <PendingMealCard key={meal.id} pendingMeal={meal} onConfirm={fetchData} />
+                ))}
+              </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
 }
-

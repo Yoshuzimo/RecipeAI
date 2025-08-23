@@ -168,6 +168,15 @@ export type LeaveRequest = {
     status: 'pending_review' | 'completed';
 };
 
+export type PendingMeal = {
+  id: string;
+  recipe: Recipe;
+  cookId: string;
+  cookName: string;
+  pendingUserIds: string[]; // IDs of users who still need to respond
+  createdAt: Date;
+}
+
 export type Household = {
     id: string;
     inviteCode: string;
@@ -176,6 +185,7 @@ export type Household = {
     activeMembers: HouseholdMember[]; 
     pendingMembers: HouseholdMember[];
     leaveRequests?: LeaveRequest[];
+    pendingMeals?: PendingMeal[];
     locations: StorageLocation[];
     sharedInventory?: InventoryItem[]; // Adding for easier access in UI
 };

@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal } from "@/lib/types";
 import { db, auth } from "@/lib/firebase-admin";
 import {
     seedInitialData as dataSeedInitialData,
@@ -43,6 +44,8 @@ import {
     toggleItemPrivacy as dataToggleItemPrivacy,
     getPendingMemberInventory,
     updateItemThreshold as dataUpdateItemThreshold,
+    createPendingMeal as dataCreatePendingMeal,
+    processMealConfirmation as dataProcessMealConfirmation,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { parseIngredient } from "@/lib/utils";
@@ -235,7 +238,7 @@ export async function handleUpdateItemThreshold(itemId: string, threshold: numbe
     }
 }
 
-export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealType: string, selectedMembers: string[]) {
+export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealType: string, selectedMemberIds: string[]) {
     const userId = await getCurrentUserId();
     const { privateItems, sharedItems } = await getClientInventory();
     const allItems = [...privateItems, ...sharedItems];
@@ -280,7 +283,55 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
 
     await Promise.all(promises);
 
+    // Create pending meal request if other members were selected
+    if (selectedMemberIds.length > 0) {
+        const household = await dataGetHousehold(db, userId);
+        if (household) {
+            await dataCreatePendingMeal(db, userId, household.id, recipe, selectedMemberIds);
+        }
+    }
+
     return { success: true, newInventory: await getClientInventory() };
+}
+
+export async function handleConfirmMeal(pendingMealId: string, servingsEaten: number, mealType: string, loggedAt: Date) {
+    const userId = await getCurrentUserId();
+    const household = await dataGetHousehold(db, userId);
+
+    if (!household) {
+        return { success: false, error: "You are not in a household." };
+    }
+    
+    try {
+        // First, log the macros for the user confirming the meal
+        const pendingMeal = household.pendingMeals?.find(p => p.id === pendingMealId);
+        if (!pendingMeal) {
+            return { success: false, error: "Pending meal not found." };
+        }
+        
+        const macrosPerServing = {
+            calories: pendingMeal.recipe.macros.calories / pendingMeal.recipe.servings,
+            protein: pendingMeal.recipe.macros.protein / pendingMeal.recipe.servings,
+            carbs: pendingMeal.recipe.macros.carbs / pendingMeal.recipe.servings,
+            fat: pendingMeal.recipe.macros.fat / pendingMeal.recipe.servings,
+        };
+
+        const macrosConsumed = {
+            calories: macrosPerServing.calories * servingsEaten,
+            protein: macrosPerServing.protein * servingsEaten,
+            carbs: macrosPerServing.carbs * servingsEaten,
+            fat: macrosPerServing.fat * servingsEaten,
+        };
+
+        await dataLogMacros(db, userId, mealType as any, pendingMeal.recipe.title, macrosConsumed, loggedAt);
+
+        // Then, update the household document to remove the user from the pending list
+        await dataProcessMealConfirmation(db, userId, household.id, pendingMealId);
+
+        return { success: true };
+    } catch(e) {
+        return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
+    }
 }
 
 // Client Data Fetchers
