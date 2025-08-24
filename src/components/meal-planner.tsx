@@ -5,7 +5,7 @@ import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros, handleRemoveSavedRecipe } from "@/app/actions";
 import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
-import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros, AISuggestion } from "@/lib/types";
+import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros, AISuggestion, Macros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import { UserSubstitutionDialog } from "./user-substitution-dialog";
 import { AISubstitutionDialog } from "./ai-substitution-dialog";
 import { IngredientActionDialog } from "./ingredient-action-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
+import { EditMacrosDialog } from "./edit-macros-dialog";
 
 
 const highRiskKeywords = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey", "meat", "dairy", "milk", "cheese", "yogurt", "egg"];
@@ -71,9 +72,11 @@ export function MealPlanner({
   const [isUserSubDialogOpen, setIsUserSubDialogOpen] = useState(false);
   const [isAISubDialogOpen, setIsAISubDialogOpen] = useState(false);
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
+  const [isEditMacrosOpen, setIsEditMacrosOpen] = useState(false);
 
   const [recipeToSubstitute, setRecipeToSubstitute] = useState<Recipe | null>(null);
   const [ingredientToSubstitute, setIngredientToSubstitute] = useState<string | null>(null);
+  const [recipeToEditMacros, setRecipeToEditMacros] = useState<Recipe | null>(null);
 
   const [groupToReportSpoilage, setGroupToReportSpoilage] = useState<InventoryItemGroup | null>(null);
 
@@ -367,6 +370,31 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
         });
   };
 
+  const handleMacrosSave = (recipeTitle: string, newMacros: Macros) => {
+    const updateRecipe = (recipe: Recipe) => {
+      if (recipe.title === recipeTitle) {
+        const updatedRecipe = { ...recipe, macros: newMacros };
+        setModifiedRecipes(prev => ({ ...prev, [recipeTitle]: updatedRecipe }));
+        return updatedRecipe;
+      }
+      return recipe;
+    };
+
+    if (userRecipe?.title === recipeTitle) {
+      setUserRecipe(prev => (prev ? updateRecipe(prev) : null));
+    }
+
+    setSuggestions(prevSuggestions => {
+      if (!prevSuggestions) return null;
+      return prevSuggestions.map(updateRecipe);
+    });
+  };
+
+  const handleEditMacrosClick = (recipe: Recipe) => {
+    setRecipeToEditMacros(recipe);
+    setIsEditMacrosOpen(true);
+  };
+
 
   const RecipeCard = ({ recipe: initialRecipe, isExpanded = false }: { recipe: Recipe, isExpanded?: boolean }) => {
     const recipe = modifiedRecipes[initialRecipe.title] || initialRecipe;
@@ -444,7 +472,13 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                     </ol>
                     </div>
                     <div>
-                    <h4 className="font-semibold mb-2">Macros (per serving)</h4>
+                    <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-semibold">Macros (per serving)</h4>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleEditMacrosClick(recipe)}>
+                            <Edit className="h-3 w-3" />
+                            <span className="sr-only">Edit Macros</span>
+                        </Button>
+                    </div>
                     <div className="flex gap-2 flex-wrap">
                         <Badge variant="outline">Calories: {recipe.macros.calories.toFixed(0)}</Badge>
                         <Badge variant="outline">Protein: {recipe.macros.protein.toFixed(0)}g</Badge>
@@ -515,7 +549,7 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
       )}
 
       {userRecipe && (
-          <Accordion type="single" collapsible defaultValue={userRecipe.title} className="w-full space-y-4">
+           <Accordion type="single" collapsible defaultValue={userRecipe.title} className="w-full space-y-4">
             <RecipeCard recipe={userRecipe} isExpanded={true} />
           </Accordion>
       )}
@@ -630,6 +664,14 @@ Generate 3-5 diverse recipes. For each recipe, provide the output in the followi
                  handleInventoryUpdateAndCheck();
             }}
           />
+      )}
+      {isEditMacrosOpen && recipeToEditMacros && (
+        <EditMacrosDialog
+          isOpen={isEditMacrosOpen}
+          setIsOpen={setIsEditMacrosOpen}
+          recipe={recipeToEditMacros}
+          onSave={(newMacros) => handleMacrosSave(recipeToEditMacros.title, newMacros)}
+        />
       )}
     </>
   );
