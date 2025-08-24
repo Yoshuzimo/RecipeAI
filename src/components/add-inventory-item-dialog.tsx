@@ -41,6 +41,8 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import type { Unit, StorageLocation, NewInventoryItem, InventoryItem } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { Separator } from "./ui/separator";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -56,12 +58,23 @@ const formSchema = z.object({
   }),
   isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
+  hasMacros: z.boolean().default(false),
+  calories: z.coerce.number().optional(),
+  protein: z.coerce.number().optional(),
+  carbs: z.coerce.number().optional(),
+  fat: z.coerce.number().optional(),
 }).refine(data => {
     if (data.doesNotExpire) return true;
     return !!data.expiryDate;
 }, {
     message: "An expiry date is required unless the item does not expire.",
     path: ["expiryDate"],
+}).refine(data => {
+    if (!data.hasMacros) return true;
+    return data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+}, {
+    message: "All macro fields must be filled if nutrition is enabled.",
+    path: ["macros"],
 });
 
 
@@ -103,10 +116,12 @@ export function AddInventoryItemDialog({
       quantity: 1,
       doesNotExpire: false,
       isPrivate: false,
+      hasMacros: false,
     },
   });
 
   const doesNotExpire = form.watch("doesNotExpire");
+  const hasMacros = form.watch("hasMacros");
 
   useEffect(() => {
     const system: 'us' | 'metric' = 'us'; 
@@ -128,6 +143,7 @@ export function AddInventoryItemDialog({
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
             isPrivate: !household, // Default to private if not in a household
+            hasMacros: false,
         });
       }
     }
@@ -154,6 +170,15 @@ export function AddInventoryItemDialog({
         locationId: values.locationId,
         isPrivate: values.isPrivate,
       };
+      
+      if (values.hasMacros) {
+          newItemData.macros = {
+              calories: values.calories!,
+              protein: values.protein!,
+              carbs: values.carbs!,
+              fat: values.fat!,
+          }
+      }
 
       const newItem = await addClientInventoryItem(newItemData);
       
@@ -174,7 +199,7 @@ export function AddInventoryItemDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
@@ -314,6 +339,46 @@ export function AddInventoryItemDialog({
                 </FormItem>
               )}
             />
+            
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                        Nutritional Information (Optional)
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                        Provide macros per 100g/ml for more accurate recipe calculations.
+                    </p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="hasMacros"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-4">
+                 <Separator />
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                 </div>
+              </CollapsibleContent>
+            </Collapsible>
             
             {isInHousehold && (
               <FormField

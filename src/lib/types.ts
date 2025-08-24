@@ -8,6 +8,13 @@ export type StorageLocation = {
   type: 'Fridge' | 'Freezer' | 'Pantry';
 };
 
+export type Macros = {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -18,6 +25,7 @@ export type InventoryItem = {
   locationId: string;
   isPrivate: boolean;
   restockThreshold?: number;
+  macros?: Macros; // Per 100g or 100ml
 };
 
 // Type for adding a new item, with an optional flag for privacy
@@ -68,13 +76,6 @@ export type Settings = {
     fatGoal?: number;
     dayStartTime?: string;
 }
-
-export type Macros = {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-};
 
 export type RecipeIngredient = {
     name: string;

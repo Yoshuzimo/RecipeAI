@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -93,7 +94,12 @@ export function MealPlanner({
         const formatItems = (items: InventoryItem[]) => {
             if (items.length === 0) return 'None';
             return items.map(item => {
-                return `- ${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit}`;
+                let itemString = `- ${item.name}: ${item.totalQuantity.toFixed(2)} ${item.unit}`;
+                if (item.macros) {
+                    const { calories, protein, carbs, fat } = item.macros;
+                    itemString += ` (C:${calories} P:${protein} Crb:${carbs} F:${fat} per 100g/ml)`;
+                }
+                return itemString;
             }).join('\\n');
         };
 
