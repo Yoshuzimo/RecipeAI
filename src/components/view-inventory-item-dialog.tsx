@@ -14,10 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, StorageLocation, HouseholdMember } from "@/lib/types";
+import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, Macros, Unit } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2, Move, Biohazard, Share2, User, Save } from "lucide-react";
+import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup, handleToggleItemPrivacy, getClientHousehold, getClientInventory } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -35,9 +35,8 @@ import {
 } from "./ui/alert-dialog";
 import { MoveItemDialog } from "./move-item-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
-import { getClientStorageLocations } from "@/app/actions";
 import { Switch } from "./ui/switch";
-import { cn } from "@/lib/utils";
+import { AddNutritionInfoDialog } from "./add-nutrition-info-dialog";
 
 const formSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
@@ -69,6 +68,14 @@ export function ViewInventoryItemDialog({
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
+  const [isNutritionDialogOpen, setIsNutritionDialogOpen] = useState(false);
+
+  // State to hold nutrition data from the dialog
+  const [nutritionData, setNutritionData] = useState<{
+    macros: Macros,
+    servingSize: { quantity: number; unit: Unit },
+    servingMacros: Macros
+  } | null>(null);
 
 
   const packageGroups = useMemo(() => {
@@ -110,6 +117,17 @@ export function ViewInventoryItemDialog({
   useEffect(() => {
     reset(defaultValues);
     setIsPrivate(initialIsPrivate);
+    // Set initial nutrition data if it exists on the group items
+    const firstItem = group.items[0];
+    if (firstItem && firstItem.macros && firstItem.servingSize && firstItem.servingMacros) {
+        setNutritionData({
+            macros: firstItem.macros,
+            servingSize: firstItem.servingSize,
+            servingMacros: firstItem.servingMacros
+        });
+    } else {
+        setNutritionData(null);
+    }
     async function checkHousehold() {
       const household = await getClientHousehold();
       setIsInHousehold(!!household);
@@ -143,7 +161,13 @@ export function ViewInventoryItemDialog({
 
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
-    const result = await handleUpdateInventoryGroup(group.items, data, group.name, group.unit);
+    const result = await handleUpdateInventoryGroup(
+        group.items, 
+        data, 
+        group.name, 
+        group.unit,
+        nutritionData || undefined // Pass nutrition data if it exists
+    );
     setIsPending(false);
 
     if (result.success && result.newInventory) {
@@ -196,6 +220,17 @@ export function ViewInventoryItemDialog({
     }
     return nonDivisibleKeywords.some(keyword => itemName.toLowerCase().includes(keyword));
   };
+  
+  const hasNutritionChanged = () => {
+    const firstItem = group.items[0];
+    if (!nutritionData && !firstItem.macros) return false;
+    if (!!nutritionData !== !!firstItem.macros) return true;
+    return JSON.stringify(nutritionData) !== JSON.stringify({
+        macros: firstItem.macros,
+        servingSize: firstItem.servingSize,
+        servingMacros: firstItem.servingMacros,
+    });
+  }
   
   return (
     <>
@@ -301,6 +336,19 @@ export function ViewInventoryItemDialog({
                         No containers for this item. Add one to get started.
                     </div>
                 )}
+                 <Button type="button" variant="outline" className="w-full" onClick={() => setIsNutritionDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> 
+                    {nutritionData ? 'Edit' : 'Add'} Nutritional Info
+                </Button>
+                {nutritionData?.servingMacros && (
+                     <div className="text-xs text-muted-foreground text-center">
+                        Serving: {nutritionData.servingSize.quantity}{nutritionData.servingSize.unit} |
+                        Cals: {nutritionData.servingMacros.calories.toFixed(0)} |
+                        P: {nutritionData.servingMacros.protein.toFixed(0)}g |
+                        C: {nutritionData.servingMacros.carbs.toFixed(0)}g |
+                        F: {nutritionData.servingMacros.fat.toFixed(0)}g
+                    </div>
+                )}
                 </div>
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
@@ -314,9 +362,9 @@ export function ViewInventoryItemDialog({
                 </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isPending || !isDirty}>
+                    <Button type="submit" disabled={isPending || (!isDirty && !hasNutritionChanged())}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Quantity Changes
+                        Save Changes
                     </Button>
                 </div>
             </DialogFooter>
@@ -367,6 +415,15 @@ export function ViewInventoryItemDialog({
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+    <AddNutritionInfoDialog
+        isOpen={isNutritionDialogOpen}
+        setIsOpen={setIsNutritionDialogOpen}
+        onSave={(data) => {
+            setNutritionData(data);
+            setIsNutritionDialogOpen(false);
+        }}
+        initialData={nutritionData}
+    />
     </>
   );
 }

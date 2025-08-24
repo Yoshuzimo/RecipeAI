@@ -4,7 +4,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit } from "@/lib/types";
 import { db, auth } from "@/lib/firebase-admin";
 import {
     seedInitialData as dataSeedInitialData,
@@ -73,7 +73,13 @@ export async function seedUserData(userId: string): Promise<void> {
 }
 
 
-export async function handleUpdateInventoryGroup(originalItems: InventoryItem[], formData: { [key: string]: { full: number; partial: number } }, itemName: string, unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon'): Promise<{ success: boolean; error: string | null; newInventory?: {privateItems: InventoryItem[], sharedItems: InventoryItem[]} }> {
+export async function handleUpdateInventoryGroup(
+    originalItems: InventoryItem[],
+    formData: { [key: string]: { full: number; partial: number } },
+    itemName: string,
+    unit: Unit,
+    nutritionData?: { macros: Macros; servingSize: { quantity: number; unit: Unit }, servingMacros: Macros }
+): Promise<{ success: boolean; error: string | null; newInventory?: { privateItems: InventoryItem[], sharedItems: InventoryItem[] } }> {
     const userId = await getCurrentUserId();
     try {
         const updates: Promise<any>[] = [];
@@ -84,10 +90,23 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
             const existingPartialPackage = originalItems.find(i => i.originalQuantity === size && i.totalQuantity < size);
             const currentFullCount = existingFullPackages.length;
 
+            const newItemBase = {
+                name: itemName,
+                unit: unit,
+                expiryDate: addDays(new Date(), 7),
+                locationId: originalItems[0]?.locationId || 'pantry-1',
+                isPrivate: originalItems[0]?.isPrivate,
+                ...(nutritionData && { 
+                    macros: nutritionData.macros,
+                    servingSize: nutritionData.servingSize,
+                    servingMacros: nutritionData.servingMacros
+                }),
+            };
+
             if (newFullCount > currentFullCount) {
                 const toAdd = newFullCount - currentFullCount;
                 for (let i = 0; i < toAdd; i++) {
-                    updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: size, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.isPrivate }));
+                    updates.push(dataAddInventoryItem(db, userId, { ...newItemBase, originalQuantity: size, totalQuantity: size }));
                 }
             } else if (newFullCount < currentFullCount) {
                 const toRemove = currentFullCount - newFullCount;
@@ -98,16 +117,25 @@ export async function handleUpdateInventoryGroup(originalItems: InventoryItem[],
 
             if (existingPartialPackage) {
                 if (newPartialQty > 0) {
-                    if (existingPartialPackage.totalQuantity !== newPartialQty) {
-                        updates.push(dataUpdateInventoryItem(db, userId, { ...existingPartialPackage, totalQuantity: newPartialQty }));
+                    if (existingPartialPackage.totalQuantity !== newPartialQty || (nutritionData && JSON.stringify(existingPartialPackage.macros) !== JSON.stringify(nutritionData.macros))) {
+                         updates.push(dataUpdateInventoryItem(db, userId, { ...existingPartialPackage, totalQuantity: newPartialQty, ...nutritionData }));
                     }
                 } else {
                     updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage));
                 }
             } else if (newPartialQty > 0) {
-                 updates.push(dataAddInventoryItem(db, userId, { name: itemName, originalQuantity: size, totalQuantity: newPartialQty, unit: unit, expiryDate: addDays(new Date(), 7), locationId: originalItems[0]?.locationId || 'pantry-1', isPrivate: originalItems[0]?.isPrivate }));
+                 updates.push(dataAddInventoryItem(db, userId, { ...newItemBase, originalQuantity: size, totalQuantity: newPartialQty }));
             }
         }
+        
+        // If nutrition data changed but no quantities changed, we still need to update all items.
+        if (nutritionData && updates.length === 0) {
+            for(const item of originalItems) {
+                updates.push(dataUpdateInventoryItem(db, userId, { ...item, ...nutritionData }));
+            }
+        }
+
+
         await Promise.all(updates);
         const newInventory = await getInventory(db, userId);
         return { success: true, error: null, newInventory: {privateItems: newInventory.privateItems, sharedItems: newInventory.sharedItems} };

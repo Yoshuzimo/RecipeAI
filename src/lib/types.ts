@@ -26,6 +26,8 @@ export type InventoryItem = {
   isPrivate: boolean;
   restockThreshold?: number;
   macros?: Macros; // Per 100g or 100ml
+  servingSize?: { quantity: number; unit: Unit };
+  servingMacros?: Macros;
 };
 
 // Type for adding a new item, with an optional flag for privacy
