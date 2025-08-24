@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -36,16 +35,50 @@ import {
 import { MoveItemDialog } from "./move-item-dialog";
 import { ReportSpoilageDialog } from "./report-spoilage-dialog";
 import { Switch } from "./ui/switch";
-import { AddNutritionInfoDialog } from "./add-nutrition-info-dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { Checkbox } from "./ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Separator } from "./ui/separator";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 
-const formSchema = z.record(z.string(), z.object({
+const nutritionSchema = z.object({
+    hasMacros: z.boolean().default(false),
+    servingSizeQuantity: z.coerce.number().optional(),
+    servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]).optional(),
+    calories: z.coerce.number().optional(),
+    protein: z.coerce.number().optional(),
+    carbs: z.coerce.number().optional(),
+    fat: z.coerce.number().optional(),
+}).refine(data => {
+    if (!data.hasMacros) return true;
+    return data.servingSizeQuantity && data.servingSizeUnit && data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+}, {
+    message: "All nutrition fields must be filled if nutrition is enabled.",
+    path: ["macros"],
+});
+
+
+const packageSchema = z.record(z.string(), z.object({
     full: z.coerce.number().int().min(0),
     partial: z.coerce.number().min(0),
 }));
 
+const formSchema = packageSchema.and(nutritionSchema);
+
+
 type FormData = z.infer<typeof formSchema>;
 
 const nonDivisibleKeywords = ['egg', 'eggs'];
+
+const metricUnits: { value: Unit, label: string }[] = [
+    { value: 'g', label: 'g' }, { value: 'kg', label: 'kg' },
+    { value: 'ml', label: 'ml' }, { value: 'l', label: 'l' }, { value: 'pcs', label: 'pcs' },
+];
+
+const usUnits: { value: Unit, label: string }[] = [
+    { value: 'oz', label: 'oz' }, { value: 'lbs', label: 'lbs' },
+    { value: 'fl oz', label: 'fl oz' }, { value: 'gallon', label: 'gallon' }, { value: 'pcs', label: 'pcs' },
+];
 
 export function ViewInventoryItemDialog({
   isOpen,
@@ -68,14 +101,8 @@ export function ViewInventoryItemDialog({
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
-  const [isNutritionDialogOpen, setIsNutritionDialogOpen] = useState(false);
-
-  // State to hold nutrition data from the dialog
-  const [nutritionData, setNutritionData] = useState<{
-    macros: Macros,
-    servingSize: { quantity: number; unit: Unit },
-    servingMacros: Macros
-  } | null>(null);
+  const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
+  const [availableUnits, setAvailableUnits] = useState(usUnits);
 
 
   const packageGroups = useMemo(() => {
@@ -100,34 +127,43 @@ export function ViewInventoryItemDialog({
   }, [group.items]);
 
   const defaultValues = useMemo(() => {
-    const values: FormData = {};
+    let values: Partial<FormData> = {};
     for (const pkgGroup of Object.values(packageGroups)) {
       values[pkgGroup.size] = {
         full: pkgGroup.fullPackages.length,
         partial: pkgGroup.partialPackage?.totalQuantity ?? 0,
       };
     }
-    return values;
-  }, [packageGroups]);
+    const firstItem = group.items[0];
+    if (firstItem?.servingMacros) {
+        values.hasMacros = true;
+        values.servingSizeQuantity = firstItem.servingSize?.quantity;
+        values.servingSizeUnit = firstItem.servingSize?.unit;
+        values.calories = firstItem.servingMacros.calories;
+        values.protein = firstItem.servingMacros.protein;
+        values.carbs = firstItem.servingMacros.carbs;
+        values.fat = firstItem.servingMacros.fat;
+    } else {
+        values.hasMacros = false;
+    }
+    return values as FormData;
+  }, [packageGroups, group.items]);
   
-  const { control, handleSubmit, watch, formState: {isDirty}, reset } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues,
   });
+
+  const { control, handleSubmit, watch, formState: { isDirty }, reset } = form;
   
   useEffect(() => {
+    const system: 'us' | 'metric' = 'us';
+    setUnitSystem(system);
+    setAvailableUnits(system === 'us' ? usUnits : metricUnits);
+
     reset(defaultValues);
     setIsPrivate(initialIsPrivate);
-    // Set initial nutrition data if it exists on the group items
-    const firstItem = group.items[0];
-    if (firstItem && firstItem.macros && firstItem.servingSize && firstItem.servingMacros) {
-        setNutritionData({
-            macros: firstItem.macros,
-            servingSize: firstItem.servingSize,
-            servingMacros: firstItem.servingMacros
-        });
-    } else {
-        setNutritionData(null);
-    }
+    
     async function checkHousehold() {
       const household = await getClientHousehold();
       setIsInHousehold(!!household);
@@ -161,12 +197,23 @@ export function ViewInventoryItemDialog({
 
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
+
+    const { hasMacros, servingSizeQuantity, servingSizeUnit, calories, protein, carbs, fat, ...packageData } = data;
+    
+    let nutritionPayload: any = undefined;
+    if (hasMacros) {
+        nutritionPayload = {
+            servingSize: { quantity: servingSizeQuantity!, unit: servingSizeUnit! },
+            servingMacros: { calories: calories!, protein: protein!, carbs: carbs!, fat: fat! },
+        };
+    }
+
     const result = await handleUpdateInventoryGroup(
         group.items, 
-        data, 
+        packageData, 
         group.name, 
         group.unit,
-        nutritionData || undefined // Pass nutrition data if it exists
+        nutritionPayload,
     );
     setIsPending(false);
 
@@ -221,17 +268,6 @@ export function ViewInventoryItemDialog({
     return nonDivisibleKeywords.some(keyword => itemName.toLowerCase().includes(keyword));
   };
   
-  const hasNutritionChanged = () => {
-    const firstItem = group.items[0];
-    if (!nutritionData && !firstItem.macros) return false;
-    if (!!nutritionData !== !!firstItem.macros) return true;
-    return JSON.stringify(nutritionData) !== JSON.stringify({
-        macros: firstItem.macros,
-        servingSize: firstItem.servingSize,
-        servingMacros: firstItem.servingMacros,
-    });
-  }
-  
   return (
     <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -242,8 +278,9 @@ export function ViewInventoryItemDialog({
             Adjust quantities or move items between storage locations.
           </DialogDescription>
         </DialogHeader>
+        <Form {...form}>
         <form onSubmit={handleSubmit(onSubmit)}>
-            <ScrollArea className="h-96 pr-6 my-4">
+            <ScrollArea className="h-[60vh] pr-6 my-4">
                 <div className="space-y-8">
                 {isInHousehold && (
                    <div className="flex flex-row items-center justify-between rounded-lg border p-4">
@@ -336,19 +373,50 @@ export function ViewInventoryItemDialog({
                         No containers for this item. Add one to get started.
                     </div>
                 )}
-                 <Button type="button" variant="outline" className="w-full" onClick={() => setIsNutritionDialogOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> 
-                    {nutritionData ? 'Edit' : 'Add'} Nutritional Info
-                </Button>
-                {nutritionData?.servingMacros && (
-                     <div className="text-xs text-muted-foreground text-center">
-                        Serving: {nutritionData.servingSize.quantity}{nutritionData.servingSize.unit} |
-                        Cals: {nutritionData.servingMacros.calories.toFixed(0)} |
-                        P: {nutritionData.servingMacros.protein.toFixed(0)}g |
-                        C: {nutritionData.servingMacros.carbs.toFixed(0)}g |
-                        F: {nutritionData.servingMacros.fat.toFixed(0)}g
-                    </div>
-                )}
+                 <Collapsible>
+                    <CollapsibleTrigger asChild>
+                        <div className="flex items-center justify-between rounded-lg border p-4 cursor-pointer">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                                Nutritional Information
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                                Add nutrition info to get more accurate recipe calculations.
+                            </p>
+                        </div>
+                        <FormField
+                            control={control}
+                            name="hasMacros"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                         />
+                        </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-4 pt-4">
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={control} name="servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                        </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <FormField control={control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                         </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <FormField control={control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                         </div>
+                    </CollapsibleContent>
+                </Collapsible>
+                
                 </div>
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
@@ -362,13 +430,14 @@ export function ViewInventoryItemDialog({
                 </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isPending || (!isDirty && !hasNutritionChanged())}>
+                    <Button type="submit" disabled={isPending || !isDirty}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Changes
                     </Button>
                 </div>
             </DialogFooter>
         </form>
+        </Form>
       </DialogContent>
     </Dialog>
     {isMoveDialogOpen && (
@@ -415,15 +484,6 @@ export function ViewInventoryItemDialog({
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
-    <AddNutritionInfoDialog
-        isOpen={isNutritionDialogOpen}
-        setIsOpen={setIsNutritionDialogOpen}
-        onSave={(data) => {
-            setNutritionData(data);
-            setIsNutritionDialogOpen(false);
-        }}
-        initialData={nutritionData}
-    />
     </>
   );
 }

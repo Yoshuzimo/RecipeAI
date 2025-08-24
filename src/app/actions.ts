@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
@@ -73,16 +72,54 @@ export async function seedUserData(userId: string): Promise<void> {
 }
 
 
+// A helper to normalize grams and milliliters for calculation
+const normalizeToGramsOrML = (quantity: number, unit: Unit): number => {
+    switch (unit) {
+        case 'kg': return quantity * 1000;
+        case 'l': return quantity * 1000;
+        case 'lbs': return quantity * 453.592;
+        case 'oz': return quantity * 28.3495;
+        case 'gallon': return quantity * 3785.41;
+        case 'fl oz': return quantity * 29.5735;
+        default: return quantity; // g, ml, pcs
+    }
+}
+
 export async function handleUpdateInventoryGroup(
     originalItems: InventoryItem[],
     formData: { [key: string]: { full: number; partial: number } },
     itemName: string,
     unit: Unit,
-    nutritionData?: { macros: Macros; servingSize: { quantity: number; unit: Unit }, servingMacros: Macros }
+    nutritionData?: {
+        servingSize: { quantity: number; unit: Unit };
+        servingMacros: Macros
+    }
 ): Promise<{ success: boolean; error: string | null; newInventory?: { privateItems: InventoryItem[], sharedItems: InventoryItem[] } }> {
     const userId = await getCurrentUserId();
     try {
         const updates: Promise<any>[] = [];
+        
+        let finalNutritionData: Pick<InventoryItem, 'macros' | 'servingSize' | 'servingMacros'> | undefined = undefined;
+        if (nutritionData && nutritionData.servingSize.quantity > 0) {
+            const { servingSize, servingMacros } = nutritionData;
+            const normalizedServingSize = normalizeToGramsOrML(servingSize.quantity, servingSize.unit);
+            const scaleFactor = 100 / normalizedServingSize;
+
+            const normalizedMacros: Macros = {
+                calories: servingMacros.calories * scaleFactor,
+                protein: servingMacros.protein * scaleFactor,
+                carbs: servingMacros.carbs * scaleFactor,
+                fat: servingMacros.fat * scaleFactor,
+            };
+            
+            finalNutritionData = {
+                macros: normalizedMacros,
+                servingSize: servingSize,
+                servingMacros: servingMacros,
+            }
+        }
+
+
         for (const sizeStr in formData) {
             const size = Number(sizeStr);
             const { full: newFullCount, partial: newPartialQty } = formData[sizeStr];
@@ -90,17 +127,13 @@ export async function handleUpdateInventoryGroup(
             const existingPartialPackage = originalItems.find(i => i.originalQuantity === size && i.totalQuantity < size);
             const currentFullCount = existingFullPackages.length;
 
-            const newItemBase = {
+            const newItemBase: Omit<NewInventoryItem, 'originalQuantity' | 'totalQuantity'> = {
                 name: itemName,
                 unit: unit,
                 expiryDate: addDays(new Date(), 7),
                 locationId: originalItems[0]?.locationId || 'pantry-1',
                 isPrivate: originalItems[0]?.isPrivate,
-                ...(nutritionData && { 
-                    macros: nutritionData.macros,
-                    servingSize: nutritionData.servingSize,
-                    servingMacros: nutritionData.servingMacros
-                }),
+                ...(finalNutritionData)
             };
 
             if (newFullCount > currentFullCount) {
@@ -117,8 +150,8 @@ export async function handleUpdateInventoryGroup(
 
             if (existingPartialPackage) {
                 if (newPartialQty > 0) {
-                    if (existingPartialPackage.totalQuantity !== newPartialQty || (nutritionData && JSON.stringify(existingPartialPackage.macros) !== JSON.stringify(nutritionData.macros))) {
-                         updates.push(dataUpdateInventoryItem(db, userId, { ...existingPartialPackage, totalQuantity: newPartialQty, ...nutritionData }));
+                    if (existingPartialPackage.totalQuantity !== newPartialQty || (finalNutritionData && JSON.stringify(existingPartialPackage.macros) !== JSON.stringify(finalNutritionData.macros))) {
+                         updates.push(dataUpdateInventoryItem(db, userId, { ...existingPartialPackage, totalQuantity: newPartialQty, ...finalNutritionData }));
                     }
                 } else {
                     updates.push(dataRemoveInventoryItem(db, userId, existingPartialPackage));
@@ -128,10 +161,9 @@ export async function handleUpdateInventoryGroup(
             }
         }
         
-        // If nutrition data changed but no quantities changed, we still need to update all items.
-        if (nutritionData && updates.length === 0) {
+        if (finalNutritionData && updates.length === 0) {
             for(const item of originalItems) {
-                updates.push(dataUpdateInventoryItem(db, userId, { ...item, ...nutritionData }));
+                updates.push(dataUpdateInventoryItem(db, userId, { ...item, ...finalNutritionData }));
             }
         }
 
