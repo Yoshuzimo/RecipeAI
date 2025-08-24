@@ -41,7 +41,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Separator } from "./ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 
-const nutritionSchema = z.object({
+const formSchema = z.object({
+  packages: z.record(z.string(), z.object({
+    full: z.coerce.number().int().min(0),
+    partial: z.coerce.number().min(0),
+  })),
+  nutrition: z.object({
     hasMacros: z.boolean().default(false),
     servingSizeQuantity: z.coerce.number().optional(),
     servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]).optional(),
@@ -49,21 +54,14 @@ const nutritionSchema = z.object({
     protein: z.coerce.number().optional(),
     carbs: z.coerce.number().optional(),
     fat: z.coerce.number().optional(),
-}).refine(data => {
-    if (!data.hasMacros) return true;
-    return data.servingSizeQuantity && data.servingSizeUnit && data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
-}, {
-    message: "All nutrition fields must be filled if nutrition is enabled.",
-    path: ["macros"],
+  }).refine(data => {
+      if (!data.hasMacros) return true;
+      return data.servingSizeQuantity && data.servingSizeUnit && data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+  }, {
+      message: "All nutrition fields must be filled if nutrition is enabled.",
+      path: ["calories"], // Arbitrarily pick one field to show the message on
+  }),
 });
-
-
-const packageSchema = z.record(z.string(), z.object({
-    full: z.coerce.number().int().min(0),
-    partial: z.coerce.number().min(0),
-}));
-
-const formSchema = packageSchema.and(nutritionSchema);
 
 
 type FormData = z.infer<typeof formSchema>;
@@ -127,26 +125,26 @@ export function ViewInventoryItemDialog({
   }, [group.items]);
 
   const defaultValues = useMemo(() => {
-    let values: Partial<FormData> = {};
+    let values: FormData = { packages: {}, nutrition: { hasMacros: false }};
     for (const pkgGroup of Object.values(packageGroups)) {
-      values[pkgGroup.size] = {
+      values.packages[pkgGroup.size] = {
         full: pkgGroup.fullPackages.length,
         partial: pkgGroup.partialPackage?.totalQuantity ?? 0,
       };
     }
     const firstItem = group.items[0];
     if (firstItem?.servingMacros) {
-        values.hasMacros = true;
-        values.servingSizeQuantity = firstItem.servingSize?.quantity;
-        values.servingSizeUnit = firstItem.servingSize?.unit;
-        values.calories = firstItem.servingMacros.calories;
-        values.protein = firstItem.servingMacros.protein;
-        values.carbs = firstItem.servingMacros.carbs;
-        values.fat = firstItem.servingMacros.fat;
-    } else {
-        values.hasMacros = false;
+        values.nutrition = {
+            hasMacros: true,
+            servingSizeQuantity: firstItem.servingSize?.quantity,
+            servingSizeUnit: firstItem.servingSize?.unit,
+            calories: firstItem.servingMacros.calories,
+            protein: firstItem.servingMacros.protein,
+            carbs: firstItem.servingMacros.carbs,
+            fat: firstItem.servingMacros.fat,
+        }
     }
-    return values as FormData;
+    return values;
   }, [packageGroups, group.items]);
   
   const form = useForm<FormData>({
@@ -198,13 +196,13 @@ export function ViewInventoryItemDialog({
   const onSubmit = async (data: FormData) => {
     setIsPending(true);
 
-    const { hasMacros, servingSizeQuantity, servingSizeUnit, calories, protein, carbs, fat, ...packageData } = data;
+    const { packages: packageData, nutrition } = data;
     
     let nutritionPayload: any = undefined;
-    if (hasMacros) {
+    if (nutrition.hasMacros) {
         nutritionPayload = {
-            servingSize: { quantity: servingSizeQuantity!, unit: servingSizeUnit! },
-            servingMacros: { calories: calories!, protein: protein!, carbs: carbs!, fat: fat! },
+            servingSize: { quantity: nutrition.servingSizeQuantity!, unit: nutrition.servingSizeUnit! },
+            servingMacros: { calories: nutrition.calories!, protein: nutrition.protein!, carbs: nutrition.carbs!, fat: nutrition.fat! },
         };
     }
 
@@ -253,7 +251,7 @@ export function ViewInventoryItemDialog({
   };
 
   const getSliderLabel = (size: number) => {
-      const partialValue = watchedValues[size]?.partial ?? 0;
+      const partialValue = watchedValues.packages?.[size]?.partial ?? 0;
       if (group.unit === 'pcs') {
         return `${Math.round(partialValue)} / ${size} pcs`;
       }
@@ -310,7 +308,7 @@ export function ViewInventoryItemDialog({
                                 </Button>
                             </div>
                              <Controller
-                                name={`${size}.full`}
+                                name={`packages.${size}.full`}
                                 control={control}
                                 render={({ field }) => (
                                     <div className="space-y-2">
@@ -320,7 +318,7 @@ export function ViewInventoryItemDialog({
                                 )}
                             />
                             <Controller
-                                name={`${size}.partial`}
+                                name={`packages.${size}.partial`}
                                 control={control}
                                 render={({ field: { onChange, value } }) => {
                                     const isNonDivisible = isNonDivisiblePiece(group.name, group.unit);
@@ -386,7 +384,7 @@ export function ViewInventoryItemDialog({
                         </div>
                         <FormField
                             control={control}
-                            name="hasMacros"
+                            name="nutrition.hasMacros"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                                     <FormControl>
@@ -403,16 +401,16 @@ export function ViewInventoryItemDialog({
                     <CollapsibleContent className="space-y-4 pt-4">
                         <Separator />
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                         </div>
                          <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                          <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                     </CollapsibleContent>
                 </Collapsible>
