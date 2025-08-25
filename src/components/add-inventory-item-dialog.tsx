@@ -38,7 +38,7 @@ import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros } from "@/lib/types";
+import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros, DetailedFats } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Separator } from "./ui/separator";
@@ -86,13 +86,13 @@ const metricUnits: { value: Unit, label: string }[] = [
 ];
 
 const usUnits: { value: Unit, label: string }[] = [
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
     { value: 'oz', label: 'Ounces (oz)' },
     { value: 'lbs', label: 'Pounds (lbs)' },
     { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
     { value: 'gallon', label: 'Gallons' },
-    { value: 'g', label: 'Grams (g)' },
-    { value: 'l', label: 'Liters (l)' },
-    { value: 'pcs', label: 'Pieces (pcs)' },
 ];
 
 export function AddInventoryItemDialog({
@@ -170,17 +170,29 @@ export function AddInventoryItemDialog({
       };
       
       const macros: Partial<Macros> = {};
-      if (values.calories !== undefined) macros.calories = values.calories;
-      if (values.protein !== undefined) macros.protein = values.protein;
-      if (values.carbs !== undefined) macros.carbs = values.carbs;
-      if (values.fat !== undefined) macros.fat = values.fat;
-      if (values.fiber !== undefined) macros.fiber = values.fiber;
+      if (values.calories) macros.calories = values.calories;
+      if (values.protein) macros.protein = values.protein;
+      if (values.carbs) macros.carbs = values.carbs;
+      if (values.fat) macros.fat = values.fat;
+      if (values.fiber) macros.fiber = values.fiber;
 
-      const fats: Partial<any> = {};
-      if (values.saturatedFat !== undefined) fats.saturated = values.saturatedFat;
-      if (values.monounsaturatedFat !== undefined) fats.monounsaturated = values.monounsaturatedFat;
-      if (values.polyunsaturatedFat !== undefined) fats.polyunsaturated = values.polyunsaturatedFat;
-      if (values.transFat !== undefined) fats.trans = values.transFat;
+      const fats: Partial<DetailedFats> = {};
+      const { fat, saturatedFat, monounsaturatedFat, polyunsaturatedFat, transFat } = values;
+
+      if (saturatedFat !== undefined) fats.saturated = saturatedFat;
+      if (transFat !== undefined) fats.trans = transFat;
+
+      if (monounsaturatedFat !== undefined) {
+        fats.monounsaturated = monounsaturatedFat;
+      }
+      if (polyunsaturatedFat !== undefined) {
+        fats.polyunsaturated = polyunsaturatedFat;
+      }
+      
+      if (fat !== undefined && saturatedFat !== undefined && monounsaturatedFat === undefined && polyunsaturatedFat === undefined) {
+          const unsaturated = fat - (saturatedFat || 0) - (transFat || 0);
+          fats.monounsaturated = Math.max(0, unsaturated); // Store the remainder as monounsaturated
+      }
 
       if (Object.keys(fats).length > 0) {
         macros.fats = fats;
@@ -424,3 +436,5 @@ export function AddInventoryItemDialog({
     </Dialog>
   );
 }
+
+    

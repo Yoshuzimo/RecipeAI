@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, Macros, Unit } from "@/lib/types";
+import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, Macros, Unit, DetailedFats } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
 import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle, ChevronDown } from "lucide-react";
@@ -75,13 +75,13 @@ const metricUnits: { value: Unit, label: string }[] = [
 ];
 
 const usUnits: { value: Unit, label: string }[] = [
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
     { value: 'oz', label: 'Ounces (oz)' },
     { value: 'lbs', label: 'Pounds (lbs)' },
     { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
     { value: 'gallon', label: 'Gallons' },
-    { value: 'g', label: 'Grams (g)' },
-    { value: 'l', label: 'Liters (l)' },
-    { value: 'pcs', label: 'Pieces (pcs)' },
 ];
 
 export function ViewInventoryItemDialog({
@@ -210,7 +210,7 @@ export function ViewInventoryItemDialog({
     
     let nutritionPayload: any = undefined;
     
-    if (nutrition.servingSizeQuantity !== undefined && nutrition.servingSizeUnit) {
+    if (nutrition.servingSizeQuantity && nutrition.servingSizeUnit) {
         const servingMacros: Partial<Macros> = {};
         if (nutrition.calories !== undefined) servingMacros.calories = nutrition.calories;
         if (nutrition.protein !== undefined) servingMacros.protein = nutrition.protein;
@@ -218,12 +218,24 @@ export function ViewInventoryItemDialog({
         if (nutrition.fat !== undefined) servingMacros.fat = nutrition.fat;
         if (nutrition.fiber !== undefined) servingMacros.fiber = nutrition.fiber;
 
-        const fats: Partial<any> = {};
-        if (nutrition.saturatedFat !== undefined) fats.saturated = nutrition.saturatedFat;
-        if (nutrition.monounsaturatedFat !== undefined) fats.monounsaturated = nutrition.monounsaturatedFat;
-        if (nutrition.polyunsaturatedFat !== undefined) fats.polyunsaturated = nutrition.polyunsaturatedFat;
-        if (nutrition.transFat !== undefined) fats.trans = nutrition.transFat;
+        const fats: Partial<DetailedFats> = {};
+        const { fat, saturatedFat, monounsaturatedFat, polyunsaturatedFat, transFat } = nutrition;
+
+        if (saturatedFat !== undefined) fats.saturated = saturatedFat;
+        if (transFat !== undefined) fats.trans = transFat;
+
+        if (monounsaturatedFat !== undefined) {
+            fats.monounsaturated = monounsaturatedFat;
+        }
+        if (polyunsaturatedFat !== undefined) {
+            fats.polyunsaturated = polyunsaturatedFat;
+        }
         
+        if (fat !== undefined && saturatedFat !== undefined && monounsaturatedFat === undefined && polyunsaturatedFat === undefined) {
+            const unsaturated = fat - (saturatedFat || 0) - (transFat || 0);
+            fats.monounsaturated = Math.max(0, unsaturated);
+        }
+
         if (Object.keys(fats).length > 0) {
             servingMacros.fats = fats;
         }
@@ -514,3 +526,5 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
+
+    
