@@ -26,7 +26,7 @@ import { isWithinUserDay } from "@/lib/utils"
 import { Button } from "./ui/button"
 import { Edit } from "lucide-react"
 import { EditGoalsDialog } from "./edit-goals-dialog"
-import { getPersonalDetails } from "../app/actions"
+import { getClientPersonalDetails } from "../app/actions"
 
 
 const chartConfig = {
@@ -64,7 +64,7 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
   
   React.useEffect(() => {
     async function loadDetails() {
-        const details = await getPersonalDetails();
+        const details = await getClientPersonalDetails();
         setPersonalDetails(details);
     }
     if (isGoalsDialogOpen) {
