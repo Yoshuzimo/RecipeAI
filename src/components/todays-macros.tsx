@@ -236,12 +236,11 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
       </CardFooter>
     </Card>
 
-    {isGoalsDialogOpen && settings && personalDetails && (
+    {isGoalsDialogOpen && settings && (
         <EditGoalsDialog
             isOpen={isGoalsDialogOpen}
             setIsOpen={setIsGoalsDialogOpen}
             settings={settings}
-            personalDetails={personalDetails}
             onGoalsUpdated={handleGoalsUpdated}
         />
     )}
