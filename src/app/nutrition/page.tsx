@@ -76,8 +76,13 @@ export default function NutritionPage() {
                 acc.protein += meal.totals.protein || 0;
                 acc.carbs += meal.totals.carbs || 0;
                 acc.fat += meal.totals.fat || 0;
+                acc.fiber += meal.totals.fiber || 0;
+                acc.fats.saturated += meal.totals.fats?.saturated || 0;
+                acc.fats.monounsaturated += meal.totals.fats?.monounsaturated || 0;
+                acc.fats.polyunsaturated += meal.totals.fats?.polyunsaturated || 0;
+                acc.fats.trans += meal.totals.fats?.trans || 0;
                 return acc;
-            }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+            }, getEmptyTotals());
 
             return {
                 day: format(date, 'M/d'),
@@ -102,8 +107,13 @@ export default function NutritionPage() {
                 acc.protein += meal.totals.protein || 0;
                 acc.carbs += meal.totals.carbs || 0;
                 acc.fat += meal.totals.fat || 0;
+                acc.fiber += meal.totals.fiber || 0;
+                acc.fats.saturated += meal.totals.fats?.saturated || 0;
+                acc.fats.monounsaturated += meal.totals.fats?.monounsaturated || 0;
+                acc.fats.polyunsaturated += meal.totals.fats?.polyunsaturated || 0;
+                acc.fats.trans += meal.totals.fats?.trans || 0;
                 return acc;
-            }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+            }, getEmptyTotals());
 
             return {
                 day: format(day, 'E'),
@@ -185,7 +195,7 @@ export default function NutritionPage() {
                 <CalorieLineChart data={dataForCharts} timeframe={timeframe} settings={settings} onDataChange={fetchData} />
             </CardContent>
          </Card>
-        <NutritionChart data={dataForCharts} timeframe={timeframe} />
+        <NutritionChart data={dataForCharts} timeframe={timeframe} settings={settings} />
         
         {myPendingMeals.length > 0 && (
           <div className="space-y-4">

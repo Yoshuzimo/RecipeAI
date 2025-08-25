@@ -18,6 +18,7 @@ import {
   ChartLegend,
   ChartLegendContent
 } from "@/components/ui/chart"
+import type { Settings } from "@/lib/types"
 
 const chartConfig = {
   protein: {
@@ -46,26 +47,45 @@ const chartConfig = {
 }
 
 
-export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "daily" | "weekly" | "monthly" }) {
+export function NutritionChart({ data, timeframe, settings }: { 
+    data: any[], 
+    timeframe: "daily" | "weekly" | "monthly",
+    settings: Settings | null 
+}) {
 
   const chartData = React.useMemo(() => {
+    const goals = {
+        protein: settings?.proteinGoal || 1,
+        carbs: settings?.carbsGoal || 1,
+        fat: settings?.fatGoal || 1,
+        fiber: settings?.fiberGoal || 1,
+    };
+    
+    // For fat breakdown, we'll use total fat goal as the denominator for percentages.
+    const fatGoal = goals.fat > 0 ? goals.fat : 1;
+
     const processData = (d: any) => {
         const totals = d.totals || d;
         const unsaturated = (totals.fats?.monounsaturated || 0) + (totals.fats?.polyunsaturated || 0);
+
         return {
             name: d.meal || d.day,
-            protein: totals.protein || 0,
-            carbs: totals.carbs || 0,
-            fat: totals.fat || 0,
-            fiber: totals.fiber || 0,
-            saturated: totals.fats?.saturated || 0,
-            unsaturated: unsaturated,
+            protein: (totals.protein / goals.protein) * 100,
+            carbs: (totals.carbs / goals.carbs) * 100,
+            fiber: (totals.fiber / goals.fiber) * 100,
+            saturated: (totals.fats?.saturated / fatGoal) * 100,
+            unsaturated: (unsaturated / fatGoal) * 100,
+            proteinGrams: totals.protein,
+            carbsGrams: totals.carbs,
+            fiberGrams: totals.fiber,
+            saturatedGrams: totals.fats?.saturated,
+            unsaturatedGrams: unsaturated,
             dishes: d.dishes,
         }
     };
     
     return data.map(processData);
-  }, [data]);
+  }, [data, settings]);
 
   const DailyCustomTick = (props: any) => {
     const { x, y, payload } = props;
@@ -119,7 +139,7 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => `${value}g`}
+                tickFormatter={(value) => `${value}%`}
             />
             <ChartTooltipContainer 
                 content={
@@ -129,8 +149,9 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
                             if (!payload || !name) return null;
                             const key = name.toString() as keyof typeof chartConfig;
                             const label = chartConfig[key]?.label || name;
+                            const gramValue = payload[`${key}Grams`] || 0;
                             if (Number(value) === 0) return null;
-                            return `${label}: ${Number(value).toFixed(0)}g`;
+                            return `${label}: ${Number(gramValue).toFixed(0)}g`;
                         }}
                         labelFormatter={(label) => {
                             if (timeframe === 'weekly' || timeframe === 'monthly') {
