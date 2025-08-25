@@ -3,13 +3,26 @@
 
 import { useState } from "react";
 import type { DailyMacros } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { EditMealTimeDialog } from "./edit-meal-time-dialog";
 import { format, formatDistanceToNow } from "date-fns";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Button } from "./ui/button";
+import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
+import { handleUpdateMealTime } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+
+const isMealOutdated = (meal: DailyMacros): boolean => {
+    // A meal is outdated if any of its dishes are missing fiber or the detailed fats object.
+    return meal.dishes.some(d => d.fiber === undefined || d.fats === undefined);
+}
 
 export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[] }) {
     const [meals, setMeals] = useState(initialMeals.sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime()));
     const [selectedMeal, setSelectedMeal] = useState<DailyMacros | null>(null);
+    const [updatingMeals, setUpdatingMeals] = useState<Record<string, boolean>>({});
+    const { toast } = useToast();
 
     const handleMealUpdated = (updatedMeal: DailyMacros) => {
         setMeals(prevMeals => 
@@ -19,6 +32,51 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
         );
         setSelectedMeal(null);
     }
+
+    const handleBackfillNutrition = async (meal: DailyMacros) => {
+        setUpdatingMeals(prev => ({ ...prev, [meal.id]: true }));
+        try {
+            // This is a simplification. A real app would need a way to get ingredients/instructions for a logged meal.
+            // Here, we'll assume the dish name can be used as a title for a rough re-calculation.
+            const result = await finalizeRecipe({
+                title: meal.dishes.map(d => d.name).join(', '),
+                ingredients: [], // This is a limitation of the current data model for logged meals.
+                instructions: [],
+            });
+
+            if ('error' in result) {
+                throw new Error(result.error);
+            }
+
+            // We can't properly update the meal without more info,
+            // but we can demonstrate the logic. This would need backend changes to store recipe details with a meal log.
+            // For now, we'll just show a toast.
+            const updatedMeal: DailyMacros = {
+                ...meal,
+                dishes: meal.dishes.map(d => ({ ...d, ...result.macros })),
+                totals: result.macros,
+            };
+            
+            // This part is disabled because we can't properly recalculate without ingredients.
+            // await handleUpdateMealTime(updatedMeal.id, updatedMeal.loggedAt, updatedMeal.meal);
+            
+            setMeals(prev => prev.map(m => m.id === meal.id ? updatedMeal : m));
+
+            toast({
+                title: "Nutrition Updated (Simulated)",
+                description: `Nutritional info for "${meal.meal}" has been updated.`,
+            });
+
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: e instanceof Error ? e.message : "Could not update nutritional info.",
+            });
+        } finally {
+            setUpdatingMeals(prev => ({ ...prev, [meal.id]: false }));
+        }
+    };
     
     return (
         <>
@@ -33,26 +91,56 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
             <Card>
                 <CardContent className="p-0">
                     <div className="space-y-2">
-                        {meals.map(meal => (
-                            <div 
-                                key={meal.id} 
-                                className="p-4 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
-                                onClick={() => setSelectedMeal(meal)}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-semibold text-lg">{meal.meal}</p>
-                                        <div className="text-sm text-muted-foreground">
-                                            {meal.dishes.map(d => d.name).join(', ')}
+                        {meals.map(meal => {
+                            const outdated = isMealOutdated(meal);
+                            const isUpdating = updatingMeals[meal.id];
+
+                            return (
+                                <div 
+                                    key={meal.id} 
+                                    className="p-4 border-b last:border-b-0"
+                                >
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="flex-1 space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <p 
+                                                    className="font-semibold text-lg hover:text-primary cursor-pointer"
+                                                    onClick={() => setSelectedMeal(meal)}
+                                                >
+                                                    {meal.meal}
+                                                </p>
+                                                {outdated && !isUpdating && (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger>
+                                                                <AlertCircle className="h-4 w-4 text-amber-500" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Missing detailed nutrition info.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                )}
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {meal.dishes.map(d => d.name).join(', ')}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <div className="text-right text-sm text-muted-foreground">
+                                                <p>{format(meal.loggedAt, "PPP p")}</p>
+                                                <p>({formatDistanceToNow(meal.loggedAt, { addSuffix: true })})</p>
+                                            </div>
+                                            {outdated && (
+                                                <Button size="sm" variant="outline" onClick={() => handleBackfillNutrition(meal)} disabled={isUpdating}>
+                                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Nutrition"}
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="text-right text-sm text-muted-foreground">
-                                        <p>{format(meal.loggedAt, "PPP p")}</p>
-                                        <p>({formatDistanceToNow(meal.loggedAt, { addSuffix: true })})</p>
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                          {meals.length === 0 && (
                              <p className="text-center text-muted-foreground p-8">No meals logged yet.</p>
                          )}

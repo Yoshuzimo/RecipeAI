@@ -40,7 +40,7 @@ const chartConfig = {
   },
   saturated: {
     label: "Saturated (g)",
-    color: "hsl(262.1 83.3% 57.8%)",
+    color: "hsl(var(--chart-5))",
   },
   monounsaturated: {
     label: "Monounsaturated (g)",
@@ -64,7 +64,7 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             protein: d.totals.protein,
             carbs: d.totals.carbs,
             fat: d.totals.fat,
-            fiber: d.totals.fiber,
+            fiber: d.totals.fiber || 0,
             saturated: d.totals.fats?.saturated || 0,
             monounsaturated: d.totals.fats?.monounsaturated || 0,
             polyunsaturated: d.totals.fats?.polyunsaturated || 0,
@@ -77,7 +77,7 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             protein: d.protein,
             carbs: d.carbs,
             fat: d.fat,
-            fiber: d.fiber,
+            fiber: d.fiber || 0,
             saturated: d.fats?.saturated || 0,
             monounsaturated: d.fats?.monounsaturated || 0,
             polyunsaturated: d.fats?.polyunsaturated || 0,
@@ -145,7 +145,8 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
                         formatter={(value, name, props) => {
                             const { payload } = props;
                             if (!payload || !name) return null;
-                            const label = chartConfig[name.toLowerCase() as keyof typeof chartConfig]?.label || name;
+                            const key = name.toString() as keyof typeof chartConfig;
+                            const label = chartConfig[key]?.label || name;
                             return `${label}: ${Number(value).toFixed(0)}g`;
                         }}
                         labelFormatter={(label) => {

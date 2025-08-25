@@ -32,15 +32,19 @@ import { getClientPersonalDetails } from "../app/actions"
 const chartConfig = {
   protein: {
     label: "Protein",
-    color: "hsl(var(--primary))",
+    color: "hsl(var(--chart-1))",
   },
   carbs: {
     label: "Carbs",
-    color: "hsl(var(--accent))",
+    color: "hsl(var(--chart-2))",
   },
   fat: {
     label: "Fat",
-    color: "hsl(var(--secondary-foreground))",
+    color: "hsl(var(--chart-3))",
+  },
+  fiber: {
+    label: "Fiber",
+    color: "hsl(var(--chart-4))",
   },
    dishes: {
     label: "Dishes"
@@ -102,15 +106,16 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
      return mealOrder.map(mealName => {
         const mealData = dataMap.get(mealName);
         if (mealData) {
-            const calories = (mealData.totals.protein * 4) + (mealData.totals.carbs * 4) + (mealData.totals.fat * 9);
             return {
                 meal: mealData.meal,
                 protein: goals.protein > 0 ? (mealData.totals.protein / goals.protein) * 100 : 0,
                 carbs: goals.carbs > 0 ? (mealData.totals.carbs / goals.carbs) * 100 : 0,
                 fat: goals.fat > 0 ? (mealData.totals.fat / goals.fat) * 100 : 0,
+                fiber: goals.fiber > 0 ? ((mealData.totals.fiber || 0) / goals.fiber) * 100 : 0,
                 proteinGrams: mealData.totals.protein,
                 carbsGrams: mealData.totals.carbs,
                 fatGrams: mealData.totals.fat,
+                fiberGrams: mealData.totals.fiber || 0,
                 dishes: mealData.dishes,
             }
         }
@@ -119,9 +124,11 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
             protein: 0,
             carbs: 0,
             fat: 0,
+            fiber: 0,
             proteinGrams: 0,
             carbsGrams: 0,
             fatGrams: 0,
+            fiberGrams: 0,
             dishes: [],
         }
      });
@@ -185,7 +192,8 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
                         <ChartTooltipContent
                         formatter={(value, name, item) => {
                             const originalGrams = item.payload[`${name}Grams`];
-                            return `${originalGrams.toFixed(0)}g`;
+                            const label = chartConfig[name as keyof typeof chartConfig]?.label || name;
+                            return `${label}: ${originalGrams.toFixed(0)}g`;
                         }}
                         />
                     }
@@ -194,6 +202,7 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
                 <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
                 <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
                 <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
+                <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
             </BarChart>
         </ChartContainer>
       </CardContent>
