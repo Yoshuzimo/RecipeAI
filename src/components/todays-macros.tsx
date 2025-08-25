@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -19,9 +20,13 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart"
 import { Separator } from "./ui/separator"
-import type { DailyMacros, Settings } from "@/lib/types"
+import type { DailyMacros, Settings, PersonalDetails } from "@/lib/types"
 import { CalorieLineChart } from "./ui/calorie-line-chart"
 import { isWithinUserDay } from "@/lib/utils"
+import { Button } from "./ui/button"
+import { Edit } from "lucide-react"
+import { EditGoalsDialog } from "./edit-goals-dialog"
+import { getPersonalDetails } from "../app/actions"
 
 
 const chartConfig = {
@@ -44,12 +49,29 @@ const chartConfig = {
 
 const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-export function TodaysMacros({ dailyData, settings, onDataChange }: {
+export function TodaysMacros({ dailyData, settings: initialSettings, onDataChange }: {
     dailyData: DailyMacros[],
     settings: Settings | null,
     onDataChange: () => void,
 }) {
+  const [settings, setSettings] = React.useState(initialSettings);
+  const [isGoalsDialogOpen, setIsGoalsDialogOpen] = React.useState(false);
+  const [personalDetails, setPersonalDetails] = React.useState<PersonalDetails | null>(null);
+
+  React.useEffect(() => {
+    setSettings(initialSettings);
+  }, [initialSettings]);
   
+  React.useEffect(() => {
+    async function loadDetails() {
+        const details = await getPersonalDetails();
+        setPersonalDetails(details);
+    }
+    if (isGoalsDialogOpen) {
+        loadDetails();
+    }
+  }, [isGoalsDialogOpen]);
+
   const todaysData = React.useMemo(() => {
     const dayStartTime = settings?.dayStartTime || "00:00";
     return dailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
@@ -119,8 +141,14 @@ export function TodaysMacros({ dailyData, settings, onDataChange }: {
       </g>
     );
   };
+
+  const handleGoalsUpdated = (newSettings: Settings) => {
+    setSettings(newSettings);
+    onDataChange(); // Refresh parent data if needed
+  }
   
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Today's Breakdown</CardTitle>
@@ -174,13 +202,27 @@ export function TodaysMacros({ dailyData, settings, onDataChange }: {
                 <p className="text-xs text-green-600">{remaining.carbs.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
-             <div>
+             <div className="relative">
                 <p className="text-sm text-muted-foreground">Fat</p>
                 <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.fat}g</span></p>
                 <p className="text-xs text-green-600">{remaining.fat.toFixed(0)}g left</p>
+                <Button variant="ghost" size="icon" className="absolute -top-2 -right-8 h-6 w-6" onClick={() => setIsGoalsDialogOpen(true)}>
+                    <Edit className="h-3 w-3" />
+                </Button>
             </div>
         </div>
       </CardFooter>
     </Card>
+
+    {isGoalsDialogOpen && settings && personalDetails && (
+        <EditGoalsDialog
+            isOpen={isGoalsDialogOpen}
+            setIsOpen={setIsGoalsDialogOpen}
+            settings={settings}
+            personalDetails={personalDetails}
+            onGoalsUpdated={handleGoalsUpdated}
+        />
+    )}
+    </>
   )
 }

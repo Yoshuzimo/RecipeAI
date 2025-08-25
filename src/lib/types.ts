@@ -72,11 +72,11 @@ export type Settings = {
     aiFeatures: boolean;
     e2eEncryption: boolean;
     expiryNotifications: boolean;
-    calorieGoal?: number;
-    proteinGoal?: number;
-    carbsGoal?: number;
-    fatGoal?: number;
-    dayStartTime?: string;
+    calorieGoal: number;
+    proteinGoal: number;
+    carbsGoal: number;
+    fatGoal: number;
+    dayStartTime: string;
 }
 
 export type RecipeIngredient = {
