@@ -1,5 +1,7 @@
 
+
 import { z } from 'zod';
+import { MacrosSchema } from './shared';
 
 export const FinalizeRecipeInputSchema = z.object({
     title: z.string(),
@@ -10,12 +12,7 @@ export type FinalizeRecipeInput = z.infer<typeof FinalizeRecipeInputSchema>;
 
 export const FinalizeRecipeOutputSchema = z.object({
     servings: z.number().int().positive(),
-    macros: z.object({
-        calories: z.number(),
-        protein: z.number(),
-        carbs: z.number(),
-        fat: z.number(),
-    }),
+    macros: MacrosSchema,
 });
 export type FinalizeRecipeOutput = z.infer<typeof FinalizeRecipeOutputSchema>;
 

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useTransition, useRef } from "react";
@@ -31,6 +32,7 @@ const formSchema = z.object({
   proteinGoal: z.coerce.number().int().min(0, "Must be a positive number."),
   carbsGoal: z.coerce.number().int().min(0, "Must be a positive number."),
   fatGoal: z.coerce.number().int().min(0, "Must be a positive number."),
+  fiberGoal: z.coerce.number().int().min(0, "Must be a positive number.").optional(),
 });
 
 export function EditGoalsDialog({
@@ -60,6 +62,7 @@ export function EditGoalsDialog({
       proteinGoal: settings.proteinGoal,
       carbsGoal: settings.carbsGoal,
       fatGoal: settings.fatGoal,
+      fiberGoal: settings.fiberGoal,
     },
   });
 
@@ -70,6 +73,7 @@ export function EditGoalsDialog({
         proteinGoal: settings.proteinGoal,
         carbsGoal: settings.carbsGoal,
         fatGoal: settings.fatGoal,
+        fiberGoal: settings.fiberGoal,
       });
       setConversation(personalDetails.goalConversation || []);
       setUserResponse("");
@@ -144,7 +148,7 @@ export function EditGoalsDialog({
             Set your daily targets for calories and macronutrients. You can also ask our AI for help!
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[450px] overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[500px] overflow-hidden">
             {/* Left side: Form */}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -152,11 +156,12 @@ export function EditGoalsDialog({
                     <FormField control={form.control} name="proteinGoal" render={({ field }) => ( <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={form.control} name="carbsGoal" render={({ field }) => ( <FormItem><FormLabel>Carbohydrates (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={form.control} name="fatGoal" render={({ field }) => ( <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fiberGoal" render={({ field }) => ( <FormItem><FormLabel>Fiber (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                 </form>
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4 space-y-4">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4 h-full">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>

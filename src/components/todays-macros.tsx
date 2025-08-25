@@ -84,8 +84,9 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
         acc.protein += meal.totals.protein;
         acc.carbs += meal.totals.carbs;
         acc.fat += meal.totals.fat;
+        acc.fiber += meal.totals.fiber || 0;
         return acc;
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
   }, [todaysData]);
 
   const goals = {
@@ -93,6 +94,7 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
       protein: settings?.proteinGoal || 150,
       carbs: settings?.carbsGoal || 250,
       fat: settings?.fatGoal || 70,
+      fiber: settings?.fiberGoal || 30,
   }
 
   const chartData = React.useMemo(() => {
@@ -130,6 +132,7 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
     protein: Math.max(0, goals.protein - totals.protein),
     carbs: Math.max(0, goals.carbs - totals.carbs),
     fat: Math.max(0, goals.fat - totals.fat),
+    fiber: Math.max(0, goals.fiber - totals.fiber),
   }
 
   const CustomMacroTick = (props: any) => {
@@ -215,10 +218,16 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
                 <p className="text-xs text-green-600">{remaining.carbs.toFixed(0)}g left</p>
             </div>
             <Separator orientation="vertical" className="h-auto" />
-             <div className="relative">
+             <div>
                 <p className="text-sm text-muted-foreground">Fat</p>
                 <p className="font-bold text-lg">{totals.fat.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.fat}g</span></p>
                 <p className="text-xs text-green-600">{remaining.fat.toFixed(0)}g left</p>
+            </div>
+            <Separator orientation="vertical" className="h-auto" />
+             <div className="relative">
+                <p className="text-sm text-muted-foreground">Fiber</p>
+                <p className="font-bold text-lg">{totals.fiber.toFixed(0)}g / <span className="text-muted-foreground font-normal">{goals.fiber}g</span></p>
+                <p className="text-xs text-green-600">{remaining.fiber.toFixed(0)}g left</p>
                 <Button variant="ghost" size="icon" className="absolute -top-2 -right-8 h-6 w-6" onClick={() => setIsGoalsDialogOpen(true)}>
                     <Edit className="h-3 w-3" />
                 </Button>

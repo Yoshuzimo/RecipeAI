@@ -1,11 +1,21 @@
 
+
 import { z } from 'zod';
+
+export const DetailedFatsSchema = z.object({
+    saturated: z.number().optional(),
+    monounsaturated: z.number().optional(),
+    polyunsaturated: z.number().optional(),
+    trans: z.number().optional(),
+});
 
 export const MacrosSchema = z.object({
     calories: z.number(),
     protein: z.number(),
     carbs: z.number(),
     fat: z.number(),
+    fiber: z.number().optional(),
+    fats: DetailedFatsSchema.optional(),
 });
 
 export const RecipeSchema = z.object({

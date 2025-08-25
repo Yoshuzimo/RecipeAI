@@ -63,6 +63,11 @@ const formSchema = z.object({
   protein: z.coerce.number().optional(),
   carbs: z.coerce.number().optional(),
   fat: z.coerce.number().optional(),
+  fiber: z.coerce.number().optional(),
+  saturatedFat: z.coerce.number().optional(),
+  monounsaturatedFat: z.coerce.number().optional(),
+  polyunsaturatedFat: z.coerce.number().optional(),
+  transFat: z.coerce.number().optional(),
 }).refine(data => {
     if (data.doesNotExpire) return true;
     return !!data.expiryDate;
@@ -73,7 +78,7 @@ const formSchema = z.object({
     if (!data.hasMacros) return true;
     return data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
 }, {
-    message: "All macro fields must be filled if nutrition is enabled.",
+    message: "Calories, Protein, Carbs, and Fat fields must be filled if nutrition is enabled.",
     path: ["macros"],
 });
 
@@ -177,6 +182,13 @@ export function AddInventoryItemDialog({
               protein: values.protein!,
               carbs: values.carbs!,
               fat: values.fat!,
+              fiber: values.fiber,
+              fats: {
+                saturated: values.saturatedFat,
+                monounsaturated: values.monounsaturatedFat,
+                polyunsaturated: values.polyunsaturatedFat,
+                trans: values.transFat
+              }
           }
       }
 
@@ -375,7 +387,18 @@ export function AddInventoryItemDialog({
                  </div>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
-                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
                  </div>
               </CollapsibleContent>
             </Collapsible>

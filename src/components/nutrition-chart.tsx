@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -23,15 +24,31 @@ import type { DailyMacros } from "@/lib/types"
 const chartConfig = {
   protein: {
     label: "Protein (g)",
-    color: "hsl(var(--primary))",
+    color: "hsl(var(--chart-1))",
   },
   carbs: {
     label: "Carbs (g)",
-    color: "hsl(var(--accent))",
+    color: "hsl(var(--chart-2))",
   },
   fat: {
-    label: "Fat (g)",
-    color: "hsl(var(--secondary-foreground))",
+    label: "Total Fat (g)",
+    color: "hsl(var(--chart-3))",
+  },
+  fiber: {
+    label: "Fiber (g)",
+    color: "hsl(var(--chart-4))",
+  },
+  saturated: {
+    label: "Saturated (g)",
+    color: "hsl(262.1 83.3% 57.8%)",
+  },
+  monounsaturated: {
+    label: "Monounsaturated (g)",
+    color: "hsl(180 83.3% 57.8%)",
+  },
+  polyunsaturated: {
+    label: "Polyunsaturated (g)",
+    color: "hsl(60 83.3% 57.8%)",
   },
   dishes: {
     label: "Dishes"
@@ -47,6 +64,10 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             protein: d.totals.protein,
             carbs: d.totals.carbs,
             fat: d.totals.fat,
+            fiber: d.totals.fiber,
+            saturated: d.totals.fats?.saturated || 0,
+            monounsaturated: d.totals.fats?.monounsaturated || 0,
+            polyunsaturated: d.totals.fats?.polyunsaturated || 0,
             dishes: d.dishes,
         }));
     }
@@ -56,6 +77,10 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             protein: d.protein,
             carbs: d.carbs,
             fat: d.fat,
+            fiber: d.fiber,
+            saturated: d.fats?.saturated || 0,
+            monounsaturated: d.fats?.monounsaturated || 0,
+            polyunsaturated: d.fats?.polyunsaturated || 0,
         }));
     }
     return [];
@@ -144,6 +169,10 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
             <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
+            <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
+            <Bar dataKey="saturated" fill="var(--color-saturated)" radius={4} />
+            <Bar dataKey="monounsaturated" fill="var(--color-monounsaturated)" radius={4} />
+            <Bar dataKey="polyunsaturated" fill="var(--color-polyunsaturated)" radius={4} />
           </BarChart>
         </ChartContainer>
       </CardContent>

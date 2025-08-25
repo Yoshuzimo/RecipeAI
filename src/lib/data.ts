@@ -40,6 +40,7 @@ export const seedInitialData = async (db: Firestore, userId: string) => {
         proteinGoal: 150,
         carbsGoal: 250,
         fatGoal: 70,
+        fiberGoal: 30,
         dayStartTime: "00:00",
     });
 
@@ -693,6 +694,7 @@ export async function getSettings(db: Firestore, userId: string): Promise<Settin
             proteinGoal: 150,
             carbsGoal: 250,
             fatGoal: 70,
+            fiberGoal: 30,
             dayStartTime: "00:00",
         };
         await settingsDocRef.set(defaultSettings);
@@ -730,10 +732,18 @@ export async function logMacros(db: Firestore, userId: string, mealType: "Breakf
         const docRef = snapshot.docs[0].ref;
         const existingLog = snapshot.docs[0].data() as DailyMacros;
         const updatedDishes = [...existingLog.dishes, newDish];
-        const updatedTotals = {
-            protein: existingLog.totals.protein + macros.protein,
-            carbs: existingLog.totals.carbs + macros.carbs,
-            fat: existingLog.totals.fat + macros.fat,
+        const updatedTotals: Macros = {
+            protein: (existingLog.totals.protein || 0) + (macros.protein || 0),
+            carbs: (existingLog.totals.carbs || 0) + (macros.carbs || 0),
+            fat: (existingLog.totals.fat || 0) + (macros.fat || 0),
+            calories: (existingLog.totals.calories || 0) + (macros.calories || 0),
+            fiber: (existingLog.totals.fiber || 0) + (macros.fiber || 0),
+            fats: {
+                saturated: (existingLog.totals.fats?.saturated || 0) + (macros.fats?.saturated || 0),
+                monounsaturated: (existingLog.totals.fats?.monounsaturated || 0) + (macros.fats?.monounsaturated || 0),
+                polyunsaturated: (existingLog.totals.fats?.polyunsaturated || 0) + (macros.fats?.polyunsaturated || 0),
+                trans: (existingLog.totals.fats?.trans || 0) + (macros.fats?.trans || 0),
+            }
         };
         await docRef.update({ dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp });
         return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp };

@@ -8,11 +8,20 @@ export type StorageLocation = {
   type: 'Fridge' | 'Freezer' | 'Pantry';
 };
 
+export type DetailedFats = {
+    saturated?: number;
+    monounsaturated?: number;
+    polyunsaturated?: number;
+    trans?: number;
+};
+
 export type Macros = {
     calories: number;
     protein: number;
     carbs: number;
     fat: number;
+    fiber?: number;
+    fats?: DetailedFats;
 };
 
 export type InventoryItem = {
@@ -82,6 +91,7 @@ export type Settings = {
     proteinGoal: number;
     carbsGoal: number;
     fatGoal: number;
+    fiberGoal?: number;
     dayStartTime: string;
 }
 
