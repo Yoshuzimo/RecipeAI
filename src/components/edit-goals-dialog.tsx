@@ -51,7 +51,7 @@ export function EditGoalsDialog({
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isAiPending, startAiTransition] = useTransition();
-  const [conversation, setConversation] = useState<ConversationEntry[]>(personalDetails.goalConversation || []);
+  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [userResponse, setUserResponse] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -148,7 +148,7 @@ export function EditGoalsDialog({
             Set your daily targets for calories and macronutrients. You can also ask our AI for help!
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[500px] overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[500px] py-4">
             {/* Left side: Form */}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -161,7 +161,7 @@ export function EditGoalsDialog({
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4 space-y-4 h-full">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
