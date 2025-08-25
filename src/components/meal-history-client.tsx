@@ -39,6 +39,25 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
         setSelectedMeal(null);
     }
 
+    const handleDishMoved = (updatedOriginalMeal?: DailyMacros, newMeal?: DailyMacros) => {
+        setMeals(prevMeals => {
+            let newMeals = [...prevMeals];
+            if (updatedOriginalMeal) {
+                // If original meal still has dishes, update it. Otherwise, remove it.
+                if (updatedOriginalMeal.dishes.length > 0) {
+                    newMeals = newMeals.map(m => m.id === updatedOriginalMeal.id ? updatedOriginalMeal : m);
+                } else {
+                    newMeals = newMeals.filter(m => m.id !== updatedOriginalMeal.id);
+                }
+            }
+            if (newMeal) {
+                newMeals.push(newMeal);
+            }
+            return newMeals.sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime());
+        });
+        setSelectedMeal(null);
+    };
+
 
     const handleBackfillNutrition = async (meal: DailyMacros) => {
         setUpdatingMeals(prev => ({ ...prev, [meal.id]: true }));
@@ -55,13 +74,9 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
                 throw new Error(result.error);
             }
             
-            const updatedMealLog: DailyMacros = {
-                ...meal,
-                dishes: meal.dishes.map(d => ({ ...d, ...result.macros })),
-                totals: result.macros,
-            };
+            const updatedDishes = meal.dishes.map(d => ({ ...d, ...result.macros }));
             
-            const saveResult = await handleUpdateMealLog(updatedMealLog.id, updatedMealLog.dishes, updatedMealLog.meal, updatedMealLog.loggedAt);
+            const saveResult = await handleUpdateMealLog(meal.id, updatedDishes);
 
 
             if (saveResult.success && saveResult.updatedMeal) {
@@ -178,6 +193,7 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
                 meal={selectedMeal}
                 onMealUpdated={handleMealUpdated}
                 onMealDeleted={handleMealDeleted}
+                onDishMoved={handleDishMoved}
             />
         )}
         </>

@@ -1,7 +1,7 @@
 
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
 
@@ -751,6 +751,72 @@ export async function updateMealLog(db: Firestore, userId: string, mealId: strin
         meal: mealLogData.meal,
     } as DailyMacros;
 }
+
+export async function moveDishToNewMeal(
+    db: Firestore, 
+    userId: string, 
+    originalMeal: DailyMacros, 
+    dishToMove: LoggedDish, 
+    newMealType: DailyMacros['meal'], 
+    newLoggedAt: Date
+): Promise<{ updatedOriginalMeal?: DailyMacros, newMeal: DailyMacros }> {
+    return db.runTransaction(async (transaction) => {
+        const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
+        const originalMealRef = dailyMacrosCollection.doc(originalMeal.id);
+
+        // 1. Create the new meal log for the moved dish
+        const newMealLog: Omit<DailyMacros, 'id'> = {
+            meal: newMealType,
+            dishes: [dishToMove],
+            totals: {
+                calories: dishToMove.calories,
+                protein: dishToMove.protein,
+                carbs: dishToMove.carbs,
+                fat: dishToMove.fat,
+                fiber: dishToMove.fiber,
+                fats: dishToMove.fats,
+            },
+            loggedAt: newLoggedAt,
+        };
+        const newMealRef = dailyMacrosCollection.doc();
+        transaction.set(newMealRef, newMealLog);
+        
+        // 2. Update the original meal log
+        const remainingDishes = originalMeal.dishes.filter(d => d.name !== dishToMove.name); // Simple name check for now
+        
+        let updatedOriginalMeal: DailyMacros | undefined;
+
+        if (remainingDishes.length === 0) {
+            // If no dishes are left, delete the original meal log
+            transaction.delete(originalMealRef);
+            updatedOriginalMeal = { ...originalMeal, dishes: [] }; // Signal deletion
+        } else {
+            // Otherwise, update the original meal log with remaining dishes and recalculated totals
+            const newTotals = remainingDishes.reduce((acc, dish) => {
+                acc.calories += dish.calories || 0;
+                acc.protein += dish.protein || 0;
+                acc.carbs += dish.carbs || 0;
+                acc.fat += dish.fat || 0;
+                acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+                // Simplified fat recalculation
+                return acc;
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: {} });
+
+            const updateData = { dishes: remainingDishes, totals: newTotals };
+            transaction.update(originalMealRef, updateData);
+            
+            updatedOriginalMeal = {
+                ...originalMeal,
+                ...updateData,
+            };
+        }
+        
+        const newMeal: DailyMacros = { ...newMealLog, id: newMealRef.id };
+
+        return { updatedOriginalMeal, newMeal };
+    });
+}
+
 
 export async function deleteMealLog(db: Firestore, userId: string, mealId: string): Promise<void> {
     const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);

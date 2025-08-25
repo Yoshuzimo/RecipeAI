@@ -46,6 +46,7 @@ import {
     updateItemThreshold as dataUpdateItemThreshold,
     createPendingMeal as dataCreatePendingMeal,
     processMealConfirmation as dataProcessMealConfirmation,
+    moveDishToNewMeal as dataMoveDishToNewMeal,
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { parseIngredient } from "@/lib/utils";
@@ -195,17 +196,8 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
     return await dataUpdateInventoryItem(db, userId, updatedItem);
 }
 
-export async function handleUpdateMealTime(mealId: string, newTime: Date, mealType: DailyMacros['meal']): Promise<{success: boolean, error?: string | null, updatedMeal?: DailyMacros}> {
-    const userId = await getCurrentUserId();
-    try {
-        const updatedMeal = await dataUpdateMealLog(db, userId, mealId, { loggedAt: newTime, meal: mealType });
-        return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
-    } catch(e) {
-        return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
-    }
-}
 
-export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[], mealType: DailyMacros['meal'], loggedAt: Date): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros }> {
+export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[]): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros }> {
     const userId = await getCurrentUserId();
     try {
         // Recalculate totals based on the updated dishes
@@ -227,8 +219,6 @@ export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedD
         const updatedData: Partial<DailyMacros> = {
             dishes: updatedDishes,
             totals: newTotals,
-            meal: mealType,
-            loggedAt,
         };
 
         const updatedMeal = await dataUpdateMealLog(db, userId, mealId, updatedData);
@@ -236,6 +226,21 @@ export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedD
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
     }
+}
+
+export async function handleMoveDishToNewMeal(
+    originalMeal: DailyMacros,
+    dishToMove: LoggedDish,
+    newMealType: DailyMacros['meal'],
+    newLoggedAt: Date
+): Promise<{ success: boolean; error?: string | null; updatedOriginalMeal?: DailyMacros, newMeal?: DailyMacros }> {
+     const userId = await getCurrentUserId();
+     try {
+        const { newMeal, updatedOriginalMeal } = await dataMoveDishToNewMeal(db, userId, originalMeal, dishToMove, newMealType, newLoggedAt);
+        return { success: true, error: null, newMeal, updatedOriginalMeal };
+     } catch (e) {
+         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
+     }
 }
 
 
