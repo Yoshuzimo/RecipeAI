@@ -83,8 +83,11 @@ export function EditGoalsDialog({
   }, [conversation]);
 
 
-  const handleAskAI = () => {
-    const currentHistory = [...conversation, {role: 'user', content: userResponse}];
+  const handleAskAI = (initialQuestion?: string) => {
+    const messageToSend = initialQuestion || userResponse;
+    if (!messageToSend) return;
+
+    const currentHistory = [...conversation, {role: 'user', content: messageToSend}];
     setConversation(currentHistory);
     
     startAiTransition(async () => {
@@ -160,8 +163,13 @@ export function EditGoalsDialog({
                 </div>
                  <ScrollArea className="flex-1 pr-3 h-64" ref={scrollAreaRef}>
                     <div className="space-y-4 text-sm">
-                        {conversation.length === 0 && (
-                            <div className="text-muted-foreground text-center py-10">Click "Ask AI" to start a conversation about your goals.</div>
+                        {conversation.length === 0 && !isAiPending && (
+                             <div className="text-muted-foreground text-center py-10 flex flex-col items-center gap-4">
+                                <p>Provide our AI with your details to get a personalized goal recommendation.</p>
+                                <Button type="button" onClick={() => handleAskAI("Can you help me set my nutrition goals?")} disabled={isAiPending}>
+                                    <Sparkles className="mr-2 h-4 w-4" /> Ask AI for Suggestions
+                                </Button>
+                             </div>
                         )}
                         {conversation.map((entry, index) => (
                             <div key={index} className={`p-3 rounded-lg ${entry.role === 'assistant' ? 'bg-muted' : 'bg-primary/10'}`}>
@@ -172,16 +180,18 @@ export function EditGoalsDialog({
                     </div>
                 </ScrollArea>
                 
-                <div className="mt-auto space-y-2">
-                    <Separator />
-                    <Label htmlFor="user-response">Your Answer</Label>
-                    <div className="flex gap-2">
-                        <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
-                        <Button type="button" size="icon" onClick={handleAskAI} disabled={isAiPending || !userResponse}>
-                            <Send className="h-4 w-4" />
-                        </Button>
+                 {conversation.length > 0 && (
+                    <div className="mt-auto space-y-2">
+                        <Separator />
+                        <Label htmlFor="user-response">Your Answer</Label>
+                        <div className="flex gap-2">
+                            <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
+                            <Button type="button" size="icon" onClick={() => handleAskAI()} disabled={isAiPending || !userResponse}>
+                                <Send className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                 )}
             </div>
         </div>
 
