@@ -13,7 +13,7 @@ import {
     removeInventoryItem as dataRemoveInventoryItem,
     getInventory,
     logMacros as dataLogMacros,
-    updateMealTime as dataUpdateMealTime,
+    updateMealLog as dataUpdateMealLog,
     saveRecipe as dataSaveRecipe,
     removeSavedRecipe as dataRemoveSavedRecipe,
     removeInventoryItems as dataRemoveInventoryItems,
@@ -110,6 +110,13 @@ export async function handleUpdateInventoryGroup(
                 protein: servingMacros.protein * scaleFactor,
                 carbs: servingMacros.carbs * scaleFactor,
                 fat: servingMacros.fat * scaleFactor,
+                fiber: servingMacros.fiber ? servingMacros.fiber * scaleFactor : undefined,
+                fats: servingMacros.fats ? {
+                    saturated: servingMacros.fats.saturated ? servingMacros.fats.saturated * scaleFactor : undefined,
+                    monounsaturated: servingMacros.fats.monounsaturated ? servingMacros.fats.monounsaturated * scaleFactor : undefined,
+                    polyunsaturated: servingMacros.fats.polyunsaturated ? servingMacros.fats.polyunsaturated * scaleFactor : undefined,
+                    trans: servingMacros.fats.trans ? servingMacros.fats.trans * scaleFactor : undefined,
+                } : undefined,
             };
             
             finalNutritionData = {
@@ -189,7 +196,17 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
 export async function handleUpdateMealTime(mealId: string, newTime: Date, mealType: DailyMacros['meal']): Promise<{success: boolean, error?: string | null, updatedMeal?: DailyMacros}> {
     const userId = await getCurrentUserId();
     try {
-        const updatedMeal = await dataUpdateMealTime(db, userId, mealId, newTime, mealType);
+        const updatedMeal = await dataUpdateMealLog(db, userId, mealId, { loggedAt: newTime, meal: mealType });
+        return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
+    } catch(e) {
+        return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
+    }
+}
+
+export async function handleUpdateMealLog(mealLog: DailyMacros): Promise<{success: boolean, error?: string | null, updatedMeal?: DailyMacros}> {
+    const userId = await getCurrentUserId();
+    try {
+        const updatedMeal = await dataUpdateMealLog(db, userId, mealLog.id, mealLog);
         return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
@@ -308,6 +325,13 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
         protein: recipe.macros.protein / recipe.servings,
         carbs: recipe.macros.carbs / recipe.servings,
         fat: recipe.macros.fat / recipe.servings,
+        fiber: (recipe.macros.fiber ?? 0) / recipe.servings,
+        fats: {
+            saturated: (recipe.macros.fats?.saturated ?? 0) / recipe.servings,
+            monounsaturated: (recipe.macros.fats?.monounsaturated ?? 0) / recipe.servings,
+            polyunsaturated: (recipe.macros.fats?.polyunsaturated ?? 0) / recipe.servings,
+            trans: (recipe.macros.fats?.trans ?? 0) / recipe.servings,
+        }
     };
     
     // Log macros for the current user
@@ -317,6 +341,13 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
             protein: macrosPerServing.protein * servingsEaten,
             carbs: macrosPerServing.carbs * servingsEaten,
             fat: macrosPerServing.fat * servingsEaten,
+            fiber: macrosPerServing.fiber * servingsEaten,
+            fats: {
+                saturated: macrosPerServing.fats.saturated * servingsEaten,
+                monounsaturated: macrosPerServing.fats.monounsaturated * servingsEaten,
+                polyunsaturated: macrosPerServing.fats.polyunsaturated * servingsEaten,
+                trans: macrosPerServing.fats.trans * servingsEaten,
+            }
         };
         await dataLogMacros(db, userId, mealType as any, recipe.title, macrosConsumed);
     }
@@ -374,6 +405,13 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             protein: pendingMeal.recipe.macros.protein / pendingMeal.recipe.servings,
             carbs: pendingMeal.recipe.macros.carbs / pendingMeal.recipe.servings,
             fat: pendingMeal.recipe.macros.fat / pendingMeal.recipe.servings,
+            fiber: (pendingMeal.recipe.macros.fiber ?? 0) / pendingMeal.recipe.servings,
+            fats: {
+                saturated: (pendingMeal.recipe.macros.fats?.saturated ?? 0) / pendingMeal.recipe.servings,
+                monounsaturated: (pendingMeal.recipe.macros.fats?.monounsaturated ?? 0) / pendingMeal.recipe.servings,
+                polyunsaturated: (pendingMeal.recipe.macros.fats?.polyunsaturated ?? 0) / pendingMeal.recipe.servings,
+                trans: (pendingMeal.recipe.macros.fats?.trans ?? 0) / pendingMeal.recipe.servings,
+            }
         };
 
         const macrosConsumed = {
@@ -381,6 +419,13 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             protein: macrosPerServing.protein * servingsEaten,
             carbs: macrosPerServing.carbs * servingsEaten,
             fat: macrosPerServing.fat * servingsEaten,
+            fiber: macrosPerServing.fiber * servingsEaten,
+            fats: {
+                saturated: macrosPerServing.fats.saturated * servingsEaten,
+                monounsaturated: macrosPerServing.fats.monounsaturated * servingsEaten,
+                polyunsaturated: macrosPerServing.fats.polyunsaturated * servingsEaten,
+                trans: macrosPerServing.fats.trans * servingsEaten,
+            }
         };
 
         await dataLogMacros(db, userId, mealType as any, pendingMeal.recipe.title, macrosConsumed, loggedAt);

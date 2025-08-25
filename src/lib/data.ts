@@ -759,9 +759,9 @@ export async function logMacros(db: Firestore, userId: string, mealType: "Breakf
     }
 }
 
-export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: Date, mealType: DailyMacros['meal']): Promise<DailyMacros | null> {
+export async function updateMealLog(db: Firestore, userId: string, mealId: string, mealLog: Partial<DailyMacros>): Promise<DailyMacros | null> {
     const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);
-    await docRef.update({ loggedAt: newTime, meal: mealType });
+    await docRef.update(mealLog);
     const mealLogDoc = await docRef.get();
     if (!mealLogDoc.exists) return null;
     

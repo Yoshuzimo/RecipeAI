@@ -10,7 +10,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Button } from "./ui/button";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
-import { handleUpdateMealTime } from "@/app/actions";
+import { handleUpdateMealLog } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 
 const isMealOutdated = (meal: DailyMacros): boolean => {
@@ -47,25 +47,24 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
             if ('error' in result) {
                 throw new Error(result.error);
             }
-
-            // We can't properly update the meal without more info,
-            // but we can demonstrate the logic. This would need backend changes to store recipe details with a meal log.
-            // For now, we'll just show a toast.
-            const updatedMeal: DailyMacros = {
+            
+            const updatedMealLog: DailyMacros = {
                 ...meal,
                 dishes: meal.dishes.map(d => ({ ...d, ...result.macros })),
                 totals: result.macros,
             };
             
-            // This part is disabled because we can't properly recalculate without ingredients.
-            // await handleUpdateMealTime(updatedMeal.id, updatedMeal.loggedAt, updatedMeal.meal);
-            
-            setMeals(prev => prev.map(m => m.id === meal.id ? updatedMeal : m));
+            const saveResult = await handleUpdateMealLog(updatedMealLog);
 
-            toast({
-                title: "Nutrition Updated (Simulated)",
-                description: `Nutritional info for "${meal.meal}" has been updated.`,
-            });
+            if (saveResult.success && saveResult.updatedMeal) {
+                 setMeals(prev => prev.map(m => m.id === meal.id ? saveResult.updatedMeal! : m));
+                 toast({
+                    title: "Nutrition Updated",
+                    description: `Nutritional info for "${meal.meal}" has been updated.`,
+                });
+            } else {
+                 throw new Error(saveResult.error || "Failed to save updated meal log.");
+            }
 
         } catch (e) {
             toast({

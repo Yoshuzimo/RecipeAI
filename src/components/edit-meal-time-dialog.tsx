@@ -180,7 +180,7 @@ export function EditMealTimeDialog({
                         </FormItem>
                     )}
                 />
-                 <DialogFooter className="justify-between">
+                 <DialogFooter className="justify-between sm:justify-between pt-4">
                     <Button type="button" variant="destructive" size="icon" onClick={() => setIsDeleteConfirmOpen(true)} disabled={isPending}>
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Meal</span>
