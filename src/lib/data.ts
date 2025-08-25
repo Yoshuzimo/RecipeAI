@@ -1,6 +1,6 @@
 
 
-import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal } from "./types";
+import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
 
@@ -51,7 +51,8 @@ export const seedInitialData = async (db: Firestore, userId: string) => {
         favoriteFoods: "",
         dislikedFoods: "",
         healthConditions: "",
-        medications: ""
+        medications: "",
+        goalConversation: [],
     });
 
     try {
@@ -670,7 +671,7 @@ export async function getPersonalDetails(db: Firestore, userId: string): Promise
 }
 
 export async function savePersonalDetails(db: Firestore, userId: string, details: PersonalDetails): Promise<PersonalDetails> {
-    await db.collection(`users/${userId}/app-data`).doc("personal-details").set(details);
+    await db.collection(`users/${userId}/app-data`).doc("personal-details").set(details, { merge: true });
     return details;
 }
 

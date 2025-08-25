@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,8 +17,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import type { Settings, PersonalDetails } from "@/lib/types";
-import { saveSettings } from "@/app/actions";
+import type { Settings, PersonalDetails, ConversationEntry } from "@/lib/types";
+import { saveSettings, savePersonalDetails } from "@/app/actions";
 import { Loader2, Sparkles, Send } from "lucide-react";
 import { Textarea } from "./ui/textarea";
 import { generateGoalSuggestions } from "@/ai/flows/generate-goal-suggestions";
@@ -32,11 +32,6 @@ const formSchema = z.object({
   carbsGoal: z.coerce.number().int().min(0, "Must be a positive number."),
   fatGoal: z.coerce.number().int().min(0, "Must be a positive number."),
 });
-
-type ConversationEntry = {
-    role: 'user' | 'assistant';
-    content: string;
-};
 
 export function EditGoalsDialog({
   isOpen,
@@ -54,10 +49,10 @@ export function EditGoalsDialog({
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isAiPending, startAiTransition] = useTransition();
-  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
-  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
+  const [conversation, setConversation] = useState<ConversationEntry[]>(personalDetails.goalConversation || []);
   const [userResponse, setUserResponse] = useState("");
-  
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -76,25 +71,33 @@ export function EditGoalsDialog({
         carbsGoal: settings.carbsGoal,
         fatGoal: settings.fatGoal,
       });
-      setConversation([]);
-      setAiQuestion(null);
+      setConversation(personalDetails.goalConversation || []);
       setUserResponse("");
     }
-  }, [isOpen, settings, form]);
+  }, [isOpen, settings, personalDetails, form]);
+  
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [conversation]);
+
 
   const handleAskAI = () => {
+    const currentHistory = [...conversation, {role: 'user', content: userResponse}];
+    setConversation(currentHistory);
+    
     startAiTransition(async () => {
-        setConversation(prev => [...prev, {role: 'user', content: userResponse}]);
-        
         const result = await generateGoalSuggestions({
             personalDetails,
-            history: [...conversation, {role: 'user', content: userResponse}],
+            history: currentHistory,
         });
         
         setUserResponse("");
 
+        let finalHistory: ConversationEntry[];
+
         if ('recommendation' in result) {
-            setAiQuestion(null);
             const { recommendation, reasoning } = result;
             form.reset({
                 calorieGoal: recommendation.calories,
@@ -102,14 +105,17 @@ export function EditGoalsDialog({
                 carbsGoal: recommendation.carbs,
                 fatGoal: recommendation.fat,
             });
-            setConversation(prev => [...prev, {role: 'assistant', content: reasoning}]);
+            finalHistory = [...currentHistory, {role: 'assistant', content: reasoning}];
             toast({ title: "AI Recommendation", description: "The AI has provided a recommendation. Review and save." });
         } else if ('question' in result) {
-            setAiQuestion(result.question);
-            setConversation(prev => [...prev, {role: 'assistant', content: result.question}]);
+            finalHistory = [...currentHistory, {role: 'assistant', content: result.question}];
         } else {
             toast({ variant: "destructive", title: "AI Error", description: result.error || "An unknown error occurred." });
+            finalHistory = currentHistory; // Keep history as is on error
         }
+
+        setConversation(finalHistory);
+        await savePersonalDetails({ ...personalDetails, goalConversation: finalHistory });
     });
   }
 
@@ -147,12 +153,12 @@ export function EditGoalsDialog({
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
                 </div>
-                 <ScrollArea className="flex-1 pr-3 mb-4 h-64">
+                 <ScrollArea className="flex-1 pr-3 h-64" ref={scrollAreaRef}>
                     <div className="space-y-4 text-sm">
                         {conversation.length === 0 && (
                             <div className="text-muted-foreground text-center py-10">Click "Ask AI" to start a conversation about your goals.</div>
@@ -166,21 +172,16 @@ export function EditGoalsDialog({
                     </div>
                 </ScrollArea>
                 
-                {aiQuestion ? (
-                    <div className="mt-auto space-y-2">
-                        <Label htmlFor="user-response">Your Answer</Label>
-                        <div className="flex gap-2">
-                            <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
-                            <Button type="button" size="icon" onClick={handleAskAI} disabled={isAiPending || !userResponse}>
-                                <Send className="h-4 w-4" />
-                            </Button>
-                        </div>
+                <div className="mt-auto space-y-2">
+                    <Separator />
+                    <Label htmlFor="user-response">Your Answer</Label>
+                    <div className="flex gap-2">
+                        <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
+                        <Button type="button" size="icon" onClick={handleAskAI} disabled={isAiPending || !userResponse}>
+                            <Send className="h-4 w-4" />
+                        </Button>
                     </div>
-                ) : (
-                     <Button type="button" onClick={handleAskAI} disabled={isAiPending || conversation.length > 0} className="mt-auto">
-                        <Sparkles className="mr-2 h-4 w-4" /> Ask AI
-                    </Button>
-                )}
+                </div>
             </div>
         </div>
 

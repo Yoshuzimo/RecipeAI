@@ -54,6 +54,11 @@ export type GroupedByLocation = {
   [key in StorageLocation['type']]: InventoryItemGroup[];
 };
 
+export type ConversationEntry = {
+    role: 'user' | 'assistant';
+    content: string;
+};
+
 export type PersonalDetails = {
   healthGoals?: string;
   dietaryRestrictions?: string;
@@ -63,6 +68,7 @@ export type PersonalDetails = {
   healthConditions?: string;
   medications?: string;
   specializedEquipment?: string;
+  goalConversation?: ConversationEntry[];
 }
 
 export type Settings = {
