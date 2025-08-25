@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit, DailyMacros } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit, DailyMacros, LoggedDish } from "@/lib/types";
 import { db, auth } from "@/lib/firebase-admin";
 import {
     seedInitialData as dataSeedInitialData,
@@ -205,15 +205,39 @@ export async function handleUpdateMealTime(mealId: string, newTime: Date, mealTy
     }
 }
 
-export async function handleUpdateMealLog(mealLog: DailyMacros): Promise<{success: boolean, error?: string | null, updatedMeal?: DailyMacros}> {
+export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[], mealType: DailyMacros['meal'], loggedAt: Date): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros }> {
     const userId = await getCurrentUserId();
     try {
-        const updatedMeal = await dataUpdateMealLog(db, userId, mealLog.id, mealLog);
+        // Recalculate totals based on the updated dishes
+        const newTotals: Macros = updatedDishes.reduce((acc, dish) => {
+            acc.calories += dish.calories || 0;
+            acc.protein += dish.protein || 0;
+            acc.carbs += dish.carbs || 0;
+            acc.fat += dish.fat || 0;
+            acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+            acc.fats = {
+                saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
+                monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
+                polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
+                trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
+            };
+            return acc;
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+
+        const updatedData: Partial<DailyMacros> = {
+            dishes: updatedDishes,
+            totals: newTotals,
+            meal: mealType,
+            loggedAt,
+        };
+
+        const updatedMeal = await dataUpdateMealLog(db, userId, mealId, updatedData);
         return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
     }
 }
+
 
 export async function handleDeleteMealLog(mealId: string): Promise<{success: boolean, error?: string | null, mealId: string}> {
      const userId = await getCurrentUserId();

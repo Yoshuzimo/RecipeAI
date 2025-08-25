@@ -5,13 +5,14 @@ import { useState } from "react";
 import type { DailyMacros } from "@/lib/types";
 import { Card, CardContent } from "./ui/card";
 import { EditMealTimeDialog } from "./edit-meal-time-dialog";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, startOfDay, isSameDay } from "date-fns";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Button } from "./ui/button";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 import { handleUpdateMealLog } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "./ui/separator";
 
 const isMealOutdated = (meal: DailyMacros): boolean => {
     // A meal is outdated if any of its dishes are missing fiber or the detailed fats object.
@@ -35,6 +36,7 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
     
     const handleMealDeleted = (mealId: string) => {
         setMeals(prev => prev.filter(m => m.id !== mealId));
+        setSelectedMeal(null);
     }
 
 
@@ -59,7 +61,8 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
                 totals: result.macros,
             };
             
-            const saveResult = await handleUpdateMealLog(updatedMealLog);
+            const saveResult = await handleUpdateMealLog(updatedMealLog.id, updatedMealLog.dishes, updatedMealLog.meal, updatedMealLog.loggedAt);
+
 
             if (saveResult.success && saveResult.updatedMeal) {
                  setMeals(prev => prev.map(m => m.id === meal.id ? saveResult.updatedMeal! : m));
@@ -82,6 +85,17 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
         }
     };
     
+    const groupedMeals = meals.reduce<Record<string, DailyMacros[]>>((acc, meal) => {
+        const dateKey = format(startOfDay(meal.loggedAt), 'yyyy-MM-dd');
+        if (!acc[dateKey]) {
+            acc[dateKey] = [];
+        }
+        acc[dateKey].push(meal);
+        return acc;
+    }, {});
+
+    const sortedDateKeys = Object.keys(groupedMeals).sort().reverse();
+    
     return (
         <>
         <div className="space-y-4">
@@ -95,59 +109,63 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
             <Card>
                 <CardContent className="p-0">
                     <div className="space-y-2">
-                        {meals.map(meal => {
-                            const outdated = isMealOutdated(meal);
-                            const isUpdating = updatingMeals[meal.id];
-
-                            return (
-                                <div 
-                                    key={meal.id} 
-                                    className="p-4 border-b last:border-b-0"
-                                >
-                                    <div className="flex justify-between items-start gap-4">
-                                        <div className="flex-1 space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <p 
-                                                    className="font-semibold text-lg hover:text-primary cursor-pointer"
-                                                    onClick={() => setSelectedMeal(meal)}
-                                                >
-                                                    {meal.meal}
-                                                </p>
-                                                {outdated && !isUpdating && (
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger>
-                                                                <AlertCircle className="h-4 w-4 text-amber-500" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Missing detailed nutrition info.</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                )}
-                                            </div>
-                                            <div className="text-sm text-muted-foreground">
-                                                {meal.dishes.map(d => d.name).join(', ')}
+                        {sortedDateKeys.length > 0 ? sortedDateKeys.map(dateKey => (
+                            <div key={dateKey}>
+                                <h2 className="font-bold text-xl p-4 bg-muted/50 border-b border-t">
+                                    {format(new Date(dateKey), 'PPP')}
+                                </h2>
+                                {groupedMeals[dateKey].map(meal => {
+                                    const outdated = isMealOutdated(meal);
+                                    const isUpdating = updatingMeals[meal.id];
+        
+                                    return (
+                                        <div 
+                                            key={meal.id} 
+                                            className="p-4 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                                            onClick={() => setSelectedMeal(meal)}
+                                        >
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div className="flex-1 space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-semibold text-lg hover:text-primary">
+                                                            {meal.meal}
+                                                        </p>
+                                                        {outdated && !isUpdating && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger>
+                                                                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Missing detailed nutrition info.</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {meal.dishes.map(d => d.name).join(', ')}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <div className="text-right text-sm text-muted-foreground">
+                                                        <p>{format(meal.loggedAt, "p")}</p>
+                                                        <p>({formatDistanceToNow(meal.loggedAt, { addSuffix: true })})</p>
+                                                    </div>
+                                                    {outdated && (
+                                                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleBackfillNutrition(meal) }} disabled={isUpdating}>
+                                                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Nutrition"}
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-2">
-                                            <div className="text-right text-sm text-muted-foreground">
-                                                <p>{format(meal.loggedAt, "PPP p")}</p>
-                                                <p>({formatDistanceToNow(meal.loggedAt, { addSuffix: true })})</p>
-                                            </div>
-                                            {outdated && (
-                                                <Button size="sm" variant="outline" onClick={() => handleBackfillNutrition(meal)} disabled={isUpdating}>
-                                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Nutrition"}
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                         {meals.length === 0 && (
+                                    );
+                                })}
+                            </div>
+                        )) : (
                              <p className="text-center text-muted-foreground p-8">No meals logged yet.</p>
-                         )}
+                        )}
                     </div>
                 </CardContent>
             </Card>
