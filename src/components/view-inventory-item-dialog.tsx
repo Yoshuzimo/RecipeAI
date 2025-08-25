@@ -16,7 +16,7 @@ import {
 import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, Macros, Unit } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle } from "lucide-react";
+import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup, handleToggleItemPrivacy, getClientHousehold, getClientInventory } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -47,7 +47,6 @@ const formSchema = z.object({
     partial: z.coerce.number().min(0),
   })),
   nutrition: z.object({
-    hasMacros: z.boolean().default(false),
     servingSizeQuantity: z.coerce.number().optional(),
     servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]).optional(),
     calories: z.coerce.number().optional(),
@@ -60,11 +59,11 @@ const formSchema = z.object({
     polyunsaturatedFat: z.coerce.number().optional(),
     transFat: z.coerce.number().optional(),
   }).refine(data => {
-      if (!data.hasMacros) return true;
-      return data.servingSizeQuantity && data.servingSizeUnit && data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+      if (data.calories === undefined || data.calories === 0) return true;
+      return data.servingSizeQuantity && data.servingSizeUnit && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
   }, {
-      message: "All nutrition fields must be filled if nutrition is enabled.",
-      path: ["calories"], // Arbitrarily pick one field to show the message on
+      message: "Serving size and main macros must be filled if calories are provided.",
+      path: ["calories"],
   }),
 });
 
@@ -130,7 +129,7 @@ export function ViewInventoryItemDialog({
   }, [group.items]);
 
   const defaultValues = useMemo(() => {
-    let values: FormData = { packages: {}, nutrition: { hasMacros: false }};
+    let values: FormData = { packages: {}, nutrition: {}};
     for (const pkgGroup of Object.values(packageGroups)) {
       values.packages[pkgGroup.size] = {
         full: pkgGroup.fullPackages.length,
@@ -140,7 +139,6 @@ export function ViewInventoryItemDialog({
     const firstItem = group.items[0];
     if (firstItem?.servingMacros) {
         values.nutrition = {
-            hasMacros: true,
             servingSizeQuantity: firstItem.servingSize?.quantity,
             servingSizeUnit: firstItem.servingSize?.unit,
             calories: firstItem.servingMacros.calories,
@@ -209,7 +207,7 @@ export function ViewInventoryItemDialog({
     const { packages: packageData, nutrition } = data;
     
     let nutritionPayload: any = undefined;
-    if (nutrition.hasMacros) {
+    if (nutrition.calories && nutrition.calories > 0) {
         nutritionPayload = {
             servingSize: { quantity: nutrition.servingSizeQuantity!, unit: nutrition.servingSizeUnit! },
             servingMacros: { 
@@ -395,29 +393,16 @@ export function ViewInventoryItemDialog({
                 )}
                  <Collapsible>
                     <CollapsibleTrigger asChild>
-                        <div className="flex items-center justify-between rounded-lg border p-4 cursor-pointer">
-                        <div className="space-y-0.5">
+                        <div className="flex w-full items-center justify-between rounded-lg border p-4 cursor-pointer">
+                        <div className="space-y-0.5 text-left">
                             <FormLabel className="text-base">
-                                Nutritional Information
+                                Nutritional Information (Optional)
                             </FormLabel>
                             <p className="text-sm text-muted-foreground">
                                 Add nutrition info to get more accurate recipe calculations.
                             </p>
                         </div>
-                        <FormField
-                            control={control}
-                            name="nutrition.hasMacros"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                    <FormControl>
-                                    <Checkbox
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                    />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                         />
+                        <ChevronDown className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-4 pt-4">

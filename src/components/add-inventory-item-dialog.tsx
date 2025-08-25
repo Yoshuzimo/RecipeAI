@@ -34,7 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -57,7 +57,6 @@ const formSchema = z.object({
   }),
   isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
-  hasMacros: z.boolean().default(false),
   calories: z.coerce.number().optional(),
   protein: z.coerce.number().optional(),
   carbs: z.coerce.number().optional(),
@@ -74,11 +73,14 @@ const formSchema = z.object({
     message: "An expiry date is required unless the item does not expire.",
     path: ["expiryDate"],
 }).refine(data => {
-    if (!data.hasMacros) return true;
-    return data.calories !== undefined && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+    // If calories are entered, the main macros must also be entered.
+    if (data.calories !== undefined && data.calories > 0) {
+        return data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
+    }
+    return true;
 }, {
-    message: "Calories, Protein, Carbs, and Fat fields must be filled if nutrition is enabled.",
-    path: ["macros"],
+    message: "Protein, Carbs, and Fat are required if Calories are provided.",
+    path: ["protein"], // Show error on one of the dependent fields
 });
 
 
@@ -120,12 +122,10 @@ export function AddInventoryItemDialog({
       quantity: 1,
       doesNotExpire: false,
       isPrivate: false,
-      hasMacros: false,
     },
   });
 
   const doesNotExpire = form.watch("doesNotExpire");
-  const hasMacros = form.watch("hasMacros");
 
   useEffect(() => {
     const system: 'us' | 'metric' = 'us'; 
@@ -147,7 +147,6 @@ export function AddInventoryItemDialog({
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
             isPrivate: !household, // Default to private if not in a household
-            hasMacros: false,
         });
       }
     }
@@ -175,7 +174,7 @@ export function AddInventoryItemDialog({
         isPrivate: values.isPrivate,
       };
       
-      if (values.hasMacros) {
+      if (values.calories) {
           newItemData.macros = {
               calories: values.calories!,
               protein: values.protein!,
@@ -353,8 +352,8 @@ export function AddInventoryItemDialog({
             
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                <div className="flex w-full items-center justify-between rounded-lg border p-4 cursor-pointer">
+                  <div className="space-y-0.5 text-left">
                     <FormLabel className="text-base">
                         Nutritional Information (Optional)
                     </FormLabel>
@@ -362,31 +361,18 @@ export function AddInventoryItemDialog({
                         Provide macros per 100g/ml for more accurate recipe calculations.
                     </p>
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="hasMacros"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  <ChevronDown className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 pt-4">
                  <Separator />
                  <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl></FormItem> )} />
-                    <FormField control={form.control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                  </div>
                  <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
-                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
+                    <FormField control={form.control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                  </div>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl></FormItem> )} />
