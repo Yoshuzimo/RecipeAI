@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DailyMacros, Household, Settings } from "@/lib/types";
-import { startOfWeek, endOfWeek, format, addDays } from "date-fns";
+import { startOfWeek, endOfWeek, format, addDays, subDays } from "date-fns";
 import { useAuth } from "@/components/auth-provider";
 import { PendingMealCard } from "@/components/pending-meal-card";
 import { getUserDay, isWithinUserDay } from "@/lib/utils";
@@ -60,51 +60,83 @@ export default function NutritionPage() {
     const now = new Date();
     const dayStartTime = settings?.dayStartTime || "00:00";
     
+    const getEmptyTotals = () => ({
+        calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+        fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 },
+    });
+
     switch (timeframe) {
+      case "monthly": {
+        const dateArray = Array.from({ length: 30 }, (_, i) => subDays(now, i)).reverse();
+        const dailyTotals = dateArray.map(date => {
+            const dayMeals = allDailyData.filter(meal => getUserDay(meal.loggedAt, dayStartTime).toDateString() === date.toDateString());
+            
+            const totals = dayMeals.reduce((acc, meal) => {
+                acc.calories += meal.totals.calories || 0;
+                acc.protein += meal.totals.protein || 0;
+                acc.carbs += meal.totals.carbs || 0;
+                acc.fat += meal.totals.fat || 0;
+                return acc;
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+            return {
+                day: format(date, 'M/d'),
+                date: date,
+                ...totals
+            };
+        });
+        return { 
+            dataForCharts: dailyTotals, 
+            description: "Your total calorie intake per day for the last 30 days.",
+        }
+      }
       case "weekly": {
         const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
 
         const dailyTotals = Array.from({ length: 7 }, (_, i) => {
             const day = addDays(weekStart, i);
+            const dayMeals = allDailyData.filter(meal => getUserDay(meal.loggedAt, dayStartTime).toDateString() === day.toDateString());
+
+            const totals = dayMeals.reduce((acc, meal) => {
+                acc.calories += meal.totals.calories || 0;
+                acc.protein += meal.totals.protein || 0;
+                acc.carbs += meal.totals.carbs || 0;
+                acc.fat += meal.totals.fat || 0;
+                return acc;
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
             return {
-                day: format(day, 'E M/d'),
+                day: format(day, 'E'),
                 date: day,
-                calories: 0,
-                protein: 0,
-                carbs: 0,
-                fat: 0,
-            }
-        });
-        
-        allDailyData.forEach(meal => {
-            const userDay = getUserDay(meal.loggedAt, dayStartTime);
-            const dayIndex = dailyTotals.findIndex(d => d.date.toDateString() === userDay.toDateString());
-            
-            if (dayIndex !== -1) {
-                const mealCalories = (meal.totals.protein * 4) + (meal.totals.carbs * 4) + (meal.totals.fat * 9);
-                dailyTotals[dayIndex].calories += mealCalories;
-                dailyTotals[dayIndex].protein += meal.totals.protein;
-                dailyTotals[dayIndex].carbs += meal.totals.carbs;
-                dailyTotals[dayIndex].fat += meal.totals.fat;
-            }
+                ...totals
+            };
         });
 
         return { 
-            dataForCharts: dailyTotals.filter(d => d.calories > 0), 
+            dataForCharts: dailyTotals, 
             description: "Your total calorie and macronutrient intake per day for the current week.",
         }
       }
-      case "monthly":
-        return { 
-            dataForCharts: [],
-            description: "Your total calorie intake per week for the last month.",
-        }
       case "daily":
       default: {
         const todaysData = allDailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
-        const sortedTodaysData = todaysData.sort((a, b) => mealOrder.indexOf(a.meal) - mealOrder.indexOf(b.meal));
+        const mealDataMap = new Map(todaysData.map(d => [d.meal, d]));
+
+        const finalData = mealOrder.map(mealName => {
+            if (mealDataMap.has(mealName)) {
+                return mealDataMap.get(mealName)!;
+            }
+            return {
+                id: `${mealName}-${Date.now()}`,
+                meal: mealName,
+                dishes: [],
+                totals: getEmptyTotals(),
+                loggedAt: new Date(), // Placeholder date
+            }
+        });
+        
         return { 
-            dataForCharts: sortedTodaysData,
+            dataForCharts: finalData,
             description: "A running total of your calorie intake for today.",
         }
       }
@@ -129,7 +161,7 @@ export default function NutritionPage() {
             <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
                 <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly" disabled>Monthly (Coming Soon)</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
             </SelectContent>
             </Select>
             <Button variant="outline" size="icon" asChild>
@@ -150,7 +182,7 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dataForCharts} timeframe={timeframe} onDataChange={fetchData} settings={settings} />
+                <CalorieLineChart data={dataForCharts} timeframe={timeframe} settings={settings} onDataChange={fetchData} />
             </CardContent>
          </Card>
         <NutritionChart data={dataForCharts} timeframe={timeframe} />

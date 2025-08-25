@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip, Dot } from "recharts"
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip, Dot, ResponsiveContainer } from "recharts"
 import { format, startOfDay, endOfDay, addDays } from "date-fns"
 
 import {
@@ -17,7 +17,7 @@ import { getUserDayBoundaries } from "@/lib/utils"
 type ChartDataPoint = {
     time: number; // Daily
     calories: number; // Daily
-    day?: string; // Weekly
+    day?: string; // Weekly/Monthly
     meal?: string;
     dishes?: any[];
     loggedAt?: Date;
@@ -38,9 +38,8 @@ const chartConfig = {
 const CustomDot = (props: any) => {
     const { cx, cy, payload, onDotClick, timeframe } = props;
 
-    // Only show dots for daily view
-    if (timeframe !== 'daily' || !payload.meal) {
-        return <Dot cx={cx} cy={cy} r={3} fill="var(--color-calories)" stroke="none" />;
+    if (!payload.meal || payload.calories === 0) {
+        return null;
     }
 
     return (
@@ -98,8 +97,10 @@ export function CalorieLineChart({
         const sortedData = [...data].sort((a, b) => a.loggedAt.getTime() - b.loggedAt.getTime());
         let runningTotal = 0;
         return sortedData.map(d => {
-            const mealCalories = (d.totals.protein * 4) + (d.totals.carbs * 4) + (d.totals.fat * 9);
-            runningTotal += mealCalories;
+             const mealCalories = (d.totals?.protein * 4 || 0) + (d.totals?.carbs * 4 || 0) + (d.totals?.fat * 9 || 0);
+            if (d.dishes.length > 0) {
+                runningTotal += mealCalories;
+            }
             return {
                 ...d,
                 calories: runningTotal,
@@ -107,11 +108,11 @@ export function CalorieLineChart({
             }
         });
     }
-    if (timeframe === 'weekly') {
+    if (timeframe === 'weekly' || timeframe === 'monthly') {
       return data.map(d => ({
         day: d.day,
         calories: d.calories,
-        time: 0 // Not used for weekly
+        time: 0 // Not used for weekly/monthly
       }));
     }
     return [];
@@ -131,11 +132,12 @@ export function CalorieLineChart({
   }, [settings?.dayStartTime]);
 
   
-  const mealTicks = timeframe === 'daily' ? chartData.map(d => d.time) : [];
+  const mealTicks = timeframe === 'daily' ? chartData.filter(d => d.dishes.length > 0).map(d => d.time) : [];
 
   return (
     <>
     <ChartContainer config={chartConfig} className="w-full h-[250px] sm:h-[200px]">
+        <ResponsiveContainer>
         <LineChart
             data={chartData}
             margin={{
@@ -164,6 +166,7 @@ export function CalorieLineChart({
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
+                    interval={'preserveStartEnd'}
                 />
             )}
             <YAxis
@@ -179,6 +182,8 @@ export function CalorieLineChart({
                         formatter={(value, name, props) => {
                             const { payload } = props;
                             if (!payload) return null;
+
+                            if (payload.calories === 0) return null;
 
                             if (timeframe === 'daily') {
                                 const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
@@ -226,6 +231,7 @@ export function CalorieLineChart({
                 activeDot={{ r: 8, style: { cursor: 'pointer' } }}
             />
         </LineChart>
+        </ResponsiveContainer>
     </ChartContainer>
 
     {mealToEdit && (
@@ -233,7 +239,7 @@ export function CalorieLineChart({
             isOpen={!!mealToEdit}
             setIsOpen={() => setMealToEdit(null)}
             meal={mealToEdit}
-            onTimeUpdated={handleMealTimeUpdated}
+            onMealUpdated={handleMealTimeUpdated}
         />
     )}
     </>
