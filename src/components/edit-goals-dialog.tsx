@@ -152,7 +152,7 @@ export function EditGoalsDialog({
             Set your daily targets for calories and macronutrients. You can also ask our AI for help!
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[500px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
             {/* Left side: Form */}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -165,12 +165,12 @@ export function EditGoalsDialog({
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4 space-y-4 h-full">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
                 </div>
-                <ScrollArea className="flex-1 pr-3 min-h-0" ref={scrollAreaRef}>
+                <ScrollArea className="h-[450px] pr-3" ref={scrollAreaRef}>
                     <div className="space-y-4 text-sm">
                         {!personalDetails ? (
                              <div className="flex justify-center items-center h-full">
