@@ -148,16 +148,16 @@ export function ViewInventoryItemDialog({
     if (firstItem?.servingMacros) {
         values.nutrition = {
             servingSizeQuantity: firstItem.servingSize?.quantity,
-            servingSizeUnit: firstItem.servingSize?.unit,
+            servingSizeUnit: firstItem.servingSize?.unit || '',
             calories: firstItem.servingMacros.calories,
             protein: firstItem.servingMacros.protein,
             carbs: firstItem.servingMacros.carbs,
             fat: firstItem.servingMacros.fat,
-            fiber: firstItem.macros?.fiber,
-            saturatedFat: firstItem.macros?.fats?.saturated,
-            monounsaturatedFat: firstItem.macros?.fats?.monounsaturated,
-            polyunsaturatedFat: firstItem.macros?.fats?.polyunsaturated,
-            transFat: firstItem.macros?.fats?.trans,
+            fiber: firstItem.servingMacros?.fiber,
+            saturatedFat: firstItem.servingMacros?.fats?.saturated,
+            monounsaturatedFat: firstItem.servingMacros?.fats?.monounsaturated,
+            polyunsaturatedFat: firstItem.servingMacros?.fats?.polyunsaturated,
+            transFat: firstItem.servingMacros?.fats?.trans,
         }
     }
     return values;
@@ -215,8 +215,9 @@ export function ViewInventoryItemDialog({
     const { packages: packageData, nutrition } = data;
     
     let nutritionPayload: any = undefined;
+    
     if (nutrition.calories && nutrition.calories > 0) {
-        const servingMacros: any = {
+        const servingMacros: Partial<Macros> = {
             calories: nutrition.calories,
             protein: nutrition.protein,
             carbs: nutrition.carbs,
@@ -224,7 +225,7 @@ export function ViewInventoryItemDialog({
         };
         if (nutrition.fiber) servingMacros.fiber = nutrition.fiber;
 
-        const fats: any = {};
+        const fats: Partial<any> = {};
         if (nutrition.saturatedFat) fats.saturated = nutrition.saturatedFat;
         if (nutrition.monounsaturatedFat) fats.monounsaturated = nutrition.monounsaturatedFat;
         if (nutrition.polyunsaturatedFat) fats.polyunsaturated = nutrition.polyunsaturatedFat;
@@ -518,3 +519,5 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
+
+    

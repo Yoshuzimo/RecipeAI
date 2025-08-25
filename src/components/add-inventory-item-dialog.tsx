@@ -166,7 +166,7 @@ export function AddInventoryItemDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const newItemData: NewInventoryItem = {
+      const newItemData: Partial<NewInventoryItem> = {
         name: values.name,
         totalQuantity: values.quantity,
         originalQuantity: values.quantity,
@@ -176,8 +176,8 @@ export function AddInventoryItemDialog({
         isPrivate: values.isPrivate,
       };
       
-      if (values.calories) {
-          const macros: any = {
+      if (values.calories && values.calories > 0) {
+          const macros: Partial<Macros> = {
               calories: values.calories,
               protein: values.protein,
               carbs: values.carbs,
@@ -185,7 +185,7 @@ export function AddInventoryItemDialog({
           };
           if (values.fiber) macros.fiber = values.fiber;
 
-          const fats: any = {};
+          const fats: Partial<any> = {};
           if (values.saturatedFat) fats.saturated = values.saturatedFat;
           if (values.monounsaturatedFat) fats.monounsaturated = values.monounsaturatedFat;
           if (values.polyunsaturatedFat) fats.polyunsaturated = values.polyunsaturatedFat;
@@ -194,10 +194,10 @@ export function AddInventoryItemDialog({
           if (Object.keys(fats).length > 0) {
             macros.fats = fats;
           }
-          newItemData.macros = macros;
+          newItemData.macros = macros as Macros;
       }
 
-      const newItem = await addClientInventoryItem(newItemData);
+      const newItem = await addClientInventoryItem(newItemData as NewInventoryItem);
       
       onItemAdded(newItem, values.isPrivate);
       toast({
@@ -431,3 +431,5 @@ export function AddInventoryItemDialog({
     </Dialog>
   );
 }
+
+    
