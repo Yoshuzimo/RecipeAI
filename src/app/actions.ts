@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
@@ -50,7 +51,7 @@ import {
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { parseIngredient } from "@/lib/utils";
-import { logManualMeal } from "@/ai/flows/log-manual-meal";
+import { logManualMeal, LogManualMealInput } from "@/ai/flows/log-manual-meal";
 
 
 // --- Server Actions ---
@@ -432,7 +433,7 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
     return { success: true, newInventory: await getClientInventory() };
 }
 
-export async function handleLogManualMeal(foods: string[], mealType: DailyMacros['meal'], loggedAt: Date) {
+export async function handleLogManualMeal(foods: LogManualMealInput['foods'], mealType: DailyMacros['meal'], loggedAt: Date) {
     const userId = await getCurrentUserId();
     
     const aiResult = await logManualMeal({ foods });
@@ -441,7 +442,7 @@ export async function handleLogManualMeal(foods: string[], mealType: DailyMacros
         return { success: false, error: aiResult.error };
     }
 
-    const dishName = foods.join(', ');
+    const dishName = foods.map(f => `${f.quantity} ${f.unit} ${f.name}`).join(', ');
     await dataLogMacros(db, userId, mealType, dishName, aiResult.macros, loggedAt);
     
     return { success: true };

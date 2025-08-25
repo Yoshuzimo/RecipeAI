@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { handleLogManualMeal } from "@/app/actions";
 import { Loader2, PlusCircle, Trash2, UtensilsCrossed, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import type { DailyMacros } from "@/lib/types";
+import type { DailyMacros, Unit } from "@/lib/types";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
@@ -38,11 +38,25 @@ const getDefaultMealType = (): MealType => {
   return "Snack";
 };
 
+const usUnits: { value: Unit, label: string }[] = [
+    { value: 'pcs', label: 'pcs' }, { value: 'oz', label: 'oz' }, { value: 'lbs', label: 'lbs' },
+    { value: 'fl oz', label: 'fl oz' }, { value: 'cup', label: 'cup' }, { value: 'tbsp', label: 'tbsp' },
+    { value: 'tsp', label: 'tsp' }, { value: 'gallon', label: 'gallon' }
+];
+const metricUnits: { value: Unit, label: string }[] = [
+    { value: 'pcs', label: 'pcs' }, { value: 'g', label: 'g' }, { value: 'kg', label: 'kg' },
+    { value: 'ml', label: 'ml' }, { value: 'l', label: 'l' }
+];
+
+const foodItemSchema = z.object({
+    quantity: z.string().min(1, "Qty is required."),
+    unit: z.string().min(1, "Unit is required."),
+    name: z.string().min(1, "Food name cannot be empty."),
+});
+
 const formSchema = z.object({
     mealType: z.enum(["Breakfast", "Lunch", "Dinner", "Snack"]),
-    foods: z.array(z.object({
-        value: z.string().min(1, "Food item cannot be empty.")
-    })).min(1, "You must add at least one food item."),
+    foods: z.array(foodItemSchema).min(1, "You must add at least one food item."),
     loggedAtDate: z.date(),
     loggedAtTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Please enter a valid time in HH:mm format."),
 });
@@ -53,12 +67,13 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
+    const [availableUnits, setAvailableUnits] = useState(usUnits);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             mealType: getDefaultMealType(),
-            foods: [{ value: "" }],
+            foods: [{ quantity: "1", unit: "pcs", name: "" }],
             loggedAtDate: new Date(),
             loggedAtTime: format(new Date(), "HH:mm"),
         },
@@ -73,7 +88,7 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         if (isOpen) {
             form.reset({
                 mealType: getDefaultMealType(),
-                foods: [{ value: "" }],
+                foods: [{ quantity: "1", unit: "pcs", name: "" }],
                 loggedAtDate: new Date(),
                 loggedAtTime: format(new Date(), "HH:mm"),
             });
@@ -82,7 +97,11 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     
     const onSubmit = async (data: FormData) => {
         setIsPending(true);
-        const foodArray = data.foods.map(f => f.value);
+        const foodArray = data.foods.map(f => ({
+            quantity: f.quantity,
+            unit: f.unit,
+            name: f.name
+        }));
         
         const [hours, minutes] = data.loggedAtTime.split(":").map(Number);
         const finalLoggedAt = new Date(data.loggedAtDate);
@@ -202,11 +221,41 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                      <FormLabel>Foods Eaten</FormLabel>
                                      <div className="space-y-2">
                                         {fields.map((field, index) => (
-                                            <div key={field.id} className="flex items-center gap-2">
-                                                <Input
-                                                    {...form.register(`foods.${index}.value`)}
-                                                    className="flex-1"
-                                                    placeholder="e.g., 1 apple, 2 slices of toast with butter"
+                                            <div key={field.id} className="grid grid-cols-[1fr_1fr_2fr_auto] items-start gap-2">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`foods.${index}.quantity`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl><Input placeholder="Qty" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`foods.${index}.unit`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                                                <SelectContent>
+                                                                    {availableUnits.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`foods.${index}.name`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl><Input placeholder="e.g., apple, slice of toast" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
                                                 />
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                                                     <Trash2 className="h-4 w-4" />
@@ -217,7 +266,7 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                      {form.formState.errors.foods?.root && (
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.foods.root.message}</p>
                                      )}
-                                     <Button type="button" variant="outline" className="w-full" onClick={() => append({ value: "" })}>
+                                     <Button type="button" variant="outline" className="w-full" onClick={() => append({ quantity: "1", unit: "pcs", name: "" })}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Food Item
                                     </Button>
                                 </div>

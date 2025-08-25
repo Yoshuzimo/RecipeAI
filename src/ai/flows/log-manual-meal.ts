@@ -1,11 +1,18 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { FinalizeRecipeResponseSchema, type FinalizeRecipeResponse } from '@/ai/schemas/finalize-recipe';
 
+const foodItemSchema = z.object({
+    quantity: z.string(),
+    unit: z.string(),
+    name: z.string(),
+});
+
 const LogManualMealInputSchema = z.object({
-    foods: z.array(z.string()),
+    foods: z.array(foodItemSchema),
 });
 export type LogManualMealInput = z.infer<typeof LogManualMealInputSchema>;
 
@@ -17,7 +24,7 @@ export async function logManualMeal(
 You are an expert nutritionist AI. Your task is to analyze a list of foods that a user has eaten for a meal and calculate the estimated total nutritional information for the entire meal.
 
 **FOODS EATEN:**
-${input.foods.map(food => `- ${food}`).join('\n')}
+${input.foods.map(food => `- ${food.quantity} ${food.unit} ${food.name}`).join('\n')}
 
 **YOUR TASK:**
 Based on the list of foods, calculate the estimated macros (calories, protein, carbs, total fat, fiber, and a breakdown of fat types) for the entire meal combined. The result should be for a single serving, representing the total of all foods eaten.
