@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings, PersonalDetails, ConversationEntry } from "@/lib/types";
-import { saveSettings, savePersonalDetails } from "@/app/actions";
+import { saveSettings, savePersonalDetails, getClientPersonalDetails } from "@/app/actions";
 import { Loader2, Sparkles, Send } from "lucide-react";
 import { Textarea } from "./ui/textarea";
 import { generateGoalSuggestions } from "@/ai/flows/generate-goal-suggestions";
@@ -39,17 +39,16 @@ export function EditGoalsDialog({
   isOpen,
   setIsOpen,
   settings,
-  personalDetails,
   onGoalsUpdated,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   settings: Settings;
-  personalDetails: PersonalDetails;
   onGoalsUpdated: (newSettings: Settings) => void;
 }) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
   const [isAiPending, startAiTransition] = useTransition();
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [userResponse, setUserResponse] = useState("");
@@ -67,6 +66,11 @@ export function EditGoalsDialog({
   });
 
   useEffect(() => {
+    async function loadDetails() {
+        const details = await getClientPersonalDetails();
+        setPersonalDetails(details);
+        setConversation(details.goalConversation || []);
+    }
     if (isOpen) {
       form.reset({
         calorieGoal: settings.calorieGoal,
@@ -75,10 +79,10 @@ export function EditGoalsDialog({
         fatGoal: settings.fatGoal,
         fiberGoal: settings.fiberGoal,
       });
-      setConversation(personalDetails.goalConversation || []);
+      loadDetails();
       setUserResponse("");
     }
-  }, [isOpen, settings, personalDetails, form]);
+  }, [isOpen, settings, form]);
   
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -88,6 +92,7 @@ export function EditGoalsDialog({
 
 
   const handleAskAI = (initialQuestion?: string) => {
+    if (!personalDetails) return;
     const messageToSend = initialQuestion || userResponse;
     if (!messageToSend) return;
 
@@ -148,7 +153,7 @@ export function EditGoalsDialog({
             Set your daily targets for calories and macronutrients. You can also ask our AI for help!
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[500px] py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[500px]">
             {/* Left side: Form */}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -166,26 +171,33 @@ export function EditGoalsDialog({
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
                 </div>
-                <ScrollArea className="flex-1 pr-3" ref={scrollAreaRef}>
+                <ScrollArea className="flex-1 pr-3 min-h-0" ref={scrollAreaRef}>
                     <div className="space-y-4 text-sm">
-                        {conversation.length === 0 && !isAiPending && (
+                        {!personalDetails ? (
+                             <div className="flex justify-center items-center h-full">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                             </div>
+                        ) : conversation.length === 0 && !isAiPending ? (
                             <div className="text-muted-foreground text-center py-10 flex flex-col items-center gap-4">
                                 <p>Provide our AI with your details to get a personalized goal recommendation.</p>
                                 <Button type="button" onClick={() => handleAskAI("Can you help me set my nutrition goals?")} disabled={isAiPending}>
                                     <Sparkles className="mr-2 h-4 w-4" /> Ask AI for Suggestions
                                 </Button>
                             </div>
+                        ) : (
+                            <>
+                                {conversation.map((entry, index) => (
+                                    <div key={index} className={`p-3 rounded-lg ${entry.role === 'assistant' ? 'bg-muted' : 'bg-primary/10'}`}>
+                                        {entry.content}
+                                    </div>
+                                ))}
+                            </>
                         )}
-                        {conversation.map((entry, index) => (
-                            <div key={index} className={`p-3 rounded-lg ${entry.role === 'assistant' ? 'bg-muted' : 'bg-primary/10'}`}>
-                                {entry.content}
-                            </div>
-                        ))}
                         {isAiPending && <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
                     </div>
                 </ScrollArea>
                 
-                {conversation.length > 0 && (
+                {personalDetails && conversation.length > 0 && (
                     <div className="mt-auto space-y-2 pt-2">
                         <Separator />
                         <Label htmlFor="user-response" className="pt-2 block">Your Answer</Label>
@@ -211,3 +223,4 @@ export function EditGoalsDialog({
     </Dialog>
   );
 }
+
