@@ -170,26 +170,26 @@ export function AddInventoryItemDialog({
       };
       
       const macros: Partial<Macros> = {};
-      if (values.calories) macros.calories = values.calories;
-      if (values.protein) macros.protein = values.protein;
-      if (values.carbs) macros.carbs = values.carbs;
-      if (values.fat) macros.fat = values.fat;
-      if (values.fiber) macros.fiber = values.fiber;
+      if (values.calories !== undefined && values.calories !== null) macros.calories = values.calories;
+      if (values.protein !== undefined && values.protein !== null) macros.protein = values.protein;
+      if (values.carbs !== undefined && values.carbs !== null) macros.carbs = values.carbs;
+      if (values.fat !== undefined && values.fat !== null) macros.fat = values.fat;
+      if (values.fiber !== undefined && values.fiber !== null) macros.fiber = values.fiber;
 
       const fats: Partial<DetailedFats> = {};
       const { fat, saturatedFat, monounsaturatedFat, polyunsaturatedFat, transFat } = values;
 
-      if (saturatedFat !== undefined) fats.saturated = saturatedFat;
-      if (transFat !== undefined) fats.trans = transFat;
+      if (saturatedFat !== undefined && saturatedFat !== null) fats.saturated = saturatedFat;
+      if (transFat !== undefined && transFat !== null) fats.trans = transFat;
 
-      if (monounsaturatedFat !== undefined) {
+      if (monounsaturatedFat !== undefined && monounsaturatedFat !== null) {
         fats.monounsaturated = monounsaturatedFat;
       }
-      if (polyunsaturatedFat !== undefined) {
+      if (polyunsaturatedFat !== undefined && polyunsaturatedFat !== null) {
         fats.polyunsaturated = polyunsaturatedFat;
       }
       
-      if (fat !== undefined && saturatedFat !== undefined && monounsaturatedFat === undefined && polyunsaturatedFat === undefined) {
+      if ((fat !== undefined && fat !== null) && (saturatedFat !== undefined && saturatedFat !== null) && monounsaturatedFat === undefined && polyunsaturatedFat === undefined) {
           const unsaturated = fat - (saturatedFat || 0) - (transFat || 0);
           fats.monounsaturated = Math.max(0, unsaturated); // Store the remainder as monounsaturated
       }
@@ -436,5 +436,7 @@ export function AddInventoryItemDialog({
     </Dialog>
   );
 }
+
+    
 
     

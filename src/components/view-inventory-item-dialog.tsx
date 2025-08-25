@@ -212,26 +212,26 @@ export function ViewInventoryItemDialog({
     
     if (nutrition.servingSizeQuantity && nutrition.servingSizeUnit) {
         const servingMacros: Partial<Macros> = {};
-        if (nutrition.calories !== undefined) servingMacros.calories = nutrition.calories;
-        if (nutrition.protein !== undefined) servingMacros.protein = nutrition.protein;
-        if (nutrition.carbs !== undefined) servingMacros.carbs = nutrition.carbs;
-        if (nutrition.fat !== undefined) servingMacros.fat = nutrition.fat;
-        if (nutrition.fiber !== undefined) servingMacros.fiber = nutrition.fiber;
+        if (nutrition.calories !== undefined && nutrition.calories !== null) servingMacros.calories = nutrition.calories;
+        if (nutrition.protein !== undefined && nutrition.protein !== null) servingMacros.protein = nutrition.protein;
+        if (nutrition.carbs !== undefined && nutrition.carbs !== null) servingMacros.carbs = nutrition.carbs;
+        if (nutrition.fat !== undefined && nutrition.fat !== null) servingMacros.fat = nutrition.fat;
+        if (nutrition.fiber !== undefined && nutrition.fiber !== null) servingMacros.fiber = nutrition.fiber;
 
         const fats: Partial<DetailedFats> = {};
         const { fat, saturatedFat, monounsaturatedFat, polyunsaturatedFat, transFat } = nutrition;
 
-        if (saturatedFat !== undefined) fats.saturated = saturatedFat;
-        if (transFat !== undefined) fats.trans = transFat;
+        if (saturatedFat !== undefined && saturatedFat !== null) fats.saturated = saturatedFat;
+        if (transFat !== undefined && transFat !== null) fats.trans = transFat;
 
-        if (monounsaturatedFat !== undefined) {
+        if (monounsaturatedFat !== undefined && monounsaturatedFat !== null) {
             fats.monounsaturated = monounsaturatedFat;
         }
-        if (polyunsaturatedFat !== undefined) {
+        if (polyunsaturatedFat !== undefined && polyunsaturatedFat !== null) {
             fats.polyunsaturated = polyunsaturatedFat;
         }
         
-        if (fat !== undefined && saturatedFat !== undefined && monounsaturatedFat === undefined && polyunsaturatedFat === undefined) {
+        if ((fat !== undefined && fat !== null) && (saturatedFat !== undefined && saturatedFat !== null) && (monounsaturatedFat === undefined || monounsaturatedFat === null) && (polyunsaturatedFat === undefined || polyunsaturatedFat === null)) {
             const unsaturated = fat - (saturatedFat || 0) - (transFat || 0);
             fats.monounsaturated = Math.max(0, unsaturated);
         }
@@ -526,5 +526,7 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
+
+    
 
     
