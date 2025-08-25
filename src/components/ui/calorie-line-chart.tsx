@@ -13,6 +13,7 @@ import {
 import type { DailyMacros, Settings } from "@/lib/types"
 import { EditMealTimeDialog } from "../edit-meal-time-dialog"
 import { getUserDayBoundaries } from "@/lib/utils"
+import { TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip"
 
 type ChartDataPoint = {
     time: number; // Daily
@@ -71,14 +72,16 @@ const DailyCustomTick = (props: any) => {
         <foreignObject x={x - 50} y={y + 10} width={100} height={100}>
              <div className="text-center">
                 <p className="text-sm font-bold">{dataEntry.meal}</p>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                       <p className="text-xs text-muted-foreground cursor-pointer">{truncatedText}</p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{dishText}</p>
-                    </TooltipContent>
-                </Tooltip>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                           <p className="text-xs text-muted-foreground cursor-pointer">{truncatedText}</p>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{dishText}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
         </foreignObject>
     );

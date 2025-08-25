@@ -386,7 +386,7 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
     return { success: true, newInventory: await getClientInventory() };
 }
 
-export async function handleLogManualMeal(foods: string[], mealType: DailyMacros['meal']) {
+export async function handleLogManualMeal(foods: string[], mealType: DailyMacros['meal'], loggedAt: Date) {
     const userId = await getCurrentUserId();
     
     const aiResult = await logManualMeal({ foods });
@@ -396,7 +396,7 @@ export async function handleLogManualMeal(foods: string[], mealType: DailyMacros
     }
 
     const dishName = foods.join(', ');
-    await dataLogMacros(db, userId, mealType, dishName, aiResult.macros);
+    await dataLogMacros(db, userId, mealType, dishName, aiResult.macros, loggedAt);
     
     return { success: true };
 }
