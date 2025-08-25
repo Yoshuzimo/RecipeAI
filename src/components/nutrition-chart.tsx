@@ -18,7 +18,6 @@ import {
   ChartLegend,
   ChartLegendContent
 } from "@/components/ui/chart"
-import type { DailyMacros } from "@/lib/types"
 
 const chartConfig = {
   protein: {
@@ -29,21 +28,17 @@ const chartConfig = {
     label: "Carbs",
     color: "hsl(var(--chart-2))",
   },
-  fat: {
-    label: "Fat",
-    color: "hsl(var(--chart-3))",
-  },
   fiber: {
     label: "Fiber",
-    color: "hsl(var(--chart-4))",
+    color: "hsl(var(--chart-3))",
   },
   saturated: {
     label: "Saturated Fat",
-    color: "hsl(var(--chart-5))",
+    color: "hsl(var(--chart-4))",
   },
   unsaturated: {
     label: "Unsaturated Fat",
-    color: "hsl(var(--chart-2))",
+    color: "hsl(var(--chart-5))",
   },
   dishes: {
     label: "Dishes"
@@ -157,9 +152,9 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
+            <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
             <Bar dataKey="saturated" name="Saturated Fat" fill="var(--color-saturated)" radius={4} />
             <Bar dataKey="unsaturated" name="Unsaturated Fat" fill="var(--color-unsaturated)" radius={4} />
-            <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
           </BarChart>
           </ResponsiveContainer>
         </ChartContainer>

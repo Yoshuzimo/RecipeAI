@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,6 +25,12 @@
     --input: 220 13% 91%;
     --ring: 128 32% 71%;
     --radius: 0.5rem;
+
+    --chart-1: 350 85% 78%; /* Protein - Salmon Pink */
+    --chart-2: 30 90% 75%;  /* Carbs - Orange */
+    --chart-3: 175 55% 70%; /* Fiber - Teal */
+    --chart-4: 50 95% 68%;  /* Saturated Fat - Yellow */
+    --chart-5: 200 90% 75%; /* Unsaturated Fat - Blue */
   }
 
   .dark {
@@ -46,6 +53,12 @@
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: 128 32% 71%;
+
+    --chart-1: 350 75% 70%;
+    --chart-2: 30 80% 65%;
+    --chart-3: 175 50% 60%;
+    --chart-4: 50 85% 60%;
+    --chart-5: 200 80% 65%;
   }
 }
 
