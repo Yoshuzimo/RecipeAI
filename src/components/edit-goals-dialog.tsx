@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useTransition, useRef } from "react";
@@ -166,7 +165,7 @@ export function EditGoalsDialog({
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4 space-y-4">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4 h-full">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
@@ -223,4 +222,3 @@ export function EditGoalsDialog({
     </Dialog>
   );
 }
-
