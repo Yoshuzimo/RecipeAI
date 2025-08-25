@@ -49,9 +49,20 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
                 } else {
                     newMeals = newMeals.filter(m => m.id !== updatedOriginalMeal.id);
                 }
+            } else {
+                 // The original meal might have been deleted if the last dish was moved.
+                 const originalId = newMeal?.id ? meals.find(m => m.dishes.some(d => d.name === newMeal.dishes[0].name))?.id : undefined;
+                 if (originalId) {
+                     newMeals = newMeals.filter(m => m.id !== originalId);
+                 }
             }
             if (newMeal) {
-                newMeals.push(newMeal);
+                const existingMealIndex = newMeals.findIndex(m => m.id === newMeal.id);
+                if (existingMealIndex > -1) {
+                    newMeals[existingMealIndex] = newMeal;
+                } else {
+                    newMeals.push(newMeal);
+                }
             }
             return newMeals.sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime());
         });

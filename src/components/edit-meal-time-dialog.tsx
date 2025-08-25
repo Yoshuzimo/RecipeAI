@@ -57,10 +57,8 @@ export function EditMealTimeDialog({
     };
 
     async function onSaveChanges() {
-        // This function now only saves changes to the list of dishes,
-        // for instance, if a dish was removed because it was moved.
-        if (dishes.length === meal.dishes.length) {
-            setIsOpen(false); // No changes to save
+        if (dishes.length === meal.dishes.length && JSON.stringify(dishes) === JSON.stringify(meal.dishes)) {
+            setIsOpen(false);
             return;
         }
 
@@ -74,6 +72,10 @@ export function EditMealTimeDialog({
                 description: `The details for "${meal.meal}" have been updated.`,
             });
             onMealUpdated(result.updatedMeal);
+            setIsOpen(false);
+        } else if (result.success && result.deletedMealId) {
+            toast({ title: "Meal Updated", description: "The last dish was removed, so the meal entry was deleted." });
+            onMealDeleted(result.deletedMealId);
             setIsOpen(false);
         } else {
              toast({
@@ -102,6 +104,11 @@ export function EditMealTimeDialog({
             });
         }
     }
+
+  const handleDishUpdated = (updatedMeal: DailyMacros) => {
+      onMealUpdated(updatedMeal);
+      setDishes(updatedMeal.dishes);
+  };
 
   return (
     <>
@@ -170,6 +177,7 @@ export function EditMealTimeDialog({
                 onDishMoved(updatedOriginal, newMeal);
                 setIsOpen(false); // Close main dialog after move
             }}
+            onDishUpdated={handleDishUpdated}
         />
     )}
     </>

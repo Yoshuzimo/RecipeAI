@@ -197,9 +197,15 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
 }
 
 
-export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[]): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros }> {
+export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[]): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros, deletedMealId?: string }> {
     const userId = await getCurrentUserId();
     try {
+        // If all dishes are removed, delete the meal log entry entirely.
+        if (updatedDishes.length === 0) {
+            await dataDeleteMealLog(db, userId, mealId);
+            return { success: true, deletedMealId: mealId };
+        }
+
         // Recalculate totals based on the updated dishes
         const newTotals: Macros = updatedDishes.reduce((acc, dish) => {
             acc.calories += dish.calories || 0;

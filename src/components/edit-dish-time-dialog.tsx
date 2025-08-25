@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { LoggedDish, DailyMacros } from "@/lib/types";
-import { Loader2, Edit } from "lucide-react";
+import { Loader2, Edit, Trash2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
@@ -26,6 +26,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { EditDishDialog } from "./edit-dish-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import { handleUpdateMealLog } from "@/app/actions";
 
 const formSchema = z.object({
   mealType: z.enum(["Breakfast", "Lunch", "Dinner", "Snack"]),
@@ -39,16 +41,19 @@ export function EditDishTimeDialog({
   dish,
   originalMeal,
   onDishMoved,
+  onDishUpdated,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   dish: LoggedDish;
   originalMeal: DailyMacros;
   onDishMoved: (updatedOriginalMeal?: DailyMacros, newMeal?: DailyMacros) => void;
+  onDishUpdated: (updatedMeal: DailyMacros) => void;
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [isNutritionDialogOpen, setIsNutritionDialogOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [editedDish, setEditedDish] = useState(dish);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -78,7 +83,7 @@ export function EditDishTimeDialog({
     
     // Server action to move the dish
     const { handleMoveDishToNewMeal } = await import("@/app/actions");
-    const result = await handleMoveDishToNewMeal(originalMeal, dish, values.mealType, newLoggedAt);
+    const result = await handleMoveDishToNewMeal(originalMeal, editedDish, values.mealType, newLoggedAt);
 
     if (result.success) {
       toast({ title: "Dish Moved", description: `"${dish.name}" has been moved successfully.` });
@@ -91,11 +96,40 @@ export function EditDishTimeDialog({
     setIsOpen(false);
   };
   
-  const handleNutritionSave = (updatedDish: LoggedDish) => {
-      setEditedDish(updatedDish);
-      // Here you might want to optimistically update the original meal as well
-      // or just wait for the final save.
+  const handleNutritionSave = (updatedDishData: LoggedDish) => {
+      setEditedDish(updatedDishData);
+      
+      const updatedDishes = originalMeal.dishes.map(d => d.name === dish.name ? updatedDishData : d);
+      const { handleUpdateMealLog } = require("@/app/actions");
+
+      handleUpdateMealLog(originalMeal.id, updatedDishes).then((result: any) => {
+        if(result.success && result.updatedMeal) {
+            onDishUpdated(result.updatedMeal);
+        }
+      });
   };
+
+  const handleDeleteDish = async () => {
+    setIsPending(true);
+    const remainingDishes = originalMeal.dishes.filter(d => d.name !== dish.name); // simplistic filter
+    const result = await handleUpdateMealLog(originalMeal.id, remainingDishes);
+
+    if (result.success) {
+        toast({ title: "Dish Deleted", description: `"${dish.name}" has been removed from the meal.` });
+        if (result.deletedMealId) {
+            // The whole meal was deleted
+            onDishMoved(undefined, undefined); 
+        } else if (result.updatedMeal) {
+            onDishUpdated(result.updatedMeal);
+        }
+    } else {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+    }
+    
+    setIsPending(false);
+    setIsDeleteConfirmOpen(false);
+    setIsOpen(false);
+  }
 
   return (
     <>
@@ -180,9 +214,15 @@ export function EditDishTimeDialog({
                 />
             </div>
             <DialogFooter className="pt-4 justify-between">
-                <Button type="button" variant="outline" onClick={() => setIsNutritionDialogOpen(true)}>
-                    <Edit className="mr-2 h-4 w-4" /> Edit Nutritional Info
-                </Button>
+                <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsNutritionDialogOpen(true)}>
+                        <Edit className="mr-2 h-4 w-4" /> Edit Nutrition
+                    </Button>
+                     <Button type="button" variant="destructive-outline" size="icon" onClick={() => setIsDeleteConfirmOpen(true)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete Dish</span>
+                    </Button>
+                </div>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending}>
@@ -202,6 +242,22 @@ export function EditDishTimeDialog({
             onSave={handleNutritionSave}
         />
     )}
+    <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently delete "{dish.name}" from this meal log. This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteDish} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {isPending ? "Deleting..." : "Delete Dish"}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
