@@ -82,11 +82,13 @@ export function CalorieLineChart({
     goal,
     timeframe,
     onDataChange,
+    settings,
 }: { 
     data: any[],
     goal?: number, 
     timeframe: "daily" | "weekly" | "monthly",
     onDataChange: () => void;
+    settings: any;
 }) {
   const [mealToEdit, setMealToEdit] = React.useState<any | null>(null);
 
