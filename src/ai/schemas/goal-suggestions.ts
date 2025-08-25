@@ -19,6 +19,7 @@ export const GoalRecommendationSchema = z.object({
     protein: z.number().int().positive(),
     carbs: z.number().int().positive(),
     fat: z.number().int().positive(),
+    fiber: z.number().int().positive(),
 });
 export type GoalRecommendation = z.infer<typeof GoalRecommendationSchema>;
 
