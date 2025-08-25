@@ -1,5 +1,6 @@
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -723,40 +724,17 @@ export async function getAllMacros(db: Firestore, userId: string): Promise<Daily
 
 export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros, loggedAt?: Date): Promise<DailyMacros> {
     const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
-    const q = dailyMacrosCollection.where("meal", "==", mealType);
-    const snapshot = await q.get();
     const newDish = { name: dishName, ...macros };
     const timestamp = loggedAt || new Date();
 
-    if (!snapshot.empty) {
-        const docRef = snapshot.docs[0].ref;
-        const existingLog = snapshot.docs[0].data() as DailyMacros;
-        const updatedDishes = [...existingLog.dishes, newDish];
-        const updatedTotals: Macros = {
-            protein: (existingLog.totals.protein || 0) + (macros.protein || 0),
-            carbs: (existingLog.totals.carbs || 0) + (macros.carbs || 0),
-            fat: (existingLog.totals.fat || 0) + (macros.fat || 0),
-            calories: (existingLog.totals.calories || 0) + (macros.calories || 0),
-            fiber: (existingLog.totals.fiber || 0) + (macros.fiber || 0),
-            fats: {
-                saturated: (existingLog.totals.fats?.saturated || 0) + (macros.fats?.saturated || 0),
-                monounsaturated: (existingLog.totals.fats?.monounsaturated || 0) + (macros.fats?.monounsaturated || 0),
-                polyunsaturated: (existingLog.totals.fats?.polyunsaturated || 0) + (macros.fats?.polyunsaturated || 0),
-                trans: (existingLog.totals.fats?.trans || 0) + (macros.fats?.trans || 0),
-            }
-        };
-        await docRef.update({ dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp });
-        return { ...existingLog, id: docRef.id, dishes: updatedDishes, totals: updatedTotals, loggedAt: timestamp };
-    } else {
-        const newMealLog: Omit<DailyMacros, 'id'> = {
-            meal: mealType,
-            dishes: [newDish],
-            totals: { ...macros },
-            loggedAt: timestamp,
-        };
-        const docRef = await dailyMacrosCollection.add(newMealLog);
-        return { ...newMealLog, id: docRef.id };
-    }
+    const newMealLog: Omit<DailyMacros, 'id'> = {
+        meal: mealType,
+        dishes: [newDish],
+        totals: { ...macros },
+        loggedAt: timestamp,
+    };
+    const docRef = await dailyMacrosCollection.add(newMealLog);
+    return { ...newMealLog, id: docRef.id };
 }
 
 export async function updateMealLog(db: Firestore, userId: string, mealId: string, mealLog: Partial<DailyMacros>): Promise<DailyMacros | null> {
@@ -772,6 +750,11 @@ export async function updateMealLog(db: Firestore, userId: string, mealId: strin
         loggedAt: mealLogData.loggedAt?.toDate() || new Date(),
         meal: mealLogData.meal,
     } as DailyMacros;
+}
+
+export async function deleteMealLog(db: Firestore, userId: string, mealId: string): Promise<void> {
+    const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);
+    await docRef.delete();
 }
 
 // Recipes

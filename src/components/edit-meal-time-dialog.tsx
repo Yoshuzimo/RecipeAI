@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMacros } from "@/lib/types";
-import { handleUpdateMealTime } from "@/app/actions";
+import { handleUpdateMealTime, handleDeleteMealLog } from "@/app/actions";
 import { Calendar as CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -40,11 +40,13 @@ export function EditMealTimeDialog({
   setIsOpen,
   meal,
   onMealUpdated,
+  onMealDeleted,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   meal: DailyMacros;
   onMealUpdated: (updatedMeal: DailyMacros) => void;
+  onMealDeleted: (mealId: string) => void;
 }) {
     const { toast } = useToast();
     const [isPending, setIsPending] = useState(false);
@@ -94,10 +96,22 @@ export function EditMealTimeDialog({
     }
     
     async function onDelete() {
-        // Implement delete logic here if needed
-        console.log("Delete meal:", meal.id);
-        toast({ title: "Delete functionality not implemented.", variant: "destructive" });
+        setIsPending(true);
+        const result = await handleDeleteMealLog(meal.id);
+        setIsPending(false);
         setIsDeleteConfirmOpen(false);
+
+        if (result.success) {
+            toast({ title: "Meal Deleted", description: "The meal log entry has been removed." });
+            onMealDeleted(result.mealId);
+            setIsOpen(false);
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: result.error || "Failed to delete meal.",
+            });
+        }
     }
 
   return (

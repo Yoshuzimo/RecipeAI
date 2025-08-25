@@ -14,6 +14,7 @@ import {
     getInventory,
     logMacros as dataLogMacros,
     updateMealLog as dataUpdateMealLog,
+    deleteMealLog as dataDeleteMealLog,
     saveRecipe as dataSaveRecipe,
     removeSavedRecipe as dataRemoveSavedRecipe,
     removeInventoryItems as dataRemoveInventoryItems,
@@ -211,6 +212,16 @@ export async function handleUpdateMealLog(mealLog: DailyMacros): Promise<{succes
         return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
+    }
+}
+
+export async function handleDeleteMealLog(mealId: string): Promise<{success: boolean, error?: string | null, mealId: string}> {
+     const userId = await getCurrentUserId();
+    try {
+        await dataDeleteMealLog(db, userId, mealId);
+        return { success: true, error: null, mealId };
+    } catch(e) {
+        return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred.", mealId };
     }
 }
 

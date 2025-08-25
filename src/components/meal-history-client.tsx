@@ -32,6 +32,11 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
         );
         setSelectedMeal(null);
     }
+    
+    const handleMealDeleted = (mealId: string) => {
+        setMeals(prev => prev.filter(m => m.id !== mealId));
+    }
+
 
     const handleBackfillNutrition = async (meal: DailyMacros) => {
         setUpdatingMeals(prev => ({ ...prev, [meal.id]: true }));
@@ -154,6 +159,7 @@ export function MealHistoryClient({ initialMeals }: { initialMeals: DailyMacros[
                 setIsOpen={() => setSelectedMeal(null)}
                 meal={selectedMeal}
                 onMealUpdated={handleMealUpdated}
+                onMealDeleted={handleMealDeleted}
             />
         )}
         </>
