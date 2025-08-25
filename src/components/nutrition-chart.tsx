@@ -29,17 +29,21 @@ const chartConfig = {
     label: "Carbs",
     color: "hsl(var(--chart-2))",
   },
+  fat: {
+    label: "Total Fat",
+    color: "hsl(var(--chart-3))",
+  },
   fiber: {
     label: "Fiber",
-    color: "hsl(var(--chart-3))",
+    color: "hsl(var(--chart-4))",
   },
   saturated: {
     label: "Saturated Fat",
-    color: "hsl(var(--chart-4))",
+    color: "hsl(var(--chart-5))",
   },
   unsaturated: {
     label: "Unsaturated Fat",
-    color: "hsl(var(--chart-5))",
+    color: "hsl(var(--chart-6))",
   },
   dishes: {
     label: "Dishes"
@@ -61,22 +65,24 @@ export function NutritionChart({ data, timeframe, settings }: {
         fiber: settings?.fiberGoal || 1,
     };
     
-    // For fat breakdown, we'll use total fat goal as the denominator for percentages.
     const fatGoal = goals.fat > 0 ? goals.fat : 1;
 
     const processData = (d: any) => {
         const totals = d.totals || d;
         const unsaturated = (totals.fats?.monounsaturated || 0) + (totals.fats?.polyunsaturated || 0);
+        const totalFat = (totals.fats?.saturated || 0) + unsaturated;
 
         return {
             name: d.meal || d.day,
             protein: (totals.protein / goals.protein) * 100,
             carbs: (totals.carbs / goals.carbs) * 100,
+            fat: (totalFat / fatGoal) * 100,
             fiber: (totals.fiber / goals.fiber) * 100,
             saturated: (totals.fats?.saturated / fatGoal) * 100,
             unsaturated: (unsaturated / fatGoal) * 100,
             proteinGrams: totals.protein,
             carbsGrams: totals.carbs,
+            fatGrams: totalFat,
             fiberGrams: totals.fiber,
             saturatedGrams: totals.fats?.saturated,
             unsaturatedGrams: unsaturated,
@@ -173,6 +179,7 @@ export function NutritionChart({ data, timeframe, settings }: {
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
+            <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
             <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
             <Bar dataKey="saturated" name="Saturated Fat" fill="var(--color-saturated)" radius={4} />
             <Bar dataKey="unsaturated" name="Unsaturated Fat" fill="var(--color-unsaturated)" radius={4} />

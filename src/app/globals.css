@@ -28,9 +28,10 @@
 
     --chart-1: 350 85% 78%; /* Protein - Salmon Pink */
     --chart-2: 30 90% 75%;  /* Carbs - Orange */
-    --chart-3: 175 55% 70%; /* Fiber - Teal */
-    --chart-4: 50 95% 68%;  /* Saturated Fat - Yellow */
-    --chart-5: 200 90% 75%; /* Unsaturated Fat - Blue */
+    --chart-3: 260 85% 80%; /* Total Fat - Lavender */
+    --chart-4: 175 55% 70%; /* Fiber - Teal */
+    --chart-5: 50 95% 68%;  /* Saturated Fat - Yellow */
+    --chart-6: 200 90% 75%; /* Unsaturated Fat - Blue */
   }
 
   .dark {
@@ -56,9 +57,10 @@
 
     --chart-1: 350 75% 70%;
     --chart-2: 30 80% 65%;
-    --chart-3: 175 50% 60%;
-    --chart-4: 50 85% 60%;
-    --chart-5: 200 80% 65%;
+    --chart-3: 260 75% 72%;
+    --chart-4: 175 50% 60%;
+    --chart-5: 50 85% 60%;
+    --chart-6: 200 80% 65%;
   }
 }
 
