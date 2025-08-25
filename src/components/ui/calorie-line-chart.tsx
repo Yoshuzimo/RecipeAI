@@ -63,14 +63,22 @@ const DailyCustomTick = (props: any) => {
     if (!dataEntry || !dataEntry.meal) {
         return null;
     }
+    
+    const dishText = dataEntry.dishes.map((d: any) => d.name).join(', ');
+    const truncatedText = dishText.length > 20 ? `${dishText.substring(0, 20)}...` : dishText;
 
     return (
         <foreignObject x={x - 50} y={y + 10} width={100} height={100}>
              <div className="text-center">
                 <p className="text-sm font-bold">{dataEntry.meal}</p>
-                {dataEntry.dishes.map((dish: any, index: number) => (
-                    <p key={index} className="text-xs text-muted-foreground">{dish.name}</p>
-                ))}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                       <p className="text-xs text-muted-foreground cursor-pointer">{truncatedText}</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{dishText}</p>
+                    </TooltipContent>
+                </Tooltip>
             </div>
         </foreignObject>
     );

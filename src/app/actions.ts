@@ -48,6 +48,7 @@ import {
 } from "@/lib/data";
 import { addDays } from "date-fns";
 import { parseIngredient } from "@/lib/utils";
+import { logManualMeal } from "@/ai/flows/log-manual-meal";
 
 
 // --- Server Actions ---
@@ -384,6 +385,22 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
 
     return { success: true, newInventory: await getClientInventory() };
 }
+
+export async function handleLogManualMeal(foods: string[], mealType: DailyMacros['meal']) {
+    const userId = await getCurrentUserId();
+    
+    const aiResult = await logManualMeal({ foods });
+
+    if ('error' in aiResult) {
+        return { success: false, error: aiResult.error };
+    }
+
+    const dishName = foods.join(', ');
+    await dataLogMacros(db, userId, mealType, dishName, aiResult.macros);
+    
+    return { success: true };
+}
+
 
 export async function handleConfirmMeal(pendingMealId: string, servingsEaten: number, mealType: string, loggedAt: Date) {
     const userId = await getCurrentUserId();
