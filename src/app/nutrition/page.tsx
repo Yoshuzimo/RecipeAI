@@ -4,7 +4,7 @@
 import * as React from "react";
 import MainLayout from "@/components/main-layout";
 import { NutritionChart } from "@/components/nutrition-chart";
-import { getClientTodaysMacros, getClientHousehold, getSettings } from "@/app/actions";
+import { getAllMacros, getClientHousehold, getSettings } from "@/app/actions";
 import { Separator } from "@/components/ui/separator";
 import { CalorieLineChart } from "@/components/ui/calorie-line-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,7 +38,7 @@ export default function NutritionPage() {
   
   const fetchData = React.useCallback(async () => {
     const [macrosData, householdData, settingsData] = await Promise.all([
-      getClientTodaysMacros(),
+      getAllMacros(),
       getClientHousehold(),
       getSettings(),
     ]);

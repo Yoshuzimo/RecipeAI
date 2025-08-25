@@ -9,7 +9,7 @@ import {
     updateClientShoppingListItem,
     removeClientShoppingListItem,
     removeClientCheckedShoppingListItems,
-    getClientTodaysMacros,
+    getAllMacros,
     handleUpdateItemThreshold
 } from "@/app/actions";
 import { generateShoppingSuggestions } from "@/ai/flows/generate-shopping-suggestions";
@@ -151,7 +151,7 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
   const handleGenerateAISuggestions = () => {
     startAiTransition(async () => {
         setAiSuggestions([]);
-        const dailyMacros = await getClientTodaysMacros();
+        const dailyMacros = await getAllMacros();
         const consumptionHistory = dailyMacros.map(m => `- ${m.meal}: ${m.dishes.map(d => d.name).join(', ')}`).join('\n');
         const inventoryString = inventory.map(i => `- ${i.name}: ${i.totalQuantity} ${i.unit}`).join('\n');
         const personalDetailsString = JSON.stringify(personalDetails, null, 2);

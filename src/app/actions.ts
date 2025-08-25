@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit, DailyMacros } from "@/lib/types";
 import { db, auth } from "@/lib/firebase-admin";
 import {
     seedInitialData as dataSeedInitialData,
@@ -20,7 +20,7 @@ import {
     getStorageLocations as dataGetStorageLocations,
     getSavedRecipes as dataGetSavedRecipes,
     getHouseholdRecipes as dataGetHouseholdRecipes,
-    getTodaysMacros as dataGetTodaysMacros,
+    getAllMacros as dataGetAllMacros,
     addStorageLocation as dataAddStorageLocation,
     updateStorageLocation as dataUpdateStorageLocation,
     removeStorageLocation as dataRemoveStorageLocation,
@@ -186,11 +186,11 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
     return await dataUpdateInventoryItem(db, userId, updatedItem);
 }
 
-export async function handleUpdateMealTime(mealId: string, newTime: Date): Promise<{success: boolean, error?: string | null}> {
+export async function handleUpdateMealTime(mealId: string, newTime: Date, mealType: DailyMacros['meal']): Promise<{success: boolean, error?: string | null, updatedMeal?: DailyMacros}> {
     const userId = await getCurrentUserId();
     try {
-        const updatedMeal = await dataUpdateMealTime(db, userId, mealId, newTime);
-        return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found." };
+        const updatedMeal = await dataUpdateMealTime(db, userId, mealId, newTime, mealType);
+        return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
     }
@@ -425,9 +425,9 @@ export async function savePersonalDetails(details: PersonalDetails) {
     return dataSavePersonalDetails(db, userId, details);
 }
 
-export async function getClientTodaysMacros() {
+export async function getAllMacros() {
     const userId = await getCurrentUserId();
-    return dataGetTodaysMacros(db, userId);
+    return dataGetAllMacros(db, userId);
 }
 
 export async function addClientInventoryItem(item: NewInventoryItem) {

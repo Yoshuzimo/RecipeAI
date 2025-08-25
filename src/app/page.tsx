@@ -2,7 +2,7 @@
 
 import MainLayout from "@/components/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getClientInventory, getClientTodaysMacros, getSettings } from "@/app/actions";
+import { getClientInventory, getAllMacros, getSettings } from "@/app/actions";
 import { differenceInDays, isToday } from "date-fns";
 import { CookingPot, Package, AlarmClock, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
 import { TodaysMacros } from "@/components/todays-macros";
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
   const { privateItems, sharedItems }: { privateItems: InventoryItem[], sharedItems: InventoryItem[] } = await getClientInventory();
-  const dailyData: DailyMacros[] = await getClientTodaysMacros();
+  const dailyData: DailyMacros[] = await getAllMacros();
   const settings: Settings | null = await getSettings();
 
   const inventory = [...privateItems, ...sharedItems];

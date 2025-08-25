@@ -706,7 +706,7 @@ export async function saveSettings(db: Firestore, userId: string, settings: Sett
 }
 
 // Macros
-export async function getTodaysMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
+export async function getAllMacros(db: Firestore, userId: string): Promise<DailyMacros[]> {
     const snapshot = await db.collection(`users/${userId}/daily-macros`).get();
     return snapshot.docs.map(doc => {
         const data = doc.data();
@@ -748,9 +748,9 @@ export async function logMacros(db: Firestore, userId: string, mealType: "Breakf
     }
 }
 
-export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: Date): Promise<DailyMacros | null> {
+export async function updateMealTime(db: Firestore, userId: string, mealId: string, newTime: Date, mealType: DailyMacros['meal']): Promise<DailyMacros | null> {
     const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);
-    await docRef.update({ loggedAt: newTime });
+    await docRef.update({ loggedAt: newTime, meal: mealType });
     const mealLogDoc = await docRef.get();
     if (!mealLogDoc.exists) return null;
     
@@ -759,6 +759,7 @@ export async function updateMealTime(db: Firestore, userId: string, mealId: stri
         ...mealLogData,
         id: mealId,
         loggedAt: mealLogData.loggedAt?.toDate() || new Date(),
+        meal: mealLogData.meal,
     } as DailyMacros;
 }
 

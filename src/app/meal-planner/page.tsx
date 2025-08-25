@@ -2,7 +2,7 @@
 
 import MainLayout from "@/components/main-layout";
 import { MealPlanner } from "@/components/meal-planner";
-import { getClientInventory, getClientSavedRecipes, getClientPersonalDetails, getClientTodaysMacros } from "@/app/actions";
+import { getClientInventory, getClientSavedRecipes, getClientPersonalDetails, getAllMacros } from "@/app/actions";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,7 @@ export default async function MealPlannerPage() {
   const inventory = await getClientInventory();
   const savedRecipes = await getClientSavedRecipes();
   const personalDetails = await getClientPersonalDetails();
-  const todaysMacros = await getClientTodaysMacros();
+  const todaysMacros = await getAllMacros();
 
   return (
     <MainLayout>
