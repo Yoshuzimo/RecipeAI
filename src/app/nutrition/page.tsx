@@ -56,7 +56,7 @@ export default function NutritionPage() {
     return household.pendingMeals?.filter(meal => meal.pendingUserIds.includes(user.uid)) || [];
   }, [household, user]);
 
-  const { dataForCharts, description } = React.useMemo(() => {
+  const { dataForLineChart, dataForBarChart, description } = React.useMemo(() => {
     const now = new Date();
     const dayStartTime = settings?.dayStartTime || "00:00";
     
@@ -64,6 +64,8 @@ export default function NutritionPage() {
         calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
         fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 },
     });
+    
+    const todaysData = allDailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
 
     switch (timeframe) {
       case "monthly": {
@@ -91,7 +93,8 @@ export default function NutritionPage() {
             };
         });
         return { 
-            dataForCharts: dailyTotals, 
+            dataForLineChart: dailyTotals, 
+            dataForBarChart: dailyTotals,
             description: "Your total calorie intake per day for the last 30 days.",
         }
       }
@@ -123,16 +126,16 @@ export default function NutritionPage() {
         });
 
         return { 
-            dataForCharts: dailyTotals, 
+            dataForLineChart: dailyTotals, 
+            dataForBarChart: dailyTotals,
             description: "Your total calorie and macronutrient intake per day for the current week.",
         }
       }
       case "daily":
       default: {
-        const todaysData = allDailyData.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
         const mealDataMap = new Map(todaysData.map(d => [d.meal, d]));
 
-        const finalData = mealOrder.map(mealName => {
+        const barChartData = mealOrder.map(mealName => {
             if (mealDataMap.has(mealName)) {
                 return mealDataMap.get(mealName)!;
             }
@@ -146,7 +149,8 @@ export default function NutritionPage() {
         });
         
         return { 
-            dataForCharts: finalData,
+            dataForLineChart: todaysData, // Use raw timed data for line chart
+            dataForBarChart: barChartData, // Use grouped data for bar chart
             description: "A running total of your calorie intake for today.",
         }
       }
@@ -192,10 +196,10 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dataForCharts} timeframe={timeframe} settings={settings} onDataChange={fetchData} />
+                <CalorieLineChart data={dataForLineChart} goal={settings?.calorieGoal} timeframe={timeframe} settings={settings} onDataChange={fetchData} />
             </CardContent>
          </Card>
-        <NutritionChart data={dataForCharts} timeframe={timeframe} settings={settings} />
+        <NutritionChart data={dataForBarChart} timeframe={timeframe} settings={settings} />
         
         {myPendingMeals.length > 0 && (
           <div className="space-y-4">
