@@ -144,56 +144,54 @@ export function EditGoalsDialog({
             Set your daily targets for calories and macronutrients. You can also ask our AI for help!
           </DialogDescription>
         </DialogHeader>
-        <div className="h-[450px] overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-full">
-                {/* Left side: Form */}
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="calorieGoal" render={({ field }) => ( <FormItem><FormLabel>Calories (kcal)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="proteinGoal" render={({ field }) => ( <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="carbsGoal" render={({ field }) => ( <FormItem><FormLabel>Carbohydrates (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField control={form.control} name="fatGoal" render={({ field }) => ( <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                    </form>
-                </Form>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 h-[450px] overflow-hidden">
+            {/* Left side: Form */}
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField control={form.control} name="calorieGoal" render={({ field }) => ( <FormItem><FormLabel>Calories (kcal)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="proteinGoal" render={({ field }) => ( <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="carbsGoal" render={({ field }) => ( <FormItem><FormLabel>Carbohydrates (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fatGoal" render={({ field }) => ( <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                </form>
+            </Form>
 
-                {/* Right side: AI Assistant */}
-                <div className="flex flex-col border rounded-lg p-4 space-y-4 h-full">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        <h4 className="font-semibold">AI Goal Assistant</h4>
-                    </div>
-                    <ScrollArea className="flex-1 pr-3" ref={scrollAreaRef}>
-                        <div className="space-y-4 text-sm">
-                            {conversation.length === 0 && !isAiPending && (
-                                <div className="text-muted-foreground text-center py-10 flex flex-col items-center gap-4">
-                                    <p>Provide our AI with your details to get a personalized goal recommendation.</p>
-                                    <Button type="button" onClick={() => handleAskAI("Can you help me set my nutrition goals?")} disabled={isAiPending}>
-                                        <Sparkles className="mr-2 h-4 w-4" /> Ask AI for Suggestions
-                                    </Button>
-                                </div>
-                            )}
-                            {conversation.map((entry, index) => (
-                                <div key={index} className={`p-3 rounded-lg ${entry.role === 'assistant' ? 'bg-muted' : 'bg-primary/10'}`}>
-                                    {entry.content}
-                                </div>
-                            ))}
-                            {isAiPending && <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
-                        </div>
-                    </ScrollArea>
-                    
-                    {conversation.length > 0 && (
-                        <div className="mt-auto space-y-2 pt-2">
-                            <Separator />
-                            <Label htmlFor="user-response" className="pt-2 block">Your Answer</Label>
-                            <div className="flex gap-2">
-                                <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
-                                <Button type="button" size="icon" onClick={() => handleAskAI()} disabled={isAiPending || !userResponse}>
-                                    <Send className="h-4 w-4" />
+            {/* Right side: AI Assistant */}
+            <div className="flex flex-col border rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <h4 className="font-semibold">AI Goal Assistant</h4>
+                </div>
+                <ScrollArea className="flex-1 pr-3" ref={scrollAreaRef}>
+                    <div className="space-y-4 text-sm">
+                        {conversation.length === 0 && !isAiPending && (
+                            <div className="text-muted-foreground text-center py-10 flex flex-col items-center gap-4">
+                                <p>Provide our AI with your details to get a personalized goal recommendation.</p>
+                                <Button type="button" onClick={() => handleAskAI("Can you help me set my nutrition goals?")} disabled={isAiPending}>
+                                    <Sparkles className="mr-2 h-4 w-4" /> Ask AI for Suggestions
                                 </Button>
                             </div>
+                        )}
+                        {conversation.map((entry, index) => (
+                            <div key={index} className={`p-3 rounded-lg ${entry.role === 'assistant' ? 'bg-muted' : 'bg-primary/10'}`}>
+                                {entry.content}
+                            </div>
+                        ))}
+                        {isAiPending && <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
+                    </div>
+                </ScrollArea>
+                
+                {conversation.length > 0 && (
+                    <div className="mt-auto space-y-2 pt-2">
+                        <Separator />
+                        <Label htmlFor="user-response" className="pt-2 block">Your Answer</Label>
+                        <div className="flex gap-2">
+                            <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
+                            <Button type="button" size="icon" onClick={() => handleAskAI()} disabled={isAiPending || !userResponse}>
+                                <Send className="h-4 w-4" />
+                            </Button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         </div>
 
