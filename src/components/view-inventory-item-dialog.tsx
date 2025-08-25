@@ -47,23 +47,17 @@ const formSchema = z.object({
     partial: z.coerce.number().min(0),
   })),
   nutrition: z.object({
-    servingSizeQuantity: z.coerce.number().optional(),
+    servingSizeQuantity: z.coerce.number().min(0).optional(),
     servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon", ""]).optional(),
-    calories: z.coerce.number().optional(),
-    protein: z.coerce.number().optional(),
-    carbs: z.coerce.number().optional(),
-    fat: z.coerce.number().optional(),
-    fiber: z.coerce.number().optional(),
-    saturatedFat: z.coerce.number().optional(),
-    monounsaturatedFat: z.coerce.number().optional(),
-    polyunsaturatedFat: z.coerce.number().optional(),
-    transFat: z.coerce.number().optional(),
-  }).refine(data => {
-      if (data.calories === undefined || data.calories === 0) return true;
-      return data.servingSizeQuantity && data.servingSizeUnit && data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
-  }, {
-      message: "Serving size and main macros must be filled if calories are provided.",
-      path: ["calories"],
+    calories: z.coerce.number().min(0).optional(),
+    protein: z.coerce.number().min(0).optional(),
+    carbs: z.coerce.number().min(0).optional(),
+    fat: z.coerce.number().min(0).optional(),
+    fiber: z.coerce.number().min(0).optional(),
+    saturatedFat: z.coerce.number().min(0).optional(),
+    monounsaturatedFat: z.coerce.number().min(0).optional(),
+    polyunsaturatedFat: z.coerce.number().min(0).optional(),
+    transFat: z.coerce.number().min(0).optional(),
   }),
 });
 
@@ -216,29 +210,30 @@ export function ViewInventoryItemDialog({
     
     let nutritionPayload: any = undefined;
     
-    if (nutrition.calories && nutrition.calories > 0) {
-        const servingMacros: Partial<Macros> = {
-            calories: nutrition.calories,
-            protein: nutrition.protein,
-            carbs: nutrition.carbs,
-            fat: nutrition.fat,
-        };
-        if (nutrition.fiber) servingMacros.fiber = nutrition.fiber;
+    if (nutrition.servingSizeQuantity !== undefined && nutrition.servingSizeUnit) {
+        const servingMacros: Partial<Macros> = {};
+        if (nutrition.calories !== undefined) servingMacros.calories = nutrition.calories;
+        if (nutrition.protein !== undefined) servingMacros.protein = nutrition.protein;
+        if (nutrition.carbs !== undefined) servingMacros.carbs = nutrition.carbs;
+        if (nutrition.fat !== undefined) servingMacros.fat = nutrition.fat;
+        if (nutrition.fiber !== undefined) servingMacros.fiber = nutrition.fiber;
 
         const fats: Partial<any> = {};
-        if (nutrition.saturatedFat) fats.saturated = nutrition.saturatedFat;
-        if (nutrition.monounsaturatedFat) fats.monounsaturated = nutrition.monounsaturatedFat;
-        if (nutrition.polyunsaturatedFat) fats.polyunsaturated = nutrition.polyunsaturatedFat;
-        if (nutrition.transFat) fats.trans = nutrition.transFat;
+        if (nutrition.saturatedFat !== undefined) fats.saturated = nutrition.saturatedFat;
+        if (nutrition.monounsaturatedFat !== undefined) fats.monounsaturated = nutrition.monounsaturatedFat;
+        if (nutrition.polyunsaturatedFat !== undefined) fats.polyunsaturated = nutrition.polyunsaturatedFat;
+        if (nutrition.transFat !== undefined) fats.trans = nutrition.transFat;
         
         if (Object.keys(fats).length > 0) {
             servingMacros.fats = fats;
         }
-
-        nutritionPayload = {
-            servingSize: { quantity: nutrition.servingSizeQuantity!, unit: nutrition.servingSizeUnit! },
-            servingMacros,
-        };
+        
+        if(Object.keys(servingMacros).length > 0) {
+            nutritionPayload = {
+                servingSize: { quantity: nutrition.servingSizeQuantity, unit: nutrition.servingSizeUnit },
+                servingMacros,
+            };
+        }
     }
 
     const result = await handleUpdateInventoryGroup(
@@ -436,15 +431,15 @@ export function ViewInventoryItemDialog({
                             <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                          <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber (Optional)</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat (Optional)</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                          <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat (Optional)</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat (Optional)</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                          <div className="grid grid-cols-2 gap-4">
-                             <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat (Optional)</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                             <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                          </div>
                     </CollapsibleContent>
                 </Collapsible>
@@ -519,5 +514,3 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
-
-    

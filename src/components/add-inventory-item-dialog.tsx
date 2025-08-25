@@ -38,7 +38,7 @@ import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import type { Unit, StorageLocation, NewInventoryItem, InventoryItem } from "@/lib/types";
+import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Separator } from "./ui/separator";
@@ -57,30 +57,23 @@ const formSchema = z.object({
   }),
   isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
-  calories: z.coerce.number().optional(),
-  protein: z.coerce.number().optional(),
-  carbs: z.coerce.number().optional(),
-  fat: z.coerce.number().optional(),
-  fiber: z.coerce.number().optional(),
-  saturatedFat: z.coerce.number().optional(),
-  monounsaturatedFat: z.coerce.number().optional(),
-  polyunsaturatedFat: z.coerce.number().optional(),
-  transFat: z.coerce.number().optional(),
+  // Nutrition fields are now fully optional
+  calories: z.coerce.number().min(0).optional(),
+  protein: z.coerce.number().min(0).optional(),
+  carbs: z.coerce.number().min(0).optional(),
+  fat: z.coerce.number().min(0).optional(),
+  fiber: z.coerce.number().min(0).optional(),
+  saturatedFat: z.coerce.number().min(0).optional(),
+  monounsaturatedFat: z.coerce.number().min(0).optional(),
+  polyunsaturatedFat: z.coerce.number().min(0).optional(),
+  transFat: z.coerce.number().min(0).optional(),
 }).refine(data => {
+    // Expiry date is required only if 'does not expire' is unchecked
     if (data.doesNotExpire) return true;
     return !!data.expiryDate;
 }, {
     message: "An expiry date is required unless the item does not expire.",
     path: ["expiryDate"],
-}).refine(data => {
-    // If calories are entered, the main macros must also be entered.
-    if (data.calories !== undefined && data.calories > 0) {
-        return data.protein !== undefined && data.carbs !== undefined && data.fat !== undefined;
-    }
-    return true;
-}, {
-    message: "Protein, Carbs, and Fat are required if Calories are provided.",
-    path: ["protein"], // Show error on one of the dependent fields
 });
 
 
@@ -176,25 +169,25 @@ export function AddInventoryItemDialog({
         isPrivate: values.isPrivate,
       };
       
-      if (values.calories && values.calories > 0) {
-          const macros: Partial<Macros> = {
-              calories: values.calories,
-              protein: values.protein,
-              carbs: values.carbs,
-              fat: values.fat,
-          };
-          if (values.fiber) macros.fiber = values.fiber;
+      const macros: Partial<Macros> = {};
+      if (values.calories !== undefined) macros.calories = values.calories;
+      if (values.protein !== undefined) macros.protein = values.protein;
+      if (values.carbs !== undefined) macros.carbs = values.carbs;
+      if (values.fat !== undefined) macros.fat = values.fat;
+      if (values.fiber !== undefined) macros.fiber = values.fiber;
 
-          const fats: Partial<any> = {};
-          if (values.saturatedFat) fats.saturated = values.saturatedFat;
-          if (values.monounsaturatedFat) fats.monounsaturated = values.monounsaturatedFat;
-          if (values.polyunsaturatedFat) fats.polyunsaturated = values.polyunsaturatedFat;
-          if (values.transFat) fats.trans = values.transFat;
+      const fats: Partial<any> = {};
+      if (values.saturatedFat !== undefined) fats.saturated = values.saturatedFat;
+      if (values.monounsaturatedFat !== undefined) fats.monounsaturated = values.monounsaturatedFat;
+      if (values.polyunsaturatedFat !== undefined) fats.polyunsaturated = values.polyunsaturatedFat;
+      if (values.transFat !== undefined) fats.trans = values.transFat;
 
-          if (Object.keys(fats).length > 0) {
-            macros.fats = fats;
-          }
-          newItemData.macros = macros as Macros;
+      if (Object.keys(fats).length > 0) {
+        macros.fats = fats;
+      }
+
+      if (Object.keys(macros).length > 0) {
+        newItemData.macros = macros as Macros;
       }
 
       const newItem = await addClientInventoryItem(newItemData as NewInventoryItem);
@@ -431,5 +424,3 @@ export function AddInventoryItemDialog({
     </Dialog>
   );
 }
-
-    
