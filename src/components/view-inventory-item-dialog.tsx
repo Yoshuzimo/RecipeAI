@@ -73,13 +73,21 @@ type FormData = z.infer<typeof formSchema>;
 const nonDivisibleKeywords = ['egg', 'eggs'];
 
 const metricUnits: { value: Unit, label: string }[] = [
-    { value: 'g', label: 'g' }, { value: 'kg', label: 'kg' },
-    { value: 'ml', label: 'ml' }, { value: 'l', label: 'l' }, { value: 'pcs', label: 'pcs' },
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'kg', label: 'Kilograms (kg)' },
+    { value: 'ml', label: 'Milliliters (ml)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
 ];
 
 const usUnits: { value: Unit, label: string }[] = [
-    { value: 'oz', label: 'oz' }, { value: 'lbs', label: 'lbs' },
-    { value: 'fl oz', label: 'fl oz' }, { value: 'gallon', label: 'gallon' }, { value: 'pcs', label: 'pcs' },
+    { value: 'oz', label: 'Ounces (oz)' },
+    { value: 'lbs', label: 'Pounds (lbs)' },
+    { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
+    { value: 'gallon', label: 'Gallons' },
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
 ];
 
 export function ViewInventoryItemDialog({

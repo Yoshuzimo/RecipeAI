@@ -97,6 +97,8 @@ const usUnits: { value: Unit, label: string }[] = [
     { value: 'lbs', label: 'Pounds (lbs)' },
     { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
     { value: 'gallon', label: 'Gallons' },
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'l', label: 'Liters (l)' },
     { value: 'pcs', label: 'Pieces (pcs)' },
 ];
 
