@@ -42,13 +42,9 @@ const chartConfig = {
     label: "Saturated (g)",
     color: "hsl(var(--chart-5))",
   },
-  monounsaturated: {
-    label: "Monounsaturated (g)",
+  unsaturated: {
+    label: "Unsaturated (g)",
     color: "hsl(180 83.3% 57.8%)",
-  },
-  polyunsaturated: {
-    label: "Polyunsaturated (g)",
-    color: "hsl(60 83.3% 57.8%)",
   },
   dishes: {
     label: "Dishes"
@@ -58,30 +54,25 @@ const chartConfig = {
 export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "daily" | "weekly" | "monthly" }) {
 
   const chartData = React.useMemo(() => {
-    if (timeframe === 'daily') {
-        return data.map(d => ({
-            name: d.meal,
-            protein: d.totals.protein,
-            carbs: d.totals.carbs,
-            fat: d.totals.fat,
-            fiber: d.totals.fiber || 0,
-            saturated: d.totals.fats?.saturated || 0,
-            monounsaturated: d.totals.fats?.monounsaturated || 0,
-            polyunsaturated: d.totals.fats?.polyunsaturated || 0,
+    const processData = (d: any) => {
+        const unsaturated = (d.totals?.fats?.monounsaturated || d.fats?.monounsaturated || 0) + (d.totals?.fats?.polyunsaturated || d.fats?.polyunsaturated || 0);
+        return {
+            name: d.meal || d.day,
+            protein: d.totals?.protein || d.protein || 0,
+            carbs: d.totals?.carbs || d.carbs || 0,
+            fat: d.totals?.fat || d.fat || 0,
+            fiber: d.totals?.fiber || d.fiber || 0,
+            saturated: d.totals?.fats?.saturated || d.fats?.saturated || 0,
+            unsaturated: unsaturated,
             dishes: d.dishes,
-        }));
+        }
+    };
+    
+    if (timeframe === 'daily') {
+        return data.map(processData);
     }
     if (timeframe === 'weekly') {
-        return data.map(d => ({
-            name: d.day,
-            protein: d.protein,
-            carbs: d.carbs,
-            fat: d.fat,
-            fiber: d.fiber || 0,
-            saturated: d.fats?.saturated || 0,
-            monounsaturated: d.fats?.monounsaturated || 0,
-            polyunsaturated: d.fats?.polyunsaturated || 0,
-        }));
+        return data.map(processData);
     }
     return [];
   }, [data, timeframe]);
@@ -169,11 +160,9 @@ export function NutritionChart({ data, timeframe }: { data: any[], timeframe: "d
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
             <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
-            <Bar dataKey="fat" fill="var(--color-fat)" radius={4} />
-            <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
             <Bar dataKey="saturated" fill="var(--color-saturated)" radius={4} />
-            <Bar dataKey="monounsaturated" fill="var(--color-monounsaturated)" radius={4} />
-            <Bar dataKey="polyunsaturated" fill="var(--color-polyunsaturated)" radius={4} />
+            <Bar dataKey="unsaturated" fill="var(--color-unsaturated)" radius={4} />
+            <Bar dataKey="fiber" fill="var(--color-fiber)" radius={4} />
           </BarChart>
         </ChartContainer>
       </CardContent>
