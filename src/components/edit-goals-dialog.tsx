@@ -24,6 +24,7 @@ import { Textarea } from "./ui/textarea";
 import { generateGoalSuggestions } from "@/ai/flows/generate-goal-suggestions";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
+import { Label } from "./ui/label";
 
 const formSchema = z.object({
   calorieGoal: z.coerce.number().int().min(0, "Must be a positive number."),
