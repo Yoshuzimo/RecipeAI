@@ -88,6 +88,12 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
   }, [todaysData]);
 
+  const goals = {
+      calories: settings?.calorieGoal || 2000,
+      protein: settings?.proteinGoal || 150,
+      carbs: settings?.carbsGoal || 250,
+      fat: settings?.fatGoal || 70,
+  }
 
   const chartData = React.useMemo(() => {
      const dataMap = new Map(todaysData.map(d => [d.meal, d]));
@@ -97,30 +103,27 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
             const calories = (mealData.totals.protein * 4) + (mealData.totals.carbs * 4) + (mealData.totals.fat * 9);
             return {
                 meal: mealData.meal,
-                calories,
-                protein: mealData.totals.protein,
-                carbs: mealData.totals.carbs,
-                fat: mealData.totals.fat,
+                protein: goals.protein > 0 ? (mealData.totals.protein / goals.protein) * 100 : 0,
+                carbs: goals.carbs > 0 ? (mealData.totals.carbs / goals.carbs) * 100 : 0,
+                fat: goals.fat > 0 ? (mealData.totals.fat / goals.fat) * 100 : 0,
+                proteinGrams: mealData.totals.protein,
+                carbsGrams: mealData.totals.carbs,
+                fatGrams: mealData.totals.fat,
                 dishes: mealData.dishes,
             }
         }
         return {
             meal: mealName,
-            calories: 0,
             protein: 0,
             carbs: 0,
             fat: 0,
+            proteinGrams: 0,
+            carbsGrams: 0,
+            fatGrams: 0,
             dishes: [],
         }
      });
-  }, [todaysData]);
-
-  const goals = {
-      calories: settings?.calorieGoal || 2000,
-      protein: settings?.proteinGoal || 150,
-      carbs: settings?.carbsGoal || 250,
-      fat: settings?.fatGoal || 70,
-  }
+  }, [todaysData, goals]);
 
   const remaining = {
     calories: Math.max(0, goals.calories - totals.calories),
@@ -171,9 +174,19 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
-                    tickFormatter={(value) => `${value}g`}
+                    tickFormatter={(value) => `${value}%`}
                 />
-                <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{fill: 'hsl(var(--muted))'}} />
+                 <ChartTooltip
+                    cursor={false}
+                    content={
+                        <ChartTooltipContent
+                        formatter={(value, name, item) => {
+                            const originalGrams = item.payload[`${name}Grams`];
+                            return `${originalGrams.toFixed(0)}g`;
+                        }}
+                        />
+                    }
+                    />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="protein" fill="var(--color-protein)" radius={4} />
                 <Bar dataKey="carbs" fill="var(--color-carbs)" radius={4} />
