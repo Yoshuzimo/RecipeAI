@@ -48,7 +48,7 @@ const formSchema = z.object({
   })),
   nutrition: z.object({
     servingSizeQuantity: z.coerce.number().optional(),
-    servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon"]).optional(),
+    servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon", ""]).optional(),
     calories: z.coerce.number().optional(),
     protein: z.coerce.number().optional(),
     carbs: z.coerce.number().optional(),
@@ -216,21 +216,27 @@ export function ViewInventoryItemDialog({
     
     let nutritionPayload: any = undefined;
     if (nutrition.calories && nutrition.calories > 0) {
+        const servingMacros: any = {
+            calories: nutrition.calories,
+            protein: nutrition.protein,
+            carbs: nutrition.carbs,
+            fat: nutrition.fat,
+        };
+        if (nutrition.fiber) servingMacros.fiber = nutrition.fiber;
+
+        const fats: any = {};
+        if (nutrition.saturatedFat) fats.saturated = nutrition.saturatedFat;
+        if (nutrition.monounsaturatedFat) fats.monounsaturated = nutrition.monounsaturatedFat;
+        if (nutrition.polyunsaturatedFat) fats.polyunsaturated = nutrition.polyunsaturatedFat;
+        if (nutrition.transFat) fats.trans = nutrition.transFat;
+        
+        if (Object.keys(fats).length > 0) {
+            servingMacros.fats = fats;
+        }
+
         nutritionPayload = {
             servingSize: { quantity: nutrition.servingSizeQuantity!, unit: nutrition.servingSizeUnit! },
-            servingMacros: { 
-                calories: nutrition.calories!, 
-                protein: nutrition.protein!, 
-                carbs: nutrition.carbs!, 
-                fat: nutrition.fat!,
-                fiber: nutrition.fiber,
-                fats: {
-                    saturated: nutrition.saturatedFat,
-                    monounsaturated: nutrition.monounsaturatedFat,
-                    polyunsaturated: nutrition.polyunsaturatedFat,
-                    trans: nutrition.transFat
-                }
-            },
+            servingMacros,
         };
     }
 
@@ -418,7 +424,7 @@ export function ViewInventoryItemDialog({
                         <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                         </div>
                          <div className="grid grid-cols-2 gap-4">
                             <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />

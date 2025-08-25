@@ -177,19 +177,24 @@ export function AddInventoryItemDialog({
       };
       
       if (values.calories) {
-          newItemData.macros = {
-              calories: values.calories!,
-              protein: values.protein!,
-              carbs: values.carbs!,
-              fat: values.fat!,
-              fiber: values.fiber,
-              fats: {
-                saturated: values.saturatedFat,
-                monounsaturated: values.monounsaturatedFat,
-                polyunsaturated: values.polyunsaturatedFat,
-                trans: values.transFat
-              }
+          const macros: any = {
+              calories: values.calories,
+              protein: values.protein,
+              carbs: values.carbs,
+              fat: values.fat,
+          };
+          if (values.fiber) macros.fiber = values.fiber;
+
+          const fats: any = {};
+          if (values.saturatedFat) fats.saturated = values.saturatedFat;
+          if (values.monounsaturatedFat) fats.monounsaturated = values.monounsaturatedFat;
+          if (values.polyunsaturatedFat) fats.polyunsaturated = values.polyunsaturatedFat;
+          if (values.transFat) fats.trans = values.transFat;
+
+          if (Object.keys(fats).length > 0) {
+            macros.fats = fats;
           }
+          newItemData.macros = macros;
       }
 
       const newItem = await addClientInventoryItem(newItemData);
