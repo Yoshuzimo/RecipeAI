@@ -156,12 +156,12 @@ export function EditGoalsDialog({
             </Form>
 
             {/* Right side: AI Assistant */}
-            <div className="flex flex-col border rounded-lg p-4 space-y-4">
+            <div className="flex flex-col border rounded-lg p-4 space-y-4 h-[420px]">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     <h4 className="font-semibold">AI Goal Assistant</h4>
                 </div>
-                 <ScrollArea className="flex-1 pr-3 h-64" ref={scrollAreaRef}>
+                 <ScrollArea className="flex-1 pr-3" ref={scrollAreaRef}>
                     <div className="space-y-4 text-sm">
                         {conversation.length === 0 && !isAiPending && (
                              <div className="text-muted-foreground text-center py-10 flex flex-col items-center gap-4">
@@ -181,9 +181,9 @@ export function EditGoalsDialog({
                 </ScrollArea>
                 
                  {conversation.length > 0 && (
-                    <div className="mt-auto space-y-2">
+                    <div className="mt-auto space-y-2 pt-2">
                         <Separator />
-                        <Label htmlFor="user-response">Your Answer</Label>
+                        <Label htmlFor="user-response" className="pt-2 block">Your Answer</Label>
                         <div className="flex gap-2">
                             <Textarea id="user-response" value={userResponse} onChange={(e) => setUserResponse(e.target.value)} placeholder="Type your answer here..."/>
                             <Button type="button" size="icon" onClick={() => handleAskAI()} disabled={isAiPending || !userResponse}>
