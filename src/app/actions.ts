@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
@@ -363,27 +362,35 @@ export async function handleUpdateItemThreshold(itemId: string, threshold: numbe
     }
 }
 
-export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealType: string, selectedMemberIds: string[]) {
+export async function handleLogMeal(
+    recipe: Recipe,
+    servingsEaten: number,
+    mealType: string,
+    selectedMemberIds: string[],
+    fridgeLeftovers: LeftoverDestination[],
+    freezerLeftovers: LeftoverDestination[]
+) {
     const userId = await getCurrentUserId();
     const { privateItems, sharedItems } = await getClientInventory();
     const allItems = [...privateItems, ...sharedItems];
-
-    const macrosPerServing = {
-        calories: recipe.macros.calories / recipe.servings,
-        protein: recipe.macros.protein / recipe.servings,
-        carbs: recipe.macros.carbs / recipe.servings,
-        fat: recipe.macros.fat / recipe.servings,
-        fiber: (recipe.macros.fiber ?? 0) / recipe.servings,
-        fats: {
-            saturated: (recipe.macros.fats?.saturated ?? 0) / recipe.servings,
-            monounsaturated: (recipe.macros.fats?.monounsaturated ?? 0) / recipe.servings,
-            polyunsaturated: (recipe.macros.fats?.polyunsaturated ?? 0) / recipe.servings,
-            trans: (recipe.macros.fats?.trans ?? 0) / recipe.servings,
-        }
-    };
+    const household = await dataGetHousehold(db, userId);
     
     // Log macros for the current user
     if (servingsEaten > 0) {
+        const macrosPerServing = {
+            calories: recipe.macros.calories / recipe.servings,
+            protein: recipe.macros.protein / recipe.servings,
+            carbs: recipe.macros.carbs / recipe.servings,
+            fat: recipe.macros.fat / recipe.servings,
+            fiber: (recipe.macros.fiber ?? 0) / recipe.servings,
+            fats: {
+                saturated: (recipe.macros.fats?.saturated ?? 0) / recipe.servings,
+                monounsaturated: (recipe.macros.fats?.monounsaturated ?? 0) / recipe.servings,
+                polyunsaturated: (recipe.macros.fats?.polyunsaturated ?? 0) / recipe.servings,
+                trans: (recipe.macros.fats?.trans ?? 0) / recipe.servings,
+            }
+        };
+
         const macrosConsumed = {
             calories: macrosPerServing.calories * servingsEaten,
             protein: macrosPerServing.protein * servingsEaten,
@@ -401,6 +408,7 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
     }
     
     const itemsToRemove: { item: InventoryItem; amountToRemove: number }[] = [];
+    const totalServingsConsumed = servingsEaten + selectedMemberIds.length;
 
     // Deduct ingredients from inventory
     for (const ingredientString of recipe.ingredients) {
@@ -409,25 +417,40 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
 
         if (inventoryMatch && parsed.quantity) {
              const amountNeededPerServing = parsed.quantity / recipe.servings;
-             const totalAmountNeeded = amountNeededPerServing * servingsEaten;
+             const totalAmountNeeded = amountNeededPerServing * totalServingsConsumed;
              itemsToRemove.push({ item: inventoryMatch, amountToRemove: totalAmountNeeded });
         }
     }
     
     // Batch update inventory
-    const promises = itemsToRemove.map(async ({item, amountToRemove}) => {
+    const inventoryUpdatePromises = itemsToRemove.map(async ({item, amountToRemove}) => {
         const updatedQuantity = item.totalQuantity - amountToRemove;
         await dataUpdateInventoryItem(db, userId, {...item, totalQuantity: updatedQuantity});
     });
-
-    await Promise.all(promises);
+    
+    // Create Leftover Items
+    const leftoverPromises = [...fridgeLeftovers, ...freezerLeftovers].map(dest => {
+        if (dest.servings > 0 && dest.locationId) {
+             const isFreezer = freezerLeftovers.some(f => f.locationId === dest.locationId);
+             const newLeftover: NewInventoryItem = {
+                name: `Leftover - ${recipe.title}`,
+                originalQuantity: dest.servings,
+                totalQuantity: dest.servings,
+                unit: 'pcs',
+                expiryDate: isFreezer ? addDays(new Date(), 90) : addDays(new Date(), 3),
+                locationId: dest.locationId,
+                isPrivate: !household,
+            };
+            return addClientInventoryItem(newLeftover);
+        }
+        return Promise.resolve();
+    });
+    
+    await Promise.all([...inventoryUpdatePromises, ...leftoverPromises]);
 
     // Create pending meal request if other members were selected
-    if (selectedMemberIds.length > 0) {
-        const household = await dataGetHousehold(db, userId);
-        if (household) {
-            await dataCreatePendingMeal(db, userId, household.id, recipe, selectedMemberIds);
-        }
+    if (selectedMemberIds.length > 0 && household) {
+        await dataCreatePendingMeal(db, userId, household.id, recipe, selectedMemberIds);
     }
 
     return { success: true, newInventory: await getClientInventory() };

@@ -63,8 +63,16 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
     });
 
     const responseText = llmResponse.text.trim();
+    if (!responseText) {
+      return { error: "The AI returned an empty response. Please try again." };
+    }
+
     const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
     let jsonString = jsonMatch ? jsonMatch[1] : responseText;
+    
+    if (!jsonString.trim()) {
+      return { error: "The AI returned an empty JSON response. Please try again." };
+    }
 
     // Sometimes the model returns a valid JSON without the markdown block
     if (!jsonString.startsWith('{')) {

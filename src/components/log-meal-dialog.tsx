@@ -145,7 +145,14 @@ export function LogMealDialog({
         .filter(([, isSelected]) => isSelected)
         .map(([id]) => id);
 
-    const result = await handleLogMeal(recipe, servingsEaten, mealType, selectedMemberIds);
+    const result = await handleLogMeal(
+        recipe, 
+        servingsEaten, 
+        mealType, 
+        selectedMemberIds, 
+        fridgeDestinations, 
+        freezerDestinations
+    );
     
     setIsPending(false);
 

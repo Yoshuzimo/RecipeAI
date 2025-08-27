@@ -66,8 +66,16 @@ Provide the output in the following JSON format. Do not include any text outside
     });
 
     const responseText = llmResponse.text;
+     if (!responseText) {
+      return { error: "The AI returned an empty response. Please try again." };
+    }
+
     const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
     const jsonString = jsonMatch ? jsonMatch[1] : responseText;
+    
+    if (!jsonString.trim()) {
+        return { error: "The AI returned an empty JSON response. Please try again." };
+    }
     
     const parsedJson = JSON.parse(jsonString);
     return GenerateShoppingSuggestionsOutputSchema.parse(parsedJson);
