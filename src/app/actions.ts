@@ -3,7 +3,7 @@
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
-import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit, DailyMacros, LoggedDish } from "@/lib/types";
+import type { InventoryItem, LeftoverDestination, Recipe, StorageLocation, Settings, PersonalDetails, MarkPrivateRequest, MoveRequest, SpoilageRequest, Household, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, Macros, PendingMeal, Unit, DailyMacros, LoggedDish, DetailedFats } from "@/lib/types";
 import { db, auth } from "@/lib/firebase-admin";
 import {
     seedInitialData as dataSeedInitialData,
@@ -435,6 +435,20 @@ export async function handleLogMeal(
     const leftoverPromises = [...fridgeLeftovers, ...freezerLeftovers].map(dest => {
         if (dest.servings > 0 && dest.locationId) {
              const isFreezer = freezerLeftovers.some(f => f.locationId === dest.locationId);
+             const leftoverMacros = {
+                 calories: (recipe.macros.calories / recipe.servings) || 0,
+                 protein: (recipe.macros.protein / recipe.servings) || 0,
+                 carbs: (recipe.macros.carbs / recipe.servings) || 0,
+                 fat: (recipe.macros.fat / recipe.servings) || 0,
+                 fiber: (recipe.macros.fiber / recipe.servings) || 0,
+                 fats: {
+                     saturated: (recipe.macros.fats?.saturated / recipe.servings) || 0,
+                     monounsaturated: (recipe.macros.fats?.monounsaturated / recipe.servings) || 0,
+                     polyunsaturated: (recipe.macros.fats?.polyunsaturated / recipe.servings) || 0,
+                     trans: (recipe.macros.fats?.trans / recipe.servings) || 0,
+                 }
+             };
+
              const newLeftover: NewInventoryItem = {
                 name: `Leftover - ${recipe.title}`,
                 originalQuantity: dest.servings,
@@ -443,6 +457,7 @@ export async function handleLogMeal(
                 expiryDate: isFreezer ? addDays(new Date(), 90) : addDays(new Date(), 3),
                 locationId: dest.locationId,
                 isPrivate: !household,
+                macros: leftoverMacros, // Store per-serving macros for the leftover
             };
             return addClientInventoryItem(newLeftover);
         }
@@ -523,8 +538,8 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             fats: {
                 saturated: (pendingMeal.recipe.macros.fats?.saturated ?? 0) / pendingMeal.recipe.servings,
                 monounsaturated: (pendingMeal.recipe.macros.fats?.monounsaturated ?? 0) / pendingMeal.recipe.servings,
-                polyunsaturated: (pendingMeal.recipe.macros.fats?.polyunsaturated ?? 0) / pendingMeal.recipe.servings,
-                trans: (pendingMeal.recipe.macros.fats?.trans ?? 0) / pendingMeal.recipe.servings,
+                polyunsaturated: (pendingMeal.recipe.macros.fats?.polyunsaturated ?? 0) / recipe.servings,
+                trans: (pendingMeal.recipe.macros.fats?.trans ?? 0) / recipe.servings,
             }
         };
 
@@ -561,37 +576,57 @@ export async function handleEatSingleItem(
 ): Promise<{ success: boolean; error?: string | null; newInventory?: { privateItems: InventoryItem[]; sharedItems: InventoryItem[] } }> {
     const userId = await getCurrentUserId();
     
-    // 1. Calculate nutrition via AI
-    const aiInput: LogManualMealInput = {
-        foods: [{
-            quantity: String(quantityEaten),
-            unit: item.unit,
-            name: item.name,
-        }]
-    };
+    const isLeftoverWithMacros = 
+        item.name.toLowerCase().startsWith('leftover') &&
+        item.macros &&
+        item.unit === 'pcs';
+
+    if (isLeftoverWithMacros) {
+        const macrosPerServing = item.macros!;
+        const consumedMacros: Macros = {
+            calories: (macrosPerServing.calories || 0) * quantityEaten,
+            protein: (macrosPerServing.protein || 0) * quantityEaten,
+            carbs: (macrosPerServing.carbs || 0) * quantityEaten,
+            fat: (macrosPerServing.fat || 0) * quantityEaten,
+            fiber: (macrosPerServing.fiber || 0) * quantityEaten,
+            fats: {
+                saturated: (macrosPerServing.fats?.saturated || 0) * quantityEaten,
+                monounsaturated: (macrosPerServing.fats?.monounsaturated || 0) * quantityEaten,
+                polyunsaturated: (macrosPerServing.fats?.polyunsaturated || 0) * quantityEaten,
+                trans: (macrosPerServing.fats?.trans || 0) * quantityEaten,
+            }
+        };
+        await dataLogMacros(db, userId, mealType, item.name, consumedMacros, loggedAt);
     
-    if (item.macros && item.servingSize) {
-        const { servingSize, macros } = item;
-        const normalizedItemSize = normalizeToGramsOrML(servingSize.quantity, servingSize.unit);
+    } else if (item.macros && item.servingSize && item.servingMacros) {
+        const { servingSize, servingMacros } = item;
+        const normalizedServingSize = normalizeToGramsOrML(servingSize.quantity, servingSize.unit);
         const quantityEatenNormalized = normalizeToGramsOrML(quantityEaten, item.unit);
-        const scaleFactor = quantityEatenNormalized / normalizedItemSize;
+        const scaleFactor = quantityEatenNormalized / normalizedServingSize;
         
         const consumedMacros: Macros = {
-            calories: (macros.calories || 0) * scaleFactor,
-            protein: (macros.protein || 0) * scaleFactor,
-            carbs: (macros.carbs || 0) * scaleFactor,
-            fat: (macros.fat || 0) * scaleFactor,
-            fiber: (macros.fiber || 0) * scaleFactor,
+            calories: (servingMacros.calories || 0) * scaleFactor,
+            protein: (servingMacros.protein || 0) * scaleFactor,
+            carbs: (servingMacros.carbs || 0) * scaleFactor,
+            fat: (servingMacros.fat || 0) * scaleFactor,
+            fiber: (servingMacros.fiber || 0) * scaleFactor,
             fats: {
-                saturated: (macros.fats?.saturated || 0) * scaleFactor,
-                monounsaturated: (macros.fats?.monounsaturated || 0) * scaleFactor,
-                polyunsaturated: (macros.fats?.polyunsaturated || 0) * scaleFactor,
-                trans: (macros.fats?.trans || 0) * scaleFactor,
+                saturated: (servingMacros.fats?.saturated || 0) * scaleFactor,
+                monounsaturated: (servingMacros.fats?.monounsaturated || 0) * scaleFactor,
+                polyunsaturated: (servingMacros.fats?.polyunsaturated || 0) * scaleFactor,
+                trans: (servingMacros.fats?.trans || 0) * scaleFactor,
             }
         };
         await dataLogMacros(db, userId, mealType, item.name, consumedMacros, loggedAt);
 
     } else {
+        const aiInput: LogManualMealInput = {
+            foods: [{
+                quantity: String(quantityEaten),
+                unit: item.unit,
+                name: item.name,
+            }]
+        };
         const aiResult = await logManualMeal(aiInput);
         if ('error' in aiResult) {
             return { success: false, error: aiResult.error };
@@ -832,3 +867,5 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const currentUserId = await getCurrentUserId();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
+
+    
