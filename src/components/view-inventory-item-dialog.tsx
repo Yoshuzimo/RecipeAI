@@ -16,7 +16,7 @@ import {
 import type { InventoryItem, InventoryItemGroup, InventoryPackageGroup, Macros, Unit, DetailedFats } from "@/lib/types";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle, ChevronDown } from "lucide-react";
+import { Loader2, Trash2, Move, Biohazard, Share2, User, Save, PlusCircle, ChevronDown, UtensilsCrossed } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { handleUpdateInventoryGroup, handleRemoveInventoryPackageGroup, handleToggleItemPrivacy, getClientHousehold, getClientInventory } from "@/app/actions";
 import { Input } from "./ui/input";
@@ -40,6 +40,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Separator } from "./ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { EatItemDialog } from "./eat-item-dialog";
 
 const formSchema = z.object({
   packages: z.record(z.string(), z.object({
@@ -103,6 +104,7 @@ export function ViewInventoryItemDialog({
   const [groupToDelete, setGroupToDelete] = useState<number | null>(null);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isSpoilageDialogOpen, setIsSpoilageDialogOpen] = useState(false);
+  const [isEatItemDialogOpen, setIsEatItemDialogOpen] = useState(false);
   const [isInHousehold, setIsInHousehold] = useState(false);
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
   const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
@@ -460,6 +462,9 @@ export function ViewInventoryItemDialog({
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
                 <div className="flex gap-2">
+                  <Button type="button" variant="default" onClick={() => setIsEatItemDialogOpen(true)}>
+                      <UtensilsCrossed className="mr-2 h-4 w-4" /> Eat This
+                  </Button>
                   <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
                       <Move className="mr-2 h-4 w-4" /> Move To...
                   </Button>
@@ -507,6 +512,19 @@ export function ViewInventoryItemDialog({
         />
      )}
 
+    {isEatItemDialogOpen && (
+        <EatItemDialog
+            isOpen={isEatItemDialogOpen}
+            setIsOpen={setIsEatItemDialogOpen}
+            group={group}
+            onConsumptionLogged={async () => {
+                const { privateItems, sharedItems } = await getClientInventory();
+                onUpdateComplete(privateItems, sharedItems);
+                setIsOpen(false); // Close the main dialog too
+            }}
+        />
+    )}
+
     <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -526,7 +544,3 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
-
-    
-
-    

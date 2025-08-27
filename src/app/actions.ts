@@ -108,22 +108,25 @@ export async function handleUpdateInventoryGroup(
             const normalizedServingSize = normalizeToGramsOrML(servingSize.quantity, servingSize.unit);
             const scaleFactor = 100 / normalizedServingSize;
 
-            const normalizedMacros: Macros = {
-                calories: servingMacros.calories * scaleFactor,
-                protein: servingMacros.protein * scaleFactor,
-                carbs: servingMacros.carbs * scaleFactor,
-                fat: servingMacros.fat * scaleFactor,
-                fiber: (servingMacros.fiber !== undefined && servingMacros.fiber !== null) ? servingMacros.fiber * scaleFactor : undefined,
-                fats: servingMacros.fats ? {
-                    saturated: (servingMacros.fats.saturated !== undefined && servingMacros.fats.saturated !== null) ? servingMacros.fats.saturated * scaleFactor : undefined,
-                    monounsaturated: (servingMacros.fats.monounsaturated !== undefined && servingMacros.fats.monounsaturated !== null) ? servingMacros.fats.monounsaturated * scaleFactor : undefined,
-                    polyunsaturated: (servingMacros.fats.polyunsaturated !== undefined && servingMacros.fats.polyunsaturated !== null) ? servingMacros.fats.polyunsaturated * scaleFactor : undefined,
-                    trans: (servingMacros.fats.trans !== undefined && servingMacros.fats.trans !== null) ? servingMacros.fats.trans * scaleFactor : undefined,
-                } : undefined,
-            };
+            const normalizedMacros: Partial<Macros> = {};
+            if (servingMacros.calories !== undefined && servingMacros.calories !== null) normalizedMacros.calories = servingMacros.calories * scaleFactor;
+            if (servingMacros.protein !== undefined && servingMacros.protein !== null) normalizedMacros.protein = servingMacros.protein * scaleFactor;
+            if (servingMacros.carbs !== undefined && servingMacros.carbs !== null) normalizedMacros.carbs = servingMacros.carbs * scaleFactor;
+            if (servingMacros.fat !== undefined && servingMacros.fat !== null) normalizedMacros.fat = servingMacros.fat * scaleFactor;
+            if (servingMacros.fiber !== undefined && servingMacros.fiber !== null) normalizedMacros.fiber = servingMacros.fiber * scaleFactor;
+            
+            const newFats: Partial<DetailedFats> = {};
+            if (servingMacros.fats?.saturated !== undefined && servingMacros.fats?.saturated !== null) newFats.saturated = servingMacros.fats.saturated * scaleFactor;
+            if (servingMacros.fats?.monounsaturated !== undefined && servingMacros.fats?.monounsaturated !== null) newFats.monounsaturated = servingMacros.fats.monounsaturated * scaleFactor;
+            if (servingMacros.fats?.polyunsaturated !== undefined && servingMacros.fats?.polyunsaturated !== null) newFats.polyunsaturated = servingMacros.fats.polyunsaturated * scaleFactor;
+            if (servingMacros.fats?.trans !== undefined && servingMacros.fats?.trans !== null) newFats.trans = servingMacros.fats.trans * scaleFactor;
+
+            if (Object.keys(newFats).length > 0) {
+                normalizedMacros.fats = newFats;
+            }
             
             finalNutritionData = {
-                macros: normalizedMacros,
+                macros: normalizedMacros as Macros,
                 servingSize: servingSize,
                 servingMacros: servingMacros,
             }
@@ -549,6 +552,62 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
     }
 }
+
+export async function handleEatSingleItem(
+    item: InventoryItem,
+    quantityEaten: number,
+    mealType: DailyMacros['meal'],
+    loggedAt: Date
+): Promise<{ success: boolean; error?: string | null; newInventory?: { privateItems: InventoryItem[]; sharedItems: InventoryItem[] } }> {
+    const userId = await getCurrentUserId();
+    
+    // 1. Calculate nutrition via AI
+    const aiInput: LogManualMealInput = {
+        foods: [{
+            quantity: String(quantityEaten),
+            unit: item.unit,
+            name: item.name,
+        }]
+    };
+    
+    if (item.macros && item.servingSize) {
+        const { servingSize, macros } = item;
+        const normalizedItemSize = normalizeToGramsOrML(servingSize.quantity, servingSize.unit);
+        const quantityEatenNormalized = normalizeToGramsOrML(quantityEaten, item.unit);
+        const scaleFactor = quantityEatenNormalized / normalizedItemSize;
+        
+        const consumedMacros: Macros = {
+            calories: (macros.calories || 0) * scaleFactor,
+            protein: (macros.protein || 0) * scaleFactor,
+            carbs: (macros.carbs || 0) * scaleFactor,
+            fat: (macros.fat || 0) * scaleFactor,
+            fiber: (macros.fiber || 0) * scaleFactor,
+            fats: {
+                saturated: (macros.fats?.saturated || 0) * scaleFactor,
+                monounsaturated: (macros.fats?.monounsaturated || 0) * scaleFactor,
+                polyunsaturated: (macros.fats?.polyunsaturated || 0) * scaleFactor,
+                trans: (macros.fats?.trans || 0) * scaleFactor,
+            }
+        };
+        await dataLogMacros(db, userId, mealType, item.name, consumedMacros, loggedAt);
+
+    } else {
+        const aiResult = await logManualMeal(aiInput);
+        if ('error' in aiResult) {
+            return { success: false, error: aiResult.error };
+        }
+        await dataLogMacros(db, userId, mealType, item.name, aiResult.macros, loggedAt);
+    }
+    
+    // 2. Deduct from inventory
+    const updatedQuantity = item.totalQuantity - quantityEaten;
+    await dataUpdateInventoryItem(db, userId, { ...item, totalQuantity: updatedQuantity });
+    
+    // 3. Return updated inventory
+    const newInventory = await getInventory(db, userId);
+    return { success: true, error: null, newInventory };
+}
+
 
 // Client Data Fetchers
 export async function getClientInventory() {
