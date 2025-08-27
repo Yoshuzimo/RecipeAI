@@ -3,6 +3,7 @@
 
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -739,17 +740,18 @@ export async function logMacros(
 
         // Find recent meals of the same type to potentially merge with
         const recentMealsQuery = dailyMacrosCollection
-            .where('meal', '==', mealType)
             .where('loggedAt', '>=', oneHourAgo)
             .where('loggedAt', '<=', timestamp)
-            .orderBy('loggedAt', 'desc')
-            .limit(1);
+            .orderBy('loggedAt', 'desc');
 
         const recentMealsSnapshot = await transaction.get(recentMealsQuery);
+        
+        // Filter for the correct meal type in the application code
+        const mealToUpdateDoc = recentMealsSnapshot.docs.find(doc => doc.data().meal === mealType);
+        
         const newDish: LoggedDish = { name: dishName, ...macros };
 
-        if (!recentMealsSnapshot.empty) {
-            const mealToUpdateDoc = recentMealsSnapshot.docs[0];
+        if (mealToUpdateDoc) {
             const mealToUpdateData = mealToUpdateDoc.data() as DailyMacros;
 
             const updatedDishes = [...mealToUpdateData.dishes, newDish];
