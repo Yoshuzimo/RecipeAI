@@ -4,6 +4,7 @@
 
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -733,25 +734,28 @@ export async function logMacros(
     macros: Macros,
     loggedAt?: Date
 ): Promise<DailyMacros> {
-    return db.runTransaction(async (transaction) => {
+     return db.runTransaction(async (transaction) => {
         const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
         const timestamp = loggedAt || new Date();
         const oneHourAgo = new Date(timestamp.getTime() - 60 * 60 * 1000);
 
-        // Find recent meals of the same type to potentially merge with
+        // This query is safe and only requires a single-field index on `loggedAt`.
         const recentMealsQuery = dailyMacrosCollection
             .where('loggedAt', '>=', oneHourAgo)
-            .where('loggedAt', '<=', timestamp)
             .orderBy('loggedAt', 'desc');
 
         const recentMealsSnapshot = await transaction.get(recentMealsQuery);
         
-        // Filter for the correct meal type in the application code
-        const mealToUpdateDoc = recentMealsSnapshot.docs.find(doc => doc.data().meal === mealType);
+        // Find a meal of the same type that is not in the future.
+        const mealToUpdateDoc = recentMealsSnapshot.docs.find(doc => {
+            const data = doc.data();
+            return data.meal === mealType && data.loggedAt.toDate() <= timestamp;
+        });
         
         const newDish: LoggedDish = { name: dishName, ...macros };
 
         if (mealToUpdateDoc) {
+            // A recent meal of the same type exists, so we merge with it.
             const mealToUpdateData = mealToUpdateDoc.data() as DailyMacros;
 
             const updatedDishes = [...mealToUpdateData.dishes, newDish];
@@ -778,7 +782,7 @@ export async function logMacros(
                 totals: updatedTotals,
             } as DailyMacros;
         } else {
-            // No recent meal, create a new one
+            // No recent meal to merge with, so we create a new one.
             const newMealLog: Omit<DailyMacros, 'id'> = {
                 meal: mealType,
                 dishes: [newDish],
