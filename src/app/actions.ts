@@ -114,12 +114,12 @@ export async function handleUpdateInventoryGroup(
                 protein: servingMacros.protein * scaleFactor,
                 carbs: servingMacros.carbs * scaleFactor,
                 fat: servingMacros.fat * scaleFactor,
-                fiber: servingMacros.fiber ? servingMacros.fiber * scaleFactor : undefined,
+                fiber: (servingMacros.fiber !== undefined && servingMacros.fiber !== null) ? servingMacros.fiber * scaleFactor : undefined,
                 fats: servingMacros.fats ? {
-                    saturated: servingMacros.fats.saturated ? servingMacros.fats.saturated * scaleFactor : undefined,
-                    monounsaturated: servingMacros.fats.monounsaturated ? servingMacros.fats.monounsaturated * scaleFactor : undefined,
-                    polyunsaturated: servingMacros.fats.polyunsaturated ? servingMacros.fats.polyunsaturated * scaleFactor : undefined,
-                    trans: servingMacros.fats.trans ? servingMacros.fats.trans * scaleFactor : undefined,
+                    saturated: (servingMacros.fats.saturated !== undefined && servingMacros.fats.saturated !== null) ? servingMacros.fats.saturated * scaleFactor : undefined,
+                    monounsaturated: (servingMacros.fats.monounsaturated !== undefined && servingMacros.fats.monounsaturated !== null) ? servingMacros.fats.monounsaturated * scaleFactor : undefined,
+                    polyunsaturated: (servingMacros.fats.polyunsaturated !== undefined && servingMacros.fats.polyunsaturated !== null) ? servingMacros.fats.polyunsaturated * scaleFactor : undefined,
+                    trans: (servingMacros.fats.trans !== undefined && servingMacros.fats.trans !== null) ? servingMacros.fats.trans * scaleFactor : undefined,
                 } : undefined,
             };
             
@@ -433,7 +433,11 @@ export async function handleLogMeal(recipe: Recipe, servingsEaten: number, mealT
     return { success: true, newInventory: await getClientInventory() };
 }
 
-export async function handleLogManualMeal(foods: LogManualMealInput['foods'], mealType: DailyMacros['meal'], loggedAt: Date) {
+export async function handleLogManualMeal(
+    foods: (LogManualMealInput['foods'][0] & { deduct: boolean })[],
+    mealType: DailyMacros['meal'],
+    loggedAt: Date
+) {
     const userId = await getCurrentUserId();
     
     const aiResult = await logManualMeal({ foods });
@@ -444,6 +448,26 @@ export async function handleLogManualMeal(foods: LogManualMealInput['foods'], me
 
     const dishName = foods.map(f => `${f.quantity} ${f.unit} ${f.name}`).join(', ');
     await dataLogMacros(db, userId, mealType, dishName, aiResult.macros, loggedAt);
+    
+    // Deduct items from inventory if specified
+    const itemsToDeduct = foods.filter(f => f.deduct);
+    if (itemsToDeduct.length > 0) {
+        const { privateItems, sharedItems } = await getInventory(db, userId);
+        const allInventory = [...privateItems, ...sharedItems].sort((a,b) => (a.expiryDate?.getTime() ?? Infinity) - (b.expiryDate?.getTime() ?? Infinity));
+
+        const updates: Promise<any>[] = [];
+        
+        for (const food of itemsToDeduct) {
+            const parsed = parseIngredient(`${food.quantity} ${food.unit} ${food.name}`);
+            const inventoryMatch = allInventory.find(item => item.name.toLowerCase() === parsed.name.toLowerCase());
+            
+            if (inventoryMatch && parsed.quantity) {
+                const updatedQuantity = inventoryMatch.totalQuantity - parsed.quantity;
+                updates.push(dataUpdateInventoryItem(db, userId, {...inventoryMatch, totalQuantity: updatedQuantity}));
+            }
+        }
+        await Promise.all(updates);
+    }
     
     return { success: true };
 }

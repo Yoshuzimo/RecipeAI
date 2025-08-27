@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "./ui/checkbox";
 
 type MealType = DailyMacros['meal'];
 
@@ -52,6 +53,7 @@ const foodItemSchema = z.object({
     quantity: z.string().min(1, "Qty is required."),
     unit: z.string().min(1, "Unit is required."),
     name: z.string().min(1, "Food name cannot be empty."),
+    deduct: z.boolean().default(true),
 });
 
 const formSchema = z.object({
@@ -73,7 +75,7 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         resolver: zodResolver(formSchema),
         defaultValues: {
             mealType: getDefaultMealType(),
-            foods: [{ quantity: "1", unit: "pcs", name: "" }],
+            foods: [{ quantity: "1", unit: "pcs", name: "", deduct: true }],
             loggedAtDate: new Date(),
             loggedAtTime: format(new Date(), "HH:mm"),
         },
@@ -88,7 +90,7 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         if (isOpen) {
             form.reset({
                 mealType: getDefaultMealType(),
-                foods: [{ quantity: "1", unit: "pcs", name: "" }],
+                foods: [{ quantity: "1", unit: "pcs", name: "", deduct: true }],
                 loggedAtDate: new Date(),
                 loggedAtTime: format(new Date(), "HH:mm"),
             });
@@ -100,7 +102,8 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         const foodArray = data.foods.map(f => ({
             quantity: f.quantity,
             unit: f.unit,
-            name: f.name
+            name: f.name,
+            deduct: f.deduct,
         }));
         
         const [hours, minutes] = data.loggedAtTime.split(":").map(Number);
@@ -221,7 +224,21 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                      <FormLabel>Foods Eaten</FormLabel>
                                      <div className="space-y-2">
                                         {fields.map((field, index) => (
-                                            <div key={field.id} className="grid grid-cols-[1fr_1fr_2fr_auto] items-start gap-2">
+                                            <div key={field.id} className="grid grid-cols-[auto_1fr_1fr_2fr_auto] items-center gap-2">
+                                                 <FormField
+                                                    control={form.control}
+                                                    name={`foods.${index}.deduct`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex items-center h-full">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value}
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+                                                        </FormItem>
+                                                    )}
+                                                />
                                                 <FormField
                                                     control={form.control}
                                                     name={`foods.${index}.quantity`}
@@ -263,10 +280,11 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                             </div>
                                         ))}
                                      </div>
+                                     <FormDescription>Uncheck an item to log it without deducting from inventory.</FormDescription>
                                      {form.formState.errors.foods?.root && (
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.foods.root.message}</p>
                                      )}
-                                     <Button type="button" variant="outline" className="w-full" onClick={() => append({ quantity: "1", unit: "pcs", name: "" })}>
+                                     <Button type="button" variant="outline" className="w-full" onClick={() => append({ quantity: "1", unit: "pcs", name: "", deduct: true })}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Food Item
                                     </Button>
                                 </div>
