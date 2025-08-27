@@ -22,6 +22,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
 import { EditMacrosDialog } from "./edit-macros-dialog";
+import { Skeleton } from "./ui/skeleton";
 
 const isRecipeOutdated = (recipe: Recipe): boolean => {
     return recipe.macros.fiber === undefined || recipe.macros.fats === undefined;
