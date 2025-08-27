@@ -1,6 +1,7 @@
 
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -722,20 +723,71 @@ export async function getAllMacros(db: Firestore, userId: string): Promise<Daily
     });
 }
 
-export async function logMacros(db: Firestore, userId: string, mealType: "Breakfast" | "Lunch" | "Dinner" | "Snack", dishName: string, macros: Macros, loggedAt?: Date): Promise<DailyMacros> {
-    const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
-    const newDish = { name: dishName, ...macros };
-    const timestamp = loggedAt || new Date();
+export async function logMacros(
+    db: Firestore, 
+    userId: string, 
+    mealType: DailyMacros['meal'], 
+    dishName: string, 
+    macros: Macros, 
+    loggedAt?: Date
+): Promise<DailyMacros> {
+    return db.runTransaction(async (transaction) => {
+        const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
+        const timestamp = loggedAt || new Date();
+        const oneHourAgo = new Date(timestamp.getTime() - 60 * 60 * 1000);
 
-    const newMealLog: Omit<DailyMacros, 'id'> = {
-        meal: mealType,
-        dishes: [newDish],
-        totals: { ...macros },
-        loggedAt: timestamp,
-    };
-    const docRef = await dailyMacrosCollection.add(newMealLog);
-    return { ...newMealLog, id: docRef.id };
+        // Find recent meals to potentially merge with
+        const recentMealsQuery = dailyMacrosCollection
+            .where('loggedAt', '>=', oneHourAgo)
+            .where('loggedAt', '<=', timestamp)
+            .orderBy('loggedAt', 'desc')
+            .limit(1);
+            
+        const recentMealsSnapshot = await transaction.get(recentMealsQuery);
+        const newDish: LoggedDish = { name: dishName, ...macros };
+
+        if (!recentMealsSnapshot.empty) {
+            const mealToUpdateDoc = recentMealsSnapshot.docs[0];
+            const mealToUpdateData = mealToUpdateDoc.data() as DailyMacros;
+
+            const updatedDishes = [...mealToUpdateData.dishes, newDish];
+            const updatedTotals: Macros = updatedDishes.reduce((acc, dish) => {
+                acc.calories += dish.calories || 0;
+                acc.protein += dish.protein || 0;
+                acc.carbs += dish.carbs || 0;
+                acc.fat += dish.fat || 0;
+                acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+                acc.fats = {
+                    saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
+                    monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
+                    polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
+                    trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
+                };
+                return acc;
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+            
+            transaction.update(mealToUpdateDoc.ref, { dishes: updatedDishes, totals: updatedTotals });
+
+            return {
+                ...mealToUpdateData,
+                dishes: updatedDishes,
+                totals: updatedTotals,
+            } as DailyMacros;
+        } else {
+            // No recent meal, create a new one
+            const newMealLog: Omit<DailyMacros, 'id'> = {
+                meal: mealType,
+                dishes: [newDish],
+                totals: { ...macros },
+                loggedAt: timestamp,
+            };
+            const docRef = dailyMacrosCollection.doc();
+            transaction.set(docRef, newMealLog);
+            return { ...newMealLog, id: docRef.id };
+        }
+    });
 }
+
 
 export async function updateMealLog(db: Firestore, userId: string, mealId: string, mealLog: Partial<DailyMacros>): Promise<DailyMacros | null> {
     const docRef = db.collection(`users/${userId}/daily-macros`).doc(mealId);

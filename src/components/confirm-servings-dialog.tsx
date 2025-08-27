@@ -18,22 +18,32 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { PendingMeal } from "@/lib/types";
-import { handleConfirmMeal } from "@/app/actions";
+import type { PendingMeal, DailyMacros } from "@/lib/types";
+import { handleConfirmMeal, getClientTodaysMacros } from "@/app/actions";
 import { Loader2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInHours } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 
-const getDefaultMealType = (): MealType => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return "Breakfast";
-  if (hour >= 12 && hour < 17) return "Lunch";
-  if (hour >= 17 && hour < 21) return "Dinner";
+const getDefaultMealType = (todaysMeals: DailyMacros[]): MealType => {
+  const mealTimes: Partial<Record<MealType, Date>> = {};
+  todaysMeals.forEach(meal => {
+    mealTimes[meal.meal] = meal.loggedAt;
+  });
+
+  const now = new Date();
+
+  if (!mealTimes.Breakfast) return "Breakfast";
+  if (!mealTimes.Lunch) {
+    return differenceInHours(now, mealTimes.Breakfast) < 3 ? "Snack" : "Lunch";
+  }
+  if (!mealTimes.Dinner) {
+    return differenceInHours(now, mealTimes.Lunch) < 3 ? "Snack" : "Dinner";
+  }
   return "Snack";
 };
 
@@ -57,26 +67,32 @@ export function ConfirmServingsDialog({
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
+  const [todaysMeals, setTodaysMeals] = useState<DailyMacros[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       servingsEaten: 1,
-      mealType: getDefaultMealType(),
+      mealType: "Breakfast",
       loggedAtDate: new Date(),
       loggedAtTime: format(new Date(), "HH:mm"),
     },
   });
 
   useEffect(() => {
-    if (isOpen) {
-      form.reset({
-        servingsEaten: 1,
-        mealType: getDefaultMealType(),
-        loggedAtDate: new Date(),
-        loggedAtTime: format(new Date(), "HH:mm"),
-      });
+    async function fetchMeals() {
+      if (isOpen) {
+        const meals = await getClientTodaysMacros();
+        setTodaysMeals(meals);
+        form.reset({
+          servingsEaten: 1,
+          mealType: getDefaultMealType(meals),
+          loggedAtDate: new Date(),
+          loggedAtTime: format(new Date(), "HH:mm"),
+        });
+      }
     }
+    fetchMeals();
   }, [isOpen, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {

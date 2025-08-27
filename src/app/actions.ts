@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
@@ -478,7 +479,7 @@ export async function handleLogManualMeal(
     foods: (LogManualMealInput['foods'][0] & { deduct: boolean })[],
     mealType: DailyMacros['meal'],
     loggedAt: Date
-) {
+): Promise<{ success: boolean; error?: string | null, allMacros?: DailyMacros[] }> {
     const userId = await getCurrentUserId();
     
     const aiResult = await logManualMeal({ foods });
@@ -510,7 +511,8 @@ export async function handleLogManualMeal(
         await Promise.all(updates);
     }
     
-    return { success: true };
+    const newMacros = await getAllMacros();
+    return { success: true, allMacros: newMacros };
 }
 
 
@@ -679,6 +681,16 @@ export async function getAllMacros() {
     const userId = await getCurrentUserId();
     return dataGetAllMacros(db, userId);
 }
+
+export async function getClientTodaysMacros() {
+    const userId = await getCurrentUserId();
+    const allMacros = await dataGetAllMacros(db, userId);
+    const settings = await dataGetSettings(db, userId);
+    const dayStartTime = settings?.dayStartTime || "00:00";
+    const { isWithinUserDay } = await import("@/lib/utils");
+    return allMacros.filter(d => isWithinUserDay(d.loggedAt, dayStartTime));
+}
+
 
 export async function addClientInventoryItem(item: NewInventoryItem) {
     const userId = await getCurrentUserId();
@@ -867,5 +879,3 @@ export async function getClientPendingMemberInventory(memberId: string): Promise
     const currentUserId = await getCurrentUserId();
     return getPendingMemberInventory(db, currentUserId, memberId);
 }
-
-    

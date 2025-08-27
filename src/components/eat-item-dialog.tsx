@@ -25,21 +25,31 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { InventoryItemGroup, DailyMacros } from "@/lib/types";
-import { handleEatSingleItem } from "@/app/actions";
+import { handleEatSingleItem, getClientTodaysMacros } from "@/app/actions";
 import { Loader2, UtensilsCrossed, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, differenceInHours } from "date-fns";
 
 type MealType = DailyMacros["meal"];
 
-const getDefaultMealType = (): MealType => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return "Breakfast";
-  if (hour >= 12 && hour < 17) return "Lunch";
-  if (hour >= 17 && hour < 21) return "Dinner";
+const getDefaultMealType = (todaysMeals: DailyMacros[]): MealType => {
+  const mealTimes: Partial<Record<MealType, Date>> = {};
+  todaysMeals.forEach(meal => {
+    mealTimes[meal.meal] = meal.loggedAt;
+  });
+
+  const now = new Date();
+
+  if (!mealTimes.Breakfast) return "Breakfast";
+  if (!mealTimes.Lunch) {
+    return differenceInHours(now, mealTimes.Breakfast) < 3 ? "Snack" : "Lunch";
+  }
+  if (!mealTimes.Dinner) {
+    return differenceInHours(now, mealTimes.Lunch) < 3 ? "Snack" : "Dinner";
+  }
   return "Snack";
 };
 
@@ -63,6 +73,7 @@ export function EatItemDialog({
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
+  const [todaysMeals, setTodaysMeals] = useState<DailyMacros[]>([]);
   
   const totalAvailable = group.items.reduce((sum, item) => sum + item.totalQuantity, 0);
 
@@ -70,21 +81,26 @@ export function EatItemDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       quantityEaten: group.unit === 'pcs' ? 1 : undefined,
-      mealType: getDefaultMealType(),
+      mealType: "Breakfast",
       loggedAtDate: new Date(),
       loggedAtTime: format(new Date(), "HH:mm"),
     },
   });
 
   useEffect(() => {
-    if (isOpen) {
-      form.reset({
-        quantityEaten: group.unit === 'pcs' ? 1 : undefined,
-        mealType: getDefaultMealType(),
-        loggedAtDate: new Date(),
-        loggedAtTime: format(new Date(), "HH:mm"),
-      });
+    async function fetchMeals() {
+      if (isOpen) {
+        const meals = await getClientTodaysMacros();
+        setTodaysMeals(meals);
+        form.reset({
+          quantityEaten: group.unit === 'pcs' ? 1 : undefined,
+          mealType: getDefaultMealType(meals),
+          loggedAtDate: new Date(),
+          loggedAtTime: format(new Date(), "HH:mm"),
+        });
+      }
     }
+    fetchMeals();
   }, [isOpen, group, form]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
