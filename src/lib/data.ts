@@ -2,6 +2,7 @@
 
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -724,11 +725,11 @@ export async function getAllMacros(db: Firestore, userId: string): Promise<Daily
 }
 
 export async function logMacros(
-    db: Firestore, 
-    userId: string, 
-    mealType: DailyMacros['meal'], 
-    dishName: string, 
-    macros: Macros, 
+    db: Firestore,
+    userId: string,
+    mealType: DailyMacros['meal'],
+    dishName: string,
+    macros: Macros,
     loggedAt?: Date
 ): Promise<DailyMacros> {
     return db.runTransaction(async (transaction) => {
@@ -736,13 +737,14 @@ export async function logMacros(
         const timestamp = loggedAt || new Date();
         const oneHourAgo = new Date(timestamp.getTime() - 60 * 60 * 1000);
 
-        // Find recent meals to potentially merge with
+        // Find recent meals of the same type to potentially merge with
         const recentMealsQuery = dailyMacrosCollection
+            .where('meal', '==', mealType)
             .where('loggedAt', '>=', oneHourAgo)
             .where('loggedAt', '<=', timestamp)
             .orderBy('loggedAt', 'desc')
             .limit(1);
-            
+
         const recentMealsSnapshot = await transaction.get(recentMealsQuery);
         const newDish: LoggedDish = { name: dishName, ...macros };
 
@@ -787,6 +789,7 @@ export async function logMacros(
         }
     });
 }
+
 
 
 export async function updateMealLog(db: Firestore, userId: string, mealId: string, mealLog: Partial<DailyMacros>): Promise<DailyMacros | null> {

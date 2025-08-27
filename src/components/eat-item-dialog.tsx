@@ -37,12 +37,22 @@ type MealType = DailyMacros["meal"];
 
 const getDefaultMealType = (todaysMeals: DailyMacros[]): MealType => {
   const mealTimes: Partial<Record<MealType, Date>> = {};
+  let mostRecentMeal: DailyMacros | null = null;
   todaysMeals.forEach(meal => {
     mealTimes[meal.meal] = meal.loggedAt;
+    if (!mostRecentMeal || meal.loggedAt > mostRecentMeal.loggedAt) {
+      mostRecentMeal = meal;
+    }
   });
 
   const now = new Date();
 
+  // If a meal was logged in the last hour, default to that meal type.
+  if (mostRecentMeal && differenceInHours(now, mostRecentMeal.loggedAt) < 1) {
+    return mostRecentMeal.meal;
+  }
+
+  // Fallback logic
   if (!mealTimes.Breakfast) return "Breakfast";
   if (!mealTimes.Lunch) {
     return differenceInHours(now, mealTimes.Breakfast) < 3 ? "Snack" : "Lunch";
