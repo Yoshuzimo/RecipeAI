@@ -2,8 +2,8 @@
 
 "use client";
 
-import { useState } from "react";
-import type { InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
+import { useState, useEffect } from "react";
+import type { Household, InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
@@ -12,6 +12,7 @@ import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { getClientHousehold } from "@/app/actions";
 
 
 const locationIcons = {
@@ -103,6 +104,15 @@ export default function InventoryClient({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<{group: InventoryItemGroup, isPrivate: boolean} | null>(null);
+  const [isInHousehold, setIsInHousehold] = useState(false);
+
+  useEffect(() => {
+    async function checkHouseholdStatus() {
+        const household = await getClientHousehold();
+        setIsInHousehold(!!household);
+    }
+    checkHouseholdStatus();
+  }, []);
 
   const updateState = (newPrivateItems: InventoryItem[], newSharedItems: InventoryItem[]) => {
       const groupItems = (items: InventoryItem[], allLocations: StorageLocation[]): Record<string, InventoryItemGroup[]> => {
@@ -254,9 +264,6 @@ export default function InventoryClient({
     setSelectedGroup({group, isPrivate});
     setIsViewDialogOpen(true);
   };
-  
-  const hasHousehold = allSharedItems.length > 0 || (initialAllSharedItems && initialAllSharedItems.length > 0) || (Object.values(groupedShared).flat().length > 0) || (Object.values(initialSharedData).flat().length > 0);
-
 
   return (
     <>
@@ -276,7 +283,7 @@ export default function InventoryClient({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {hasHousehold && <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} storageLocations={storageLocations} />}
+        {isInHousehold && <InventoryColumn title="Shared Inventory" icon={<Users />} groupedData={groupedShared} onRowClick={handleRowClick} storageLocations={storageLocations} />}
         <InventoryColumn title="Private Inventory" icon={<Lock />} groupedData={groupedPrivate} onRowClick={handleRowClick} storageLocations={storageLocations} />
       </div>
 
