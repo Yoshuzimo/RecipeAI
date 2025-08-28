@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Recipe, InventoryItem, StorageLocation, LeftoverDestination, HouseholdMember, Household } from "@/lib/types";
+import type { Recipe, StorageLocation, LeftoverDestination, Household } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,9 +25,9 @@ import { getClientStorageLocations, getClientHousehold, handleLogMeal } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader2, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { Separator } from "./ui/separator";
 import { Checkbox } from "./ui/checkbox";
 import { useAuth } from "./auth-provider";
+import { Slider } from "./ui/slider";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 
@@ -56,19 +56,22 @@ export function LogMealDialog({
   const [isPending, setIsPending] = useState(false);
   const [mealType, setMealType] = useState<MealType>("Breakfast");
 
-  const [fridgeDestinations, setFridgeDestinations] = useState<LeftoverDestination[]>([]);
-  const [freezerDestinations, setFreezerDestinations] = useState<LeftoverDestination[]>([]);
+  const [fridgeServings, setFridgeServings] = useState(0);
+  const [freezerServings, setFreezerServings] = useState(0);
 
   const [fridgeLocations, setFridgeLocations] = useState<StorageLocation[]>([]);
   const [freezerLocations, setFreezerLocations] = useState<StorageLocation[]>([]);
+  
+  const [fridgeLocationId, setFridgeLocationId] = useState<string>("");
+  const [freezerLocationId, setFreezerLocationId] = useState<string>("");
 
-  // New state for household functionality
   const [household, setHousehold] = useState<Household | null>(null);
   const [servingsForOthers, setServingsForOthers] = useState(0);
   const [selectedMembers, setSelectedMembers] = useState<Record<string, boolean>>({});
 
   const otherMembers = household?.activeMembers.filter(m => m.userId !== user?.uid) || [];
 
+  // Initialize state when the dialog opens
   useEffect(() => {
     if (isOpen) {
       async function fetchInitialData() {
@@ -82,52 +85,30 @@ export function LogMealDialog({
         const freezers = locations.filter(l => l.type === 'Freezer');
         setFridgeLocations(fridges);
         setFreezerLocations(freezers);
+        if(fridges.length > 0) setFridgeLocationId(fridges[0].id);
+        if(freezers.length > 0) setFreezerLocationId(freezers[0].id);
         
-        const initialServingsEaten = 1;
-        const remaining = recipe.servings - initialServingsEaten;
-        
-        setServingsEaten(initialServingsEaten);
+        setServingsEaten(1);
         setMealType(getDefaultMealType());
         setServingsForOthers(0);
         setSelectedMembers({});
-
-        // Reset destinations
-        const newFridgeDestinations: LeftoverDestination[] = [];
-        if (fridges.length > 0) {
-          newFridgeDestinations.push({ locationId: fridges[0].id, servings: Math.max(0, remaining) });
-        }
-        setFridgeDestinations(newFridgeDestinations);
-        
-        const newFreezerDestinations: LeftoverDestination[] = [];
-        if (freezers.length > 0) {
-            newFreezerDestinations.push({ locationId: freezers[0].id, servings: 0 });
-        }
-        setFreezerDestinations(newFreezerDestinations);
+        setFreezerServings(0);
       }
       fetchInitialData();
     }
   }, [isOpen, recipe]);
   
-  const totalFridgeServings = fridgeDestinations.reduce((sum, dest) => sum + dest.servings, 0);
-  const totalFreezerServings = freezerDestinations.reduce((sum, dest) => sum + dest.servings, 0);
-  const totalServingsDistributed = servingsEaten + servingsForOthers + totalFridgeServings + totalFreezerServings;
-  const remainingServings = recipe.servings - totalServingsDistributed;
-  const isOverallocated = remainingServings < 0;
+  // Auto-calculate fridge servings
+  useEffect(() => {
+    const totalAllocated = servingsEaten + servingsForOthers + freezerServings;
+    const remaining = recipe.servings - totalAllocated;
+    setFridgeServings(Math.max(0, remaining));
+  }, [servingsEaten, servingsForOthers, freezerServings, recipe.servings]);
 
-  const handleNumericChange = (value: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
-      const num = parseInt(value, 10);
-      setter(isNaN(num) || num < 0 ? 0 : num);
-  }
-  
-  const handleDestinationChange = (index: number, field: keyof LeftoverDestination, value: string | number, type: 'fridge' | 'freezer') => {
-      const updater = type === 'fridge' ? setFridgeDestinations : setFreezerDestinations;
-      updater(prev => {
-          const newDests = [...prev];
-          const val = field === 'servings' ? (typeof value === 'number' ? value : parseInt(value, 10)) : value;
-          newDests[index] = {...newDests[index], [field]: isNaN(val as number) ? 0 : val };
-          return newDests;
-      });
-  }
+
+  const totalServingsDistributed = servingsEaten + servingsForOthers + fridgeServings + freezerServings;
+  const isOverallocated = totalServingsDistributed > recipe.servings;
+  const unallocatedServings = recipe.servings - totalServingsDistributed;
 
   const handleSubmit = async () => {
     if (isOverallocated) {
@@ -144,6 +125,9 @@ export function LogMealDialog({
     const selectedMemberIds = Object.entries(selectedMembers)
         .filter(([, isSelected]) => isSelected)
         .map(([id]) => id);
+    
+    const fridgeDestinations: LeftoverDestination[] = fridgeServings > 0 && fridgeLocationId ? [{ locationId: fridgeLocationId, servings: fridgeServings }] : [];
+    const freezerDestinations: LeftoverDestination[] = freezerServings > 0 && freezerLocationId ? [{ locationId: freezerLocationId, servings: freezerServings }] : [];
 
     const result = await handleLogMeal(
         recipe, 
@@ -178,6 +162,28 @@ export function LogMealDialog({
     }
   };
 
+  const SliderGroup = ({ label, value, setValue, max }: { label: string, value: number, setValue: (val: number) => void, max: number}) => (
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+            <Label>{label}</Label>
+            <Input
+                type="number"
+                className="w-20 h-8"
+                value={value}
+                onChange={(e) => setValue(Math.max(0, Math.min(max, Number(e.target.value) || 0)))}
+                min={0}
+                max={max}
+            />
+        </div>
+        <Slider 
+            value={[value]} 
+            onValueChange={(vals) => setValue(vals[0])}
+            max={max}
+            step={1}
+        />
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
@@ -203,16 +209,7 @@ export function LogMealDialog({
             </Select>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="servings-eaten">Servings You Ate</Label>
-            <Input
-            id="servings-eaten"
-            type="number"
-            value={servingsEaten}
-            onChange={(e) => handleNumericChange(e.target.value, setServingsEaten)}
-            min={0}
-            />
-          </div>
+          <SliderGroup label="Servings You Ate" value={servingsEaten} setValue={setServingsEaten} max={recipe.servings} />
 
           {household && otherMembers.length > 0 && (
              <div className="space-y-4 rounded-md border p-4">
@@ -220,19 +217,8 @@ export function LogMealDialog({
                     <Users className="h-5 w-5" />
                     <h4 className="font-medium">Shared with Household</h4>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="servings-others">Total Servings Eaten by Others</Label>
-                    <Input
-                        id="servings-others"
-                        type="number"
-                        value={servingsForOthers}
-                        onChange={(e) => handleNumericChange(e.target.value, setServingsForOthers)}
-                        min={0}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                        This will send a request to the members you select below to confirm their meal and log their nutrition.
-                    </p>
-                </div>
+                <SliderGroup label="Total Servings Eaten by Others" value={servingsForOthers} setValue={setServingsForOthers} max={recipe.servings - servingsEaten} />
+
                 {servingsForOthers > 0 && (
                      <div className="space-y-2">
                         <Label>Select members to notify</Label>
@@ -254,53 +240,56 @@ export function LogMealDialog({
           )}
           
            <div className="space-y-4 rounded-md border p-4">
-            <h4 className="font-medium">Store Leftovers</h4>
-             {fridgeDestinations.map((dest, index) => (
-                <div key={`fridge-${index}`} className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor={`fridge-leftovers-${index}`}>Servings to Fridge</Label>
-                        <Input
-                        id={`fridge-leftovers-${index}`}
-                        type="number"
-                        value={dest.servings}
-                        onChange={(e) => handleDestinationChange(index, 'servings', e.target.value, 'fridge')}
-                        min={0}
+                <h4 className="font-medium">Store Leftovers</h4>
+                 <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label>Servings to Freezer</Label>
+                         <Input
+                            type="number"
+                            className="w-20 h-8"
+                            value={freezerServings}
+                            onChange={(e) => setFreezerServings(Math.max(0, Math.min(recipe.servings - servingsEaten - servingsForOthers, Number(e.target.value) || 0)))}
+                            min={0}
+                            max={recipe.servings - servingsEaten - servingsForOthers}
                         />
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor={`fridge-location-${index}`}>Fridge Location</Label>
-                        <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'fridge')} disabled={fridgeLocations.length === 0}>
-                            <SelectTrigger id={`fridge-location-${index}`}><SelectValue placeholder={fridgeLocations.length > 0 ? "Select fridge..." : "No fridges"} /></SelectTrigger>
-                            <SelectContent>
-                                {fridgeLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <Slider 
+                        value={[freezerServings]} 
+                        onValueChange={(vals) => setFreezerServings(vals[0])}
+                        max={recipe.servings - servingsEaten - servingsForOthers}
+                        step={1}
+                    />
+                    <Select value={freezerLocationId} onValueChange={setFreezerLocationId} disabled={freezerLocations.length === 0}>
+                        <SelectTrigger><SelectValue placeholder={freezerLocations.length > 0 ? "Select freezer..." : "No freezers"} /></SelectTrigger>
+                        <SelectContent>
+                            {freezerLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
-            ))}
-             {freezerDestinations.map((dest, index) => (
-                <div key={`freezer-${index}`} className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor={`freezer-leftovers-${index}`}>Servings to Freezer</Label>
+                 <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label className="text-muted-foreground">Servings to Fridge (Auto)</Label>
                         <Input
-                        id={`freezer-leftovers-${index}`}
-                        type="number"
-                        value={dest.servings}
-                        onChange={(e) => handleDestinationChange(index, 'servings', e.target.value, 'freezer')}
-                        min={0}
+                            type="number"
+                            className="w-20 h-8"
+                            value={fridgeServings}
+                            readOnly
+                            disabled
                         />
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor={`freezer-location-${index}`}>Freezer Location</Label>
-                         <Select value={dest.locationId || ''} onValueChange={(val) => handleDestinationChange(index, 'locationId', val, 'freezer')} disabled={freezerLocations.length === 0}>
-                            <SelectTrigger id={`freezer-location-${index}`}><SelectValue placeholder={freezerLocations.length > 0 ? "Select freezer..." : "No freezers"} /></SelectTrigger>
-                            <SelectContent>
-                                {freezerLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <Slider 
+                        value={[fridgeServings]} 
+                        max={recipe.servings}
+                        step={1}
+                        disabled
+                    />
+                     <Select value={fridgeLocationId} onValueChange={setFridgeLocationId} disabled={fridgeLocations.length === 0}>
+                        <SelectTrigger><SelectValue placeholder={fridgeLocations.length > 0 ? "Select fridge..." : "No fridges"} /></SelectTrigger>
+                        <SelectContent>
+                            {fridgeLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
-            ))}
           </div>
           
           {isOverallocated ? (
@@ -308,7 +297,7 @@ export function LogMealDialog({
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Overallocated</AlertTitle>
               <AlertDescription>
-                You have allocated {Math.abs(remainingServings)} more serving(s) than were made.
+                You have allocated {Math.abs(unallocatedServings)} more serving(s) than were made.
               </AlertDescription>
             </Alert>
           ) : (
@@ -316,7 +305,7 @@ export function LogMealDialog({
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Servings Check</AlertTitle>
               <AlertDescription>
-                {remainingServings} of {recipe.servings} servings are unallocated.
+                {unallocatedServings} of {recipe.servings} servings are unallocated and will be discarded.
               </AlertDescription>
             </Alert>
           )}
@@ -335,3 +324,4 @@ export function LogMealDialog({
     </Dialog>
   );
 }
+
