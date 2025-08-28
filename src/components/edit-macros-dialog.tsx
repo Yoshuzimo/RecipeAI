@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -16,14 +17,22 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import type { Recipe, Macros } from "@/lib/types";
+import type { Recipe, Macros, DetailedFats } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import { ScrollArea } from "./ui/scroll-area";
 
 const formSchema = z.object({
-  calories: z.coerce.number().min(0, "Calories must be a positive number."),
-  protein: z.coerce.number().min(0, "Protein must be a positive number."),
-  carbs: z.coerce.number().min(0, "Carbs must be a positive number."),
-  fat: z.coerce.number().min(0, "Fat must be a positive number."),
+  calories: z.coerce.number().min(0, "Must be a positive number."),
+  protein: z.coerce.number().min(0, "Must be a positive number."),
+  carbs: z.coerce.number().min(0, "Must be a positive number."),
+  fat: z.coerce.number().min(0, "Must be a positive number."),
+  fiber: z.coerce.number().min(0).optional(),
+  fats: z.object({
+      saturated: z.coerce.number().min(0).optional(),
+      monounsaturated: z.coerce.number().min(0).optional(),
+      polyunsaturated: z.coerce.number().min(0).optional(),
+      trans: z.coerce.number().min(0).optional(),
+  }).optional(),
 });
 
 export function EditMacrosDialog({
@@ -47,6 +56,8 @@ export function EditMacrosDialog({
       protein: recipe.macros.protein,
       carbs: recipe.macros.carbs,
       fat: recipe.macros.fat,
+      fiber: recipe.macros.fiber,
+      fats: recipe.macros.fats,
     },
   });
 
@@ -57,13 +68,23 @@ export function EditMacrosDialog({
         protein: recipe.macros.protein,
         carbs: recipe.macros.carbs,
         fat: recipe.macros.fat,
+        fiber: recipe.macros.fiber,
+        fats: recipe.macros.fats,
       });
     }
   }, [isOpen, recipe, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     setIsPending(true);
-    onSave(values);
+    const newMacros: Macros = {
+        calories: values.calories,
+        protein: values.protein,
+        carbs: values.carbs,
+        fat: values.fat,
+        fiber: values.fiber,
+        fats: values.fats,
+    };
+    onSave(newMacros);
     setIsPending(false);
     setIsOpen(false);
     toast({
@@ -82,63 +103,28 @@ export function EditMacrosDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="calories"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Calories</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="protein"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Protein (g)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="carbs"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Carbs (g)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="fat"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fat (g)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <ScrollArea className="h-96 pr-4">
+              <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="protein" render={({ field }) => ( <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fats.saturated" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="fats.monounsaturated" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fats.polyunsaturated" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
+                  <FormField control={form.control} name="fats.trans" render={({ field }) => ( <FormItem><FormLabel>Trans Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+              </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isPending}>
