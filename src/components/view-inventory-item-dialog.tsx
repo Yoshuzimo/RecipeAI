@@ -49,7 +49,7 @@ const formSchema = z.object({
   })),
   nutrition: z.object({
     servingSizeQuantity: z.coerce.number().min(0).optional(),
-    servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon", ""]).optional(),
+    servingSizeUnit: z.enum(["g", "kg", "ml", "l", "pcs", "oz", "lbs", "fl oz", "gallon", "cup", "tbsp", "tsp", ""]).optional(),
     calories: z.coerce.number().min(0).optional(),
     protein: z.coerce.number().min(0).optional(),
     carbs: z.coerce.number().min(0).optional(),
@@ -83,6 +83,9 @@ const usUnits: { value: Unit, label: string }[] = [
     { value: 'lbs', label: 'Pounds (lbs)' },
     { value: 'fl oz', label: 'Fluid Ounces (fl oz)' },
     { value: 'gallon', label: 'Gallons' },
+    { value: 'cup', label: 'Cups' },
+    { value: 'tbsp', label: 'Tablespoons' },
+    { value: 'tsp', label: 'Teaspoons' },
 ];
 
 export function ViewInventoryItemDialog({
@@ -244,7 +247,7 @@ export function ViewInventoryItemDialog({
         
         if(Object.keys(servingMacros).length > 0) {
             nutritionPayload = {
-                servingSize: { quantity: nutrition.servingSizeQuantity, unit: nutrition.servingSizeUnit },
+                servingSize: { quantity: nutrition.servingSizeQuantity, unit: nutrition.servingSizeUnit as Unit },
                 servingMacros,
             };
         }
