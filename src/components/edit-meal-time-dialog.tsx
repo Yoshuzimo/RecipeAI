@@ -17,12 +17,23 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { DailyMacros, LoggedDish } from "@/lib/types";
 import { handleUpdateMealLog, handleDeleteMealLog } from "@/app/actions";
-import { Loader2, Trash2, Edit } from "lucide-react";
+import { Loader2, Trash2, Edit, Calendar as CalendarIcon } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { ScrollArea } from "./ui/scroll-area";
 import { EditDishDialog } from "./edit-dish-dialog";
 import { Separator } from "./ui/separator";
 import { EditDishTimeDialog } from "./edit-dish-time-dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Input } from "./ui/input";
+
+const formSchema = z.object({
+  loggedAtDate: z.date(),
+  loggedAtTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Please enter a valid time in HH:mm format."),
+});
 
 export function EditMealTimeDialog({
   isOpen,
@@ -46,24 +57,37 @@ export function EditMealTimeDialog({
     const [dishes, setDishes] = useState<LoggedDish[]>(meal.dishes);
     const [dishToEdit, setDishToEdit] = useState<LoggedDish | null>(null);
     const [isDishTimeEditorOpen, setIsDishTimeEditorOpen] = useState(false);
+    
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            loggedAtDate: new Date(meal.loggedAt),
+            loggedAtTime: format(new Date(meal.loggedAt), "HH:mm"),
+        },
+    });
 
     useEffect(() => {
         setDishes(meal.dishes);
-    }, [meal]);
+        form.reset({
+            loggedAtDate: new Date(meal.loggedAt),
+            loggedAtTime: format(new Date(meal.loggedAt), "HH:mm"),
+        })
+    }, [meal, form]);
     
     const handleEditClick = (dish: LoggedDish) => {
         setDishToEdit(dish);
         setIsDishTimeEditorOpen(true);
     };
 
-    async function onSaveChanges() {
-        if (dishes.length === meal.dishes.length && JSON.stringify(dishes) === JSON.stringify(meal.dishes)) {
-            setIsOpen(false);
-            return;
-        }
-
+    async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsPending(true);
-        const result = await handleUpdateMealLog(meal.id, dishes);
+
+        const [hours, minutes] = values.loggedAtTime.split(":").map(Number);
+        const finalLoggedAt = new Date(values.loggedAtDate);
+        finalLoggedAt.setHours(hours, minutes);
+
+        const result = await handleUpdateMealLog(meal.id, { loggedAt: finalLoggedAt });
+
         setIsPending(false);
 
         if (result.success && result.updatedMeal) {
@@ -72,10 +96,6 @@ export function EditMealTimeDialog({
                 description: `The details for "${meal.meal}" have been updated.`,
             });
             onMealUpdated(result.updatedMeal);
-            setIsOpen(false);
-        } else if (result.success && result.deletedMealId) {
-            toast({ title: "Meal Updated", description: "The last dish was removed, so the meal entry was deleted." });
-            onMealDeleted(result.deletedMealId);
             setIsOpen(false);
         } else {
              toast({
@@ -120,35 +140,87 @@ export function EditMealTimeDialog({
             Manage the individual foods within this meal log.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-            <h4 className="font-medium">Foods in this Meal</h4>
-            <p className="text-sm text-muted-foreground">Click the edit button next to a food to move it to a different time or meal.</p>
-            <ScrollArea className="max-h-[60vh]">
-                <div className="space-y-2 pr-4">
-                    {dishes.map((dish, index) => (
-                        <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                            <p className="font-medium">{dish.name}</p>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => handleEditClick(dish)}>
-                                <Edit className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    ))}
+        <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="loggedAtDate"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                            <FormLabel>Date</FormLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                    variant={"outline"}
+                                    className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                                    >
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) => date > new Date()}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="loggedAtTime"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Time</FormLabel>
+                            <FormControl>
+                                <Input type="time" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
-            </ScrollArea>
-        </div>
-         <DialogFooter className="justify-between sm:justify-between pt-4">
-            <Button type="button" variant="destructive" size="icon" onClick={() => setIsDeleteConfirmOpen(true)} disabled={isPending}>
-                <Trash2 className="h-4 w-4" />
-                <span className="sr-only">Delete Meal</span>
-            </Button>
-            <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                 <Button type="button" onClick={onSaveChanges} disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                </Button>
+                <Separator />
+                <h4 className="font-medium">Foods in this Meal</h4>
+                <p className="text-sm text-muted-foreground">Click the edit button next to a food to move it to a different time or meal.</p>
+                <ScrollArea className="max-h-[40vh]">
+                    <div className="space-y-2 pr-4">
+                        {dishes.map((dish, index) => (
+                            <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                <p className="font-medium">{dish.name}</p>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleEditClick(dish)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
             </div>
-        </DialogFooter>
+            <DialogFooter className="justify-between sm:justify-between pt-4">
+                <Button type="button" variant="destructive" size="icon" onClick={() => setIsDeleteConfirmOpen(true)} disabled={isPending}>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete Meal</span>
+                </Button>
+                <div className="flex gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isPending || !form.formState.isDirty}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Changes
+                    </Button>
+                </div>
+            </DialogFooter>
+        </form>
+        </Form>
       </DialogContent>
     </Dialog>
     <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>

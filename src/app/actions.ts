@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import type { Firestore, FieldValue } from "firebase-admin/firestore";
@@ -202,37 +201,36 @@ export async function handleTransferItemToFridge(item: InventoryItem): Promise<I
 }
 
 
-export async function handleUpdateMealLog(mealId: string, updatedDishes: LoggedDish[]): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros, deletedMealId?: string }> {
+export async function handleUpdateMealLog(mealId: string, updates: Partial<DailyMacros>): Promise<{ success: boolean; error?: string | null; updatedMeal?: DailyMacros, deletedMealId?: string }> {
     const userId = await getCurrentUserId();
     try {
+        const dataToUpdate: Partial<DailyMacros> = { ...updates };
+
         // If all dishes are removed, delete the meal log entry entirely.
-        if (updatedDishes.length === 0) {
+        if (updates.dishes && updates.dishes.length === 0) {
             await dataDeleteMealLog(db, userId, mealId);
             return { success: true, deletedMealId: mealId };
         }
 
-        // Recalculate totals based on the updated dishes
-        const newTotals: Macros = updatedDishes.reduce((acc, dish) => {
-            acc.calories += dish.calories || 0;
-            acc.protein += dish.protein || 0;
-            acc.carbs += dish.carbs || 0;
-            acc.fat += dish.fat || 0;
-            acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
-            acc.fats = {
-                saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
-                monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
-                polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
-                trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
-            };
-            return acc;
-        }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
-
-        const updatedData: Partial<DailyMacros> = {
-            dishes: updatedDishes,
-            totals: newTotals,
-        };
-
-        const updatedMeal = await dataUpdateMealLog(db, userId, mealId, updatedData);
+        // If dishes are being updated, we must recalculate totals.
+        if (updates.dishes) {
+            dataToUpdate.totals = updates.dishes.reduce((acc, dish) => {
+                acc.calories += dish.calories || 0;
+                acc.protein += dish.protein || 0;
+                acc.carbs += dish.carbs || 0;
+                acc.fat += dish.fat || 0;
+                acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+                acc.fats = {
+                    saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
+                    monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
+                    polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
+                    trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
+                };
+                return acc;
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+        }
+        
+        const updatedMeal = await dataUpdateMealLog(db, userId, mealId, dataToUpdate);
         return { success: !!updatedMeal, error: updatedMeal ? null : "Meal not found.", updatedMeal };
     } catch(e) {
         return { success: false, error: e instanceof Error ? e.message : "An unknown error occurred." };
