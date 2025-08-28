@@ -65,7 +65,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const nonDivisibleKeywords = ['egg', 'eggs'];
+const nonDivisibleKeywords = ['egg', 'eggs', 'leftover'];
 
 const metricUnits: { value: Unit, label: string }[] = [
     { value: 'g', label: 'Grams (g)' },
