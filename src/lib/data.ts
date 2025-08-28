@@ -5,6 +5,7 @@
 
 
 
+
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -726,53 +727,64 @@ export async function getAllMacros(db: Firestore, userId: string): Promise<Daily
     });
 }
 
-export async function logMacros(
+export async function logDishes(
     db: Firestore,
     userId: string,
     mealType: DailyMacros['meal'],
-    dishName: string,
-    macros: Macros,
+    dishes: LoggedDish[],
     loggedAt?: Date
 ): Promise<DailyMacros> {
-     return db.runTransaction(async (transaction) => {
+    return db.runTransaction(async (transaction) => {
         const dailyMacrosCollection = db.collection(`users/${userId}/daily-macros`);
         const timestamp = loggedAt || new Date();
         const oneHourAgo = new Date(timestamp.getTime() - 60 * 60 * 1000);
 
-        // This query is safe and only requires a single-field index on `loggedAt`.
+        // Corrected Query: Only one range filter is used.
         const recentMealsQuery = dailyMacrosCollection
             .where('loggedAt', '>=', oneHourAgo)
             .orderBy('loggedAt', 'desc');
 
         const recentMealsSnapshot = await transaction.get(recentMealsQuery);
-        
+
         // Find a meal of the same type that is not in the future.
         const mealToUpdateDoc = recentMealsSnapshot.docs.find(doc => {
             const data = doc.data();
             return data.meal === mealType && data.loggedAt.toDate() <= timestamp;
         });
-        
-        const newDish: LoggedDish = { name: dishName, ...macros };
+
+        const newDishesTotal: Macros = dishes.reduce((acc, dish) => {
+            acc.calories += dish.calories || 0;
+            acc.protein += dish.protein || 0;
+            acc.carbs += dish.carbs || 0;
+            acc.fat += dish.fat || 0;
+            acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+            acc.fats = {
+                saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
+                monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
+                polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
+                trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
+            };
+            return acc;
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
 
         if (mealToUpdateDoc) {
             // A recent meal of the same type exists, so we merge with it.
             const mealToUpdateData = mealToUpdateDoc.data() as DailyMacros;
 
-            const updatedDishes = [...mealToUpdateData.dishes, newDish];
-            const updatedTotals: Macros = updatedDishes.reduce((acc, dish) => {
-                acc.calories += dish.calories || 0;
-                acc.protein += dish.protein || 0;
-                acc.carbs += dish.carbs || 0;
-                acc.fat += dish.fat || 0;
-                acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
-                acc.fats = {
-                    saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
-                    monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
-                    polyunsaturated: (acc.fats?.polyunsaturated || 0) + (dish.fats?.polyunsaturated || 0),
-                    trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
-                };
-                return acc;
-            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+            const updatedDishes = [...mealToUpdateData.dishes, ...dishes];
+            const updatedTotals: Macros = {
+                calories: mealToUpdateData.totals.calories + newDishesTotal.calories,
+                protein: mealToUpdateData.totals.protein + newDishesTotal.protein,
+                carbs: mealToUpdateData.totals.carbs + newDishesTotal.carbs,
+                fat: mealToUpdateData.totals.fat + newDishesTotal.fat,
+                fiber: (mealToUpdateData.totals.fiber || 0) + (newDishesTotal.fiber || 0),
+                fats: {
+                    saturated: (mealToUpdateData.totals.fats?.saturated || 0) + (newDishesTotal.fats?.saturated || 0),
+                    monounsaturated: (mealToUpdateData.totals.fats?.monounsaturated || 0) + (newDishesTotal.fats?.monounsaturated || 0),
+                    polyunsaturated: (mealToUpdateData.totals.fats?.polyunsaturated || 0) + (newDishesTotal.fats?.polyunsaturated || 0),
+                    trans: (mealToUpdateData.totals.fats?.trans || 0) + (newDishesTotal.fats?.trans || 0),
+                }
+            };
             
             transaction.update(mealToUpdateDoc.ref, { dishes: updatedDishes, totals: updatedTotals });
 
@@ -785,8 +797,8 @@ export async function logMacros(
             // No recent meal to merge with, so we create a new one.
             const newMealLog: Omit<DailyMacros, 'id'> = {
                 meal: mealType,
-                dishes: [newDish],
-                totals: { ...macros },
+                dishes: dishes,
+                totals: newDishesTotal,
                 loggedAt: timestamp,
             };
             const docRef = dailyMacrosCollection.doc();
