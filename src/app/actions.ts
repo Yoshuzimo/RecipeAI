@@ -13,7 +13,7 @@ import {
     addInventoryItem as dataAddInventoryItem,
     removeInventoryItem as dataRemoveInventoryItem,
     getInventory,
-    logMacros as dataLogMacros,
+    logDishes as dataLogDishes,
     updateMealLog as dataUpdateMealLog,
     deleteMealLog as dataDeleteMealLog,
     saveRecipe as dataSaveRecipe,
@@ -408,7 +408,7 @@ export async function handleLogMeal(
                 trans: macrosPerServing.fats.trans * servingsEaten,
             }
         };
-        await dataLogMacros(db, userId, mealType as any, recipe.title, macrosConsumed);
+        await dataLogDishes(db, userId, mealType as any, [{name: recipe.title, ...macrosConsumed}]);
     }
     
     const itemsToRemove: { item: InventoryItem; amountToRemove: number }[] = [];
@@ -481,15 +481,22 @@ export async function handleLogManualMeal(
     loggedAt: Date
 ): Promise<{ success: boolean; error?: string | null, allMacros?: DailyMacros[] }> {
     const userId = await getCurrentUserId();
-    
-    const aiResult = await logManualMeal({ foods });
+    const allDishes: LoggedDish[] = [];
 
-    if ('error' in aiResult) {
-        return { success: false, error: aiResult.error };
+    for (const food of foods) {
+        const aiResult = await logManualMeal({ foods: [food] });
+        if ('error' in aiResult) {
+            return { success: false, error: `Could not analyze "${food.name}": ${aiResult.error}` };
+        }
+        allDishes.push({
+            name: `${food.quantity} ${food.unit} ${food.name}`,
+            ...aiResult.macros,
+        });
     }
 
-    const dishName = foods.map(f => `${f.quantity} ${f.unit} ${f.name}`).join(', ');
-    await dataLogMacros(db, userId, mealType, dishName, aiResult.macros, loggedAt);
+    if (allDishes.length > 0) {
+        await dataLogDishes(db, userId, mealType, allDishes, loggedAt);
+    }
     
     // Deduct items from inventory if specified
     const itemsToDeduct = foods.filter(f => f.deduct);
@@ -559,7 +566,7 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             }
         };
 
-        await dataLogMacros(db, userId, mealType as any, pendingMeal.recipe.title, macrosConsumed, loggedAt);
+        await dataLogDishes(db, userId, mealType as any, [{name: pendingMeal.recipe.title, ...macrosConsumed}], loggedAt);
 
         // Then, update the household document to remove the user from the pending list
         await dataProcessMealConfirmation(db, userId, household.id, pendingMealId);
@@ -598,7 +605,7 @@ export async function handleEatSingleItem(
                 trans: (macrosPerServing.fats?.trans || 0) * quantityEaten,
             }
         };
-        await dataLogMacros(db, userId, mealType, item.name, consumedMacros, loggedAt);
+        await dataLogDishes(db, userId, mealType, [{name: item.name, ...consumedMacros}], loggedAt);
     
     } else if (item.macros && item.servingSize && item.servingMacros) {
         const { servingSize, servingMacros } = item;
@@ -619,7 +626,7 @@ export async function handleEatSingleItem(
                 trans: (servingMacros.fats?.trans || 0) * scaleFactor,
             }
         };
-        await dataLogMacros(db, userId, mealType, item.name, consumedMacros, loggedAt);
+        await dataLogDishes(db, userId, mealType, [{name: item.name, ...consumedMacros}], loggedAt);
 
     } else {
         const aiInput: LogManualMealInput = {
@@ -633,7 +640,7 @@ export async function handleEatSingleItem(
         if ('error' in aiResult) {
             return { success: false, error: aiResult.error };
         }
-        await dataLogMacros(db, userId, mealType, item.name, aiResult.macros, loggedAt);
+        await dataLogDishes(db, userId, mealType, [{name: item.name, ...aiResult.macros}], loggedAt);
     }
     
     // 2. Deduct from inventory
