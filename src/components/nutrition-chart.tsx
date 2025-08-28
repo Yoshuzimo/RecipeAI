@@ -153,10 +153,28 @@ export function NutritionChart({ data, timeframe, settings }: {
                         formatter={(value, name, props) => {
                             const { payload } = props;
                             if (!payload || !name) return null;
+                            
                             const key = name.toString() as keyof typeof chartConfig;
+                            if (key === 'dishes') return null;
+
                             const label = chartConfig[key]?.label || name;
                             const gramValue = payload[`${key}Grams`] || 0;
                             if (Number(value) === 0) return null;
+
+                            if (timeframe === 'daily') {
+                                const dishes = payload.dishes || [];
+                                return (
+                                    <div>
+                                        <p>{label}: {Number(gramValue).toFixed(0)}g</p>
+                                        {dishes.length > 1 && (
+                                            <ul className="list-disc list-inside text-xs text-muted-foreground">
+                                                {dishes.map((d:any) => <li key={d.name}>{d.name}</li>)}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )
+                            }
+
                             return `${label}: ${Number(gramValue).toFixed(0)}g`;
                         }}
                         labelFormatter={(label) => {

@@ -13,7 +13,7 @@ import {
 import type { DailyMacros, Settings } from "@/lib/types"
 import { EditMealTimeDialog } from "../edit-meal-time-dialog"
 import { getUserDayBoundaries } from "@/lib/utils"
-import { TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip"
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip"
 
 type ChartDataPoint = {
     time: number; // Daily
@@ -73,14 +73,14 @@ const DailyCustomTick = (props: any) => {
              <div className="text-center">
                 <p className="text-sm font-bold">{dataEntry.meal}</p>
                 <TooltipProvider>
-                    <Tooltip>
+                    <UITooltip>
                         <TooltipTrigger asChild>
                            <p className="text-xs text-muted-foreground cursor-pointer">{truncatedText}</p>
                         </TooltipTrigger>
                         <TooltipContent>
                             <p>{dishText}</p>
                         </TooltipContent>
-                    </Tooltip>
+                    </UITooltip>
                 </TooltipProvider>
             </div>
         </foreignObject>
@@ -93,13 +93,17 @@ export function CalorieLineChart({
     goal,
     settings,
     timeframe,
-    onDataChange,
+    onMealUpdated,
+    onMealDeleted,
+    onDishMoved,
 }: { 
     data: any[],
     goal?: number, 
     settings: Settings | null,
     timeframe: "daily" | "weekly" | "monthly",
-    onDataChange: () => void;
+    onMealUpdated: (updatedMeal: DailyMacros) => void,
+    onMealDeleted: (mealId: string) => void,
+    onDishMoved: (updatedOriginalMeal?: DailyMacros, newMeal?: DailyMacros) => void,
 }) {
   const [mealToEdit, setMealToEdit] = React.useState<any | null>(null);
 
@@ -131,11 +135,6 @@ export function CalorieLineChart({
 
   const handleDotClick = (payload: any) => {
       setMealToEdit(payload);
-  }
-
-  const handleMealTimeUpdated = () => {
-    onDataChange();
-    setMealToEdit(null);
   }
   
   const { start: dayStart, end: dayEnd } = React.useMemo(() => {
@@ -199,8 +198,7 @@ export function CalorieLineChart({
                             if (timeframe === 'daily') {
                                 const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
                                 const runningTotal = value;
-                                const showDishBreakdown = payload.dishes.length > 1;
-
+                                
                                 const calculateDishCalories = (dish: any) => {
                                     return (dish.protein * 4) + (dish.carbs * 4) + (dish.fat * 9);
                                 };
@@ -213,7 +211,7 @@ export function CalorieLineChart({
                                             {payload?.dishes?.map((dish: any) => (
                                                 <li key={dish.name}>
                                                     {dish.name}
-                                                    {showDishBreakdown && ` (${calculateDishCalories(dish).toFixed(0)} cal)`}
+                                                    {payload.dishes.length > 1 && ` (${calculateDishCalories(dish).toFixed(0)} cal)`}
                                                 </li>
                                             ))}
                                         </ul>
@@ -250,7 +248,9 @@ export function CalorieLineChart({
             isOpen={!!mealToEdit}
             setIsOpen={() => setMealToEdit(null)}
             meal={mealToEdit}
-            onMealUpdated={handleMealTimeUpdated}
+            onMealUpdated={onMealUpdated}
+            onMealDeleted={onMealDeleted}
+            onDishMoved={onDishMoved}
         />
     )}
     </>

@@ -36,6 +36,8 @@ export default async function OverviewPage() {
   async function refreshData() {
     "use server";
     revalidatePath('/');
+    revalidatePath('/nutrition');
+    revalidatePath('/history');
   }
 
 
@@ -61,6 +63,9 @@ export default async function OverviewPage() {
               dailyData={dailyData} 
               settings={settings} 
               onDataChange={refreshData}
+              onMealUpdated={refreshData}
+              onMealDeleted={refreshData}
+              onDishMoved={refreshData}
           />
           <p className="text-sm text-muted-foreground pt-2">
               Disclaimer: The information on this page is based on available data and is approximate. It should be used as a guide only and not as a replacement for professional advice.

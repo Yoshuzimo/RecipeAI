@@ -156,6 +156,10 @@ export default function NutritionPage() {
       }
     }
   }, [timeframe, allDailyData, settings]);
+  
+  const handleDataChange = () => {
+    fetchData();
+  };
 
   return (
     <MainLayout>
@@ -196,7 +200,15 @@ export default function NutritionPage() {
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <CalorieLineChart data={dataForLineChart} goal={settings?.calorieGoal} timeframe={timeframe} settings={settings} onDataChange={fetchData} />
+                <CalorieLineChart 
+                    data={dataForLineChart} 
+                    goal={settings?.calorieGoal} 
+                    timeframe={timeframe} 
+                    settings={settings} 
+                    onMealUpdated={handleDataChange} 
+                    onMealDeleted={handleDataChange} 
+                    onDishMoved={handleDataChange} 
+                />
             </CardContent>
          </Card>
         <NutritionChart data={dataForBarChart} timeframe={timeframe} settings={settings} />

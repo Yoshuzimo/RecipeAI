@@ -53,10 +53,13 @@ const chartConfig = {
 
 const mealOrder: Array<DailyMacros['meal']> = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-export function TodaysMacros({ dailyData, settings: initialSettings, onDataChange }: {
+export function TodaysMacros({ dailyData, settings: initialSettings, onDataChange, onMealUpdated, onMealDeleted, onDishMoved }: {
     dailyData: DailyMacros[],
     settings: Settings | null,
     onDataChange: () => void,
+    onMealUpdated: (updatedMeal: DailyMacros) => void;
+    onMealDeleted: (mealId: string) => void;
+    onDishMoved: (updatedOriginalMeal?: DailyMacros, newMeal?: DailyMacros) => void;
 }) {
   const [settings, setSettings] = React.useState(initialSettings);
   const [isGoalsDialogOpen, setIsGoalsDialogOpen] = React.useState(false);
@@ -167,7 +170,15 @@ export function TodaysMacros({ dailyData, settings: initialSettings, onDataChang
         <CardTitle>Today's Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pb-4 space-y-8">
-        <CalorieLineChart data={todaysData} goal={goals.calories} settings={settings} timeframe="daily" onDataChange={onDataChange} />
+        <CalorieLineChart 
+            data={todaysData} 
+            goal={goals.calories} 
+            settings={settings} 
+            timeframe="daily" 
+            onMealUpdated={onMealUpdated} 
+            onMealDeleted={onMealDeleted} 
+            onDishMoved={onDishMoved}
+        />
         
         <ChartContainer config={chartConfig} className="w-full h-[400px]">
             <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
