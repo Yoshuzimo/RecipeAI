@@ -42,7 +42,9 @@ export default async function InventoryPage() {
 
             let packageInfo = '';
 
-            if (unit === 'pcs') {
+            if (items[0].isUntracked) {
+                packageInfo = 'Untracked';
+            } else if (unit === 'pcs') {
                 const totalPieces = items.reduce((sum, item) => sum + item.totalQuantity, 0);
                 const packageSize = items[0]?.originalQuantity || 1; 
                 
@@ -105,9 +107,18 @@ export default async function InventoryPage() {
                 isPrivate: items[0].isPrivate,
             };
         }).sort((a, b) => {
-            if (a.nextExpiry === null) return 1;
-            if (b.nextExpiry === null) return -1;
-            return a.nextExpiry.getTime() - b.nextExpiry.getTime();
+            const aIsLeftover = a.name.toLowerCase().startsWith('leftover - ');
+            const bIsLeftover = b.name.toLowerCase().startsWith('leftover - ');
+
+            if (aIsLeftover && !bIsLeftover) {
+                return -1; // a comes first
+            }
+            if (!aIsLeftover && bIsLeftover) {
+                return 1; // b comes first
+            }
+            
+            // If both are leftovers or both are not, sort alphabetically
+            return a.name.localeCompare(b.name);
         });
 
         if (!result[locationInfo.type]) {
