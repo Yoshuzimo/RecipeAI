@@ -47,6 +47,7 @@ const formSchema = z.object({
   name: z.string().min(2, {
     message: "Item name must be at least 2 characters.",
   }),
+  isUntracked: z.boolean().default(false),
   quantity: z.coerce.number().positive({
     message: "Package size must be a positive number.",
   }),
@@ -57,7 +58,6 @@ const formSchema = z.object({
   }),
   isPrivate: z.boolean().default(false),
   doesNotExpire: z.boolean().default(false),
-  // Nutrition fields are now fully optional
   calories: z.coerce.number().min(0).optional(),
   protein: z.coerce.number().min(0).optional(),
   carbs: z.coerce.number().min(0).optional(),
@@ -68,8 +68,7 @@ const formSchema = z.object({
   polyunsaturatedFat: z.coerce.number().min(0).optional(),
   transFat: z.coerce.number().min(0).optional(),
 }).refine(data => {
-    // Expiry date is required only if 'does not expire' is unchecked
-    if (data.doesNotExpire) return true;
+    if (data.isUntracked || data.doesNotExpire) return true;
     return !!data.expiryDate;
 }, {
     message: "An expiry date is required unless the item does not expire.",
@@ -114,6 +113,7 @@ export function AddInventoryItemDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      isUntracked: false,
       quantity: 1,
       doesNotExpire: false,
       isPrivate: false,
@@ -121,6 +121,8 @@ export function AddInventoryItemDialog({
   });
 
   const doesNotExpire = form.watch("doesNotExpire");
+  const isUntracked = form.watch("isUntracked");
+
 
   useEffect(() => {
     const system: 'us' | 'metric' = 'us'; 
@@ -136,6 +138,7 @@ export function AddInventoryItemDialog({
        if (isOpen) {
         form.reset({
             name: "",
+            isUntracked: false,
             quantity: 1,
             unit: system === 'us' ? 'lbs' : 'kg',
             expiryDate: addDays(new Date(), 7),
@@ -151,22 +154,29 @@ export function AddInventoryItemDialog({
   }, [isOpen, form]);
    
   useEffect(() => {
-    if(doesNotExpire) {
+    if(doesNotExpire || isUntracked) {
         form.clearErrors("expiryDate");
     }
-  }, [doesNotExpire, form]);
+     if (isUntracked) {
+      form.setValue("quantity", 1);
+      form.setValue("unit", "pcs");
+      form.clearErrors("quantity");
+      form.clearErrors("unit");
+    }
+  }, [doesNotExpire, isUntracked, form]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       const newItemData: Partial<NewInventoryItem> = {
         name: values.name,
-        totalQuantity: values.quantity,
-        originalQuantity: values.quantity,
-        unit: values.unit,
-        expiryDate: values.doesNotExpire ? null : values.expiryDate!,
+        totalQuantity: values.isUntracked ? 1 : values.quantity,
+        originalQuantity: values.isUntracked ? 1 : values.quantity,
+        unit: values.isUntracked ? 'pcs' : values.unit,
+        expiryDate: values.isUntracked || values.doesNotExpire ? null : values.expiryDate!,
         locationId: values.locationId,
         isPrivate: values.isPrivate,
+        isUntracked: values.isUntracked,
       };
       
       const macros: Partial<Macros> = {};
@@ -237,49 +247,137 @@ export function AddInventoryItemDialog({
                 <FormItem>
                   <FormLabel>Item Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Chicken Breast" {...field} />
+                    <Input placeholder="e.g., Chicken Breast, Olive Oil" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Container Size</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="e.g., 1.5" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="unit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unit</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+
+            <FormField
+              control={form.control}
+              name="isUntracked"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Item is untracked (e.g., spices, oil)
+                    </FormLabel>
+                     <FormDescription>
+                        For items you just want to know if you 'have' or 'don't have'.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {!isUntracked && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Container Size</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="e.g., 1.5" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="unit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unit</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableUnits.map(unit => (
+                                <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                 <FormField
+                    control={form.control}
+                    name="expiryDate"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                        <FormLabel>Expiry Date</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                disabled={doesNotExpire}
+                                >
+                                {field.value ? (
+                                    format(field.value, "PPP")
+                                ) : (
+                                    <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                            </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) => date < new Date() || doesNotExpire}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                  control={form.control}
+                  name="doesNotExpire"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a unit" />
-                        </SelectTrigger>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {availableUnits.map(unit => (
-                            <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Item does not expire
+                        </FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
              <FormField
                 control={form.control}
                 name="locationId"
@@ -302,65 +400,6 @@ export function AddInventoryItemDialog({
                   </FormItem>
                 )}
               />
-            <FormField
-              control={form.control}
-              name="expiryDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Expiry Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                          disabled={doesNotExpire}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date() || doesNotExpire}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="doesNotExpire"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Item does not expire
-                    </FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
             
             <Collapsible>
               <CollapsibleTrigger asChild>
@@ -436,7 +475,3 @@ export function AddInventoryItemDialog({
     </Dialog>
   );
 }
-
-    
-
-    

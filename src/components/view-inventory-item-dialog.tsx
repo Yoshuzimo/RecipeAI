@@ -113,6 +113,7 @@ export function ViewInventoryItemDialog({
   const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
   const [availableUnits, setAvailableUnits] = useState(usUnits);
 
+  const isUntracked = group.items[0]?.isUntracked;
 
   const packageGroups = useMemo(() => {
     return group.items.reduce((acc, item) => {
@@ -281,13 +282,13 @@ export function ViewInventoryItemDialog({
     if (groupToDelete === null) return;
     
     setIsPending(true);
-    const itemsToRemove = packageGroups[groupToDelete].items;
+    const itemsToRemove = packageGroups[groupToDelete]?.items ?? group.items;
     const result = await handleRemoveInventoryPackageGroup(itemsToRemove);
     setIsPending(false);
     setIsConfirmDeleteOpen(false);
 
     if (result.success) {
-      toast({ title: "Package Size Removed", description: `All ${groupToDelete}${group.unit} containers of ${group.name} have been removed.` });
+      toast({ title: "Item Removed", description: `${group.name} has been removed from inventory.` });
       const { privateItems, sharedItems } = await getClientInventory();
       onUpdateComplete(privateItems, sharedItems);
       setIsOpen(false);
@@ -344,7 +345,17 @@ export function ViewInventoryItemDialog({
                         />
                     </div>
                 )}
-                {Object.keys(packageGroups).length > 0 ? (
+                {isUntracked ? (
+                    <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                        <p className="text-muted-foreground mb-4">This is an untracked item. Quantity is not managed.</p>
+                         <Button type="button" variant="destructive" onClick={() => {
+                             setGroupToDelete(group.items[0].originalQuantity);
+                             setIsConfirmDeleteOpen(true);
+                         }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> I'm Out of This
+                        </Button>
+                    </div>
+                ) : Object.keys(packageGroups).length > 0 ? (
                     Object.values(packageGroups).map(({ size }) => (
                         <div key={size} className="space-y-4 p-4 border rounded-lg">
                             <div className="flex justify-between items-center">
@@ -464,17 +475,19 @@ export function ViewInventoryItemDialog({
                 </div>
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
-                <div className="flex gap-2">
-                  <Button type="button" variant="default" onClick={() => setIsEatItemDialogOpen(true)}>
-                      <UtensilsCrossed className="mr-2 h-4 w-4" /> Eat This
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
-                      <Move className="mr-2 h-4 w-4" /> Move To...
-                  </Button>
-                   <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
-                      <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
-                  </Button>
-                </div>
+                {!isUntracked && (
+                    <div className="flex gap-2">
+                    <Button type="button" variant="default" onClick={() => setIsEatItemDialogOpen(true)}>
+                        <UtensilsCrossed className="mr-2 h-4 w-4" /> Eat This
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
+                        <Move className="mr-2 h-4 w-4" /> Move To...
+                    </Button>
+                    <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
+                        <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
+                    </Button>
+                    </div>
+                )}
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending || !isDirty}>
@@ -533,7 +546,7 @@ export function ViewInventoryItemDialog({
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will permanently remove all {groupToDelete}{group.unit} containers of {group.name}. This action cannot be undone.
+                    This will permanently remove all containers of {group.name}. This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

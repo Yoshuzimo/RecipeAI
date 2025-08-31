@@ -1,5 +1,6 @@
 
 
+
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'oz' | 'lbs' | 'fl oz' | 'gallon' | 'cup' | 'tbsp' | 'tsp';
 
 export type StorageLocation = {
@@ -37,6 +38,7 @@ export type InventoryItem = {
   macros?: Macros; // Normalized per 100g or 100ml for AI
   servingSize?: { quantity: number; unit: Unit }; // User-entered serving size
   servingMacros?: Macros; // User-entered macros for that serving size
+  isUntracked?: boolean;
 };
 
 // Type for adding a new item, with an optional flag for privacy
