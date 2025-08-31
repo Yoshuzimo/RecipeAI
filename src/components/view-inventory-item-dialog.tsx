@@ -437,7 +437,7 @@ export function ViewInventoryItemDialog({
                                     Nutritional Information (Optional)
                                 </FormLabel>
                                 <p className="text-sm text-muted-foreground">
-                                    Add nutrition info to get more accurate recipe calculations.
+                                    Add nutrition info for more accurate recipe calculations.
                                 </p>
                             </div>
                             <ChevronDown className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
