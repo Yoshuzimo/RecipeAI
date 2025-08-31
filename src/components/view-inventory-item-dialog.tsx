@@ -328,150 +328,149 @@ export function ViewInventoryItemDialog({
         <form onSubmit={handleSubmit(onSubmit)}>
             <ScrollArea className="h-[60vh] pr-6 my-4">
                 <div className="space-y-8">
-                {isInHousehold && (
-                   <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                            <Label className="text-base">
-                                Keep Item Private
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                                Private items are only visible to you. Uncheck to move to shared household inventory.
-                            </p>
-                        </div>
-                        <Switch
-                            checked={isPrivate}
-                            onCheckedChange={handleTogglePrivacy}
-                            disabled={isPending}
-                        />
-                    </div>
-                )}
-                {isUntracked ? (
-                    <div className="text-center p-8 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground mb-4">This is an untracked item. Quantity is not managed.</p>
-                         <Button type="button" variant="destructive" onClick={() => {
-                             setGroupToDelete(group.items[0].originalQuantity);
-                             setIsConfirmDeleteOpen(true);
-                         }}>
-                            <Trash2 className="mr-2 h-4 w-4" /> I'm Out of This
-                        </Button>
-                    </div>
-                ) : Object.keys(packageGroups).length > 0 ? (
-                    Object.values(packageGroups).map(({ size }) => (
-                        <div key={size} className="space-y-4 p-4 border rounded-lg">
-                            <div className="flex justify-between items-center">
-                                <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteClick(size)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                    <span className="sr-only">Delete package size</span>
-                                </Button>
+                    {isInHousehold && (
+                    <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">
+                                    Keep Item Private
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Private items are only visible to you. Uncheck to move to shared household inventory.
+                                </p>
                             </div>
-                             <Controller
-                                name={`packages.${size}.full`}
-                                control={control}
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
-                                        <Input id={`full-count-${size}`} type="number" min="0" step="1" {...field} />
-                                    </div>
-                                )}
+                            <Switch
+                                checked={isPrivate}
+                                onCheckedChange={handleTogglePrivacy}
+                                disabled={isPending}
                             />
-                            <Controller
-                                name={`packages.${size}.partial`}
-                                control={control}
-                                render={({ field: { onChange, value } }) => {
-                                    const isNonDivisible = isNonDivisiblePiece(group.name, group.unit);
-                                    const displayValue = isNonDivisible ? Math.round(value) : Math.round((value / size) * 100);
+                        </div>
+                    )}
+                    {isUntracked ? (
+                        <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                            <p className="text-muted-foreground mb-4">This is an untracked item. Quantity is not managed.</p>
+                            <Button type="button" variant="destructive" onClick={() => {
+                                setGroupToDelete(group.items[0].originalQuantity);
+                                setIsConfirmDeleteOpen(true);
+                            }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> I'm Out of This
+                            </Button>
+                        </div>
+                    ) : Object.keys(packageGroups).length > 0 ? (
+                        Object.values(packageGroups).map(({ size }) => (
+                            <div key={size} className="space-y-4 p-4 border rounded-lg">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="font-semibold text-lg">{size}{group.unit} Containers</h4>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteClick(size)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                        <span className="sr-only">Delete package size</span>
+                                    </Button>
+                                </div>
+                                <Controller
+                                    name={`packages.${size}.full`}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`full-count-${size}`}>Full Containers</Label>
+                                            <Input id={`full-count-${size}`} type="number" min="0" step="1" {...field} />
+                                        </div>
+                                    )}
+                                />
+                                <Controller
+                                    name={`packages.${size}.partial`}
+                                    control={control}
+                                    render={({ field: { onChange, value } }) => {
+                                        const isNonDivisible = isNonDivisiblePiece(group.name, group.unit);
+                                        const displayValue = isNonDivisible ? Math.round(value) : Math.round((value / size) * 100);
 
-                                    return (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <Label>Partial Container</Label>
-                                            <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <Slider
-                                                value={[value]}
-                                                onValueChange={(vals) => onChange(vals[0])}
-                                                max={size}
-                                                step={isNonDivisible ? 1 : size / 100}
-                                                className="flex-1"
-                                            />
-                                             <div className="relative w-28">
-                                                <Input
-                                                    type="number"
-                                                    value={displayValue}
-                                                    onChange={(e) => {
-                                                        const numValue = parseInt(e.target.value, 10);
-                                                        if (!isNaN(numValue)) {
-                                                            const newActualValue = isNonDivisible
-                                                                ? numValue
-                                                                : (numValue / 100) * size;
-                                                            onChange(Math.max(0, Math.min(size, newActualValue)));
-                                                        }
-                                                    }}
-                                                    className={!isNonDivisible ? "pr-6" : ""}
+                                        return (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <Label>Partial Container</Label>
+                                                <span className="text-sm text-muted-foreground">{getSliderLabel(size)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <Slider
+                                                    value={[value]}
+                                                    onValueChange={(vals) => onChange(vals[0])}
+                                                    max={size}
+                                                    step={isNonDivisible ? 1 : size / 100}
+                                                    className="flex-1"
                                                 />
-                                                {!isNonDivisible && (
-                                                    <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
-                                                    %
-                                                    </span>
-                                                )}
-                                             </div>
+                                                <div className="relative w-28">
+                                                    <Input
+                                                        type="number"
+                                                        value={displayValue}
+                                                        onChange={(e) => {
+                                                            const numValue = parseInt(e.target.value, 10);
+                                                            if (!isNaN(numValue)) {
+                                                                const newActualValue = isNonDivisible
+                                                                    ? numValue
+                                                                    : (numValue / 100) * size;
+                                                                onChange(Math.max(0, Math.min(size, newActualValue)));
+                                                            }
+                                                        }}
+                                                        className={!isNonDivisible ? "pr-6" : ""}
+                                                    />
+                                                    {!isNonDivisible && (
+                                                        <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
+                                                        %
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    )
-                                }}
-                            />
+                                        )
+                                    }}
+                                />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-center text-muted-foreground py-10">
+                            No containers for this item. Add one to get started.
                         </div>
-                    ))
-                ) : (
-                    <div className="text-center text-muted-foreground py-10">
-                        No containers for this item. Add one to get started.
-                    </div>
-                )}
-                 <Collapsible>
-                    <CollapsibleTrigger asChild>
-                        <div className="flex w-full items-center justify-between rounded-lg border p-4 cursor-pointer">
-                        <div className="space-y-0.5 text-left">
-                            <FormLabel className="text-base">
-                                Nutritional Information (Optional)
-                            </FormLabel>
-                            <p className="text-sm text-muted-foreground">
-                                Add nutrition info to get more accurate recipe calculations.
-                            </p>
-                        </div>
-                        <ChevronDown className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-4 pt-4">
-                        <Separator />
-                        <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                        </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                         </div>
-                    </CollapsibleContent>
-                </Collapsible>
-                
+                    )}
+                    <Collapsible>
+                        <CollapsibleTrigger asChild>
+                            <div className="flex w-full items-center justify-between rounded-lg border p-4 cursor-pointer">
+                            <div className="space-y-0.5 text-left">
+                                <FormLabel className="text-base">
+                                    Nutritional Information (Optional)
+                                </FormLabel>
+                                <p className="text-sm text-muted-foreground">
+                                    Add nutrition info to get more accurate recipe calculations.
+                                </p>
+                            </div>
+                            <ChevronDown className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-4 pt-4">
+                            <Separator />
+                            <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </div>
             </ScrollArea>
              <DialogFooter className="mt-4 sm:justify-between flex-wrap gap-2">
