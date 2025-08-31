@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -173,7 +174,7 @@ export function AddBulkItemsDialog({
         </DialogHeader>
         <div className="flex-grow px-6 overflow-y-auto">
             <Textarea 
-                placeholder="Chicken Breast&#10;Olive Oil&#10;Brown Rice..."
+                placeholder="Chicken Breast\nOlive Oil\nBrown Rice..."
                 className="w-full h-full resize-none text-lg"
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
