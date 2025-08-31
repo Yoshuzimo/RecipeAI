@@ -169,16 +169,17 @@ export function AddBulkItemsDialog({
     <DialogContent className="h-screen w-screen max-w-full flex flex-col p-0">
         <DialogHeader className="p-6 pb-0">
             <DialogTitle>Add Bulk Items</DialogTitle>
+            <DialogDescription>Enter each grocery item on a new line.</DialogDescription>
         </DialogHeader>
         <div className="flex-grow px-6 overflow-y-auto">
             <Textarea 
-                placeholder="Enter each item on a new line..."
+                placeholder="Chicken Breast&#10;Olive Oil&#10;Brown Rice..."
                 className="w-full h-full resize-none text-lg"
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
             />
         </div>
-        <DialogFooter className="p-6 border-t bg-background sticky bottom-0">
+        <DialogFooter className="p-6 border-t bg-background">
             <Button variant="ghost" onClick={handleClose}>Cancel</Button>
             <Button onClick={handleNext} disabled={!inputText.trim()}>Next</Button>
         </DialogFooter>
@@ -189,20 +190,34 @@ export function AddBulkItemsDialog({
     <DialogContent className="max-w-4xl">
         <DialogHeader>
             <DialogTitle>Confirm Bulk Items</DialogTitle>
+            <DialogDescription>Review the details for each item before adding to your inventory.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <ScrollArea className="h-[60vh]">
-                    <div className="space-y-2 pr-4">
+                    <div className="space-y-4 pr-4">
+                       <div className="grid grid-cols-[1fr_150px_100px_100px_auto_auto_auto] items-center gap-x-2 px-2 text-sm font-medium text-muted-foreground">
+                            <span>Item Name</span>
+                            <span>Location</span>
+                            <span>Quantity</span>
+                            <span>Unit</span>
+                            <span className="text-center">Private</span>
+                            <span className="text-center">Untracked</span>
+                            <span className="text-center">Nutrition</span>
+                       </div>
                         {fields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-[1fr_150px_100px_120px_auto_auto_auto] items-center gap-2 p-2 border rounded-md">
-                                <span className="font-semibold truncate">{field.name}</span>
+                            <div key={field.id} className="grid grid-cols-[1fr_150px_100px_100px_auto_auto_auto] items-center gap-x-2 p-2 border rounded-md">
+                                <span className="font-semibold truncate pr-2">{field.name}</span>
                                 <FormField control={form.control} name={`items.${index}.locationId`} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{storageLocations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}</SelectContent></Select>)}/>
                                 <FormField control={form.control} name={`items.${index}.quantity`} render={({ field }) => (<Input type="number" {...field} disabled={watchedItems[index]?.isUntracked}/>)}/>
                                 <FormField control={form.control} name={`items.${index}.unit`} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value} disabled={watchedItems[index]?.isUntracked}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{[...usUnits, ...metricUnits].map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent></Select>)}/>
-                                <FormField control={form.control} name={`items.${index}.isPrivate`} render={({ field }) => (<FormItem><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!isInHousehold}/></FormControl></FormItem>)}/>
-                                <FormField control={form.control} name={`items.${index}.isUntracked`} render={({ field }) => (<FormItem><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl></FormItem>)}/>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => setItemToEditNutrition(index)}><PlusCircle className="h-4 w-4"/></Button>
+                                <div className="flex justify-center"><FormField control={form.control} name={`items.${index}.isPrivate`} render={({ field }) => (<FormItem><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!isInHousehold}/></FormControl></FormItem>)}/></div>
+                                <div className="flex justify-center"><FormField control={form.control} name={`items.${index}.isUntracked`} render={({ field }) => (<FormItem><FormControl><Checkbox checked={field.value} onCheckedChange={e => {
+                                    const isChecked = !!e;
+                                    const currentItem = form.getValues(`items.${index}`);
+                                    update(index, { ...currentItem, isUntracked: isChecked });
+                                }}/></FormControl></FormItem>)}/></div>
+                                <div className="flex justify-center"><Button type="button" variant="ghost" size="icon" onClick={() => setItemToEditNutrition(index)}><PlusCircle className="h-4 w-4"/></Button></div>
                             </div>
                         ))}
                     </div>
