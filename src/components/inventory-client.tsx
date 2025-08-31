@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import type { Household, InventoryItem, InventoryItemGroup, GroupedByLocation, StorageLocation, Unit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, Refrigerator, Snowflake, Warehouse, User, Users, Lock, ChevronDown, ChevronUp, ShoppingBag } from "lucide-react";
 import { AddInventoryItemDialog } from "@/components/add-inventory-item-dialog";
 import { InventoryTable } from "@/components/inventory-table";
 import { ViewInventoryItemDialog } from "./view-inventory-item-dialog";
@@ -13,6 +13,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { getClientHousehold } from "@/app/actions";
+import { AddBulkItemsDialog } from "./add-bulk-items-dialog";
 
 
 const locationIcons = {
@@ -103,6 +104,7 @@ export default function InventoryClient({
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<{group: InventoryItemGroup, isPrivate: boolean} | null>(null);
   const [isInHousehold, setIsInHousehold] = useState(false);
 
@@ -264,6 +266,12 @@ export default function InventoryClient({
         updateState(allPrivateItems, [...allSharedItems, newItem]);
     }
   };
+
+  const handleBulkItemsAdded = (newItems: InventoryItem[]) => {
+      const privateItemsToAdd = newItems.filter(i => i.isPrivate);
+      const sharedItemsToAdd = newItems.filter(i => !i.isPrivate);
+      updateState([...allPrivateItems, ...privateItemsToAdd], [...allSharedItems, ...sharedItemsToAdd]);
+  };
   
   const handleUpdateComplete = (newPrivate: InventoryItem[], newShared: InventoryItem[]) => {
       updateState(newPrivate, newShared);
@@ -289,6 +297,10 @@ export default function InventoryClient({
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Item
           </Button>
+           <Button variant="outline" onClick={() => setIsBulkAddOpen(true)}>
+            <ShoppingBag className="mr-2 h-4 w-4" />
+            Add Bulk Items
+          </Button>
         </div>
       </div>
       
@@ -302,6 +314,12 @@ export default function InventoryClient({
         isOpen={isAddDialogOpen}
         setIsOpen={setIsAddDialogOpen}
         onItemAdded={handleItemAdded}
+      />
+
+       <AddBulkItemsDialog
+        isOpen={isBulkAddOpen}
+        setIsOpen={setIsBulkAddOpen}
+        onItemsAdded={handleBulkItemsAdded}
       />
 
       {selectedGroup && (
