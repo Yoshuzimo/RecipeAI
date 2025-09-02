@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip, Dot, ResponsiveContainer } from "recharts"
-import { format, startOfDay, endOfDay, addDays } from "date-fns"
+import { format, startOfDay, endOfDay, addDays, addHours } from "date-fns"
 
 import {
   ChartContainer,
@@ -56,35 +56,12 @@ const CustomDot = (props: any) => {
     );
 };
 
-const DailyCustomTick = (props: any) => {
-    const { x, y, payload, data } = props;
-    const tickValue = payload.value;
-    const dataEntry = data.find((d: any) => d.time === tickValue);
-
-    if (!dataEntry || !dataEntry.meal) {
-        return null;
-    }
-    
-    const dishText = dataEntry.dishes.map((d: any) => d.name).join(', ');
-    const truncatedText = dishText.length > 20 ? `${dishText.substring(0, 20)}...` : dishText;
-
-    return (
-        <foreignObject x={x - 50} y={y + 10} width={100} height={100}>
-             <div className="text-center">
-                <p className="text-sm font-bold">{dataEntry.meal}</p>
-                <TooltipProvider>
-                    <UITooltip>
-                        <TooltipTrigger asChild>
-                           <p className="text-xs text-muted-foreground cursor-pointer">{truncatedText}</p>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{dishText}</p>
-                        </TooltipContent>
-                    </UITooltip>
-                </TooltipProvider>
-            </div>
-        </foreignObject>
-    );
+const formatHour = (date: number | Date) => {
+    const hour = new Date(date).getHours();
+    if (hour === 0) return "12a";
+    if (hour === 12) return "12p";
+    if (hour < 12) return `${hour}a`;
+    return `${hour - 12}p`;
 };
 
 
@@ -107,12 +84,17 @@ export function CalorieLineChart({
 }) {
   const [mealToEdit, setMealToEdit] = React.useState<any | null>(null);
 
+  const { start: dayStart, end: dayEnd } = React.useMemo(() => {
+    return getUserDayBoundaries(new Date(), settings?.dayStartTime || "00:00");
+  }, [settings?.dayStartTime]);
+  
   const chartData: ChartDataPoint[] = React.useMemo(() => {
-    if (timeframe === 'daily') {
+     if (timeframe === 'daily') {
         const sortedData = [...data].sort((a, b) => a.loggedAt.getTime() - b.loggedAt.getTime());
         let runningTotal = 0;
-        return sortedData.map(d => {
-             const mealCalories = (d.totals?.protein * 4 || 0) + (d.totals?.carbs * 4 || 0) + (d.totals?.fat * 9 || 0);
+        
+        const mealPoints = sortedData.map(d => {
+            const mealCalories = (d.totals?.protein * 4 || 0) + (d.totals?.carbs * 4 || 0) + (d.totals?.fat * 9 || 0);
             if (d.dishes.length > 0) {
                 runningTotal += mealCalories;
             }
@@ -122,6 +104,32 @@ export function CalorieLineChart({
                 time: d.loggedAt.getTime(),
             }
         });
+
+        // We need to ensure the line starts at 0 at the beginning of the day.
+        const startPoint = {
+            time: dayStart.getTime(),
+            calories: 0,
+        };
+
+        // Find the index of the first meal to insert the start point before it
+        const firstMealIndex = mealPoints.findIndex(p => p.calories > 0);
+
+        if (firstMealIndex === -1) {
+            // No meals with calories, just return the start point
+             return [startPoint];
+        }
+
+        // Insert the start point before the first meal, but only if the first meal isn't already at time 0
+        if(mealPoints[firstMealIndex].time > startPoint.time) {
+            mealPoints.splice(firstMealIndex, 0, {
+                ...mealPoints[firstMealIndex],
+                time: mealPoints[firstMealIndex].time -1, // one millisecond before
+                calories: 0
+            });
+            mealPoints.unshift(startPoint);
+        }
+
+        return mealPoints;
     }
     if (timeframe === 'weekly' || timeframe === 'monthly') {
       return data.map(d => ({
@@ -131,18 +139,22 @@ export function CalorieLineChart({
       }));
     }
     return [];
-  }, [data, timeframe]);
+  }, [data, timeframe, dayStart]);
 
   const handleDotClick = (payload: any) => {
       setMealToEdit(payload);
   }
   
-  const { start: dayStart, end: dayEnd } = React.useMemo(() => {
-    return getUserDayBoundaries(new Date(), settings?.dayStartTime || "00:00");
-  }, [settings?.dayStartTime]);
-
-  
-  const mealTicks = timeframe === 'daily' ? chartData.filter(d => d.dishes.length > 0).map(d => d.time) : [];
+  const hourlyTicks = React.useMemo(() => {
+    if (timeframe !== 'daily') return [];
+    const ticks = [];
+    let currentHour = new Date(dayStart);
+    while (currentHour <= dayEnd) {
+      ticks.push(currentHour.getTime());
+      currentHour = addHours(currentHour, 1);
+    }
+    return ticks;
+  }, [dayStart, dayEnd, timeframe]);
 
   return (
     <>
@@ -153,7 +165,7 @@ export function CalorieLineChart({
             margin={{
                 top: 20,
                 right: 40,
-                bottom: timeframe === 'daily' ? 80 : 20,
+                bottom: 20,
                 left: 20,
             }}
         >
@@ -164,11 +176,10 @@ export function CalorieLineChart({
                     type="number"
                     domain={[dayStart.getTime(), dayEnd.getTime()]}
                     scale="time"
-                    ticks={mealTicks}
-                    tick={<DailyCustomTick data={chartData} />}
-                    interval={0}
-                    axisLine={false}
-                    tickLine={false}
+                    ticks={hourlyTicks}
+                    tickFormatter={formatHour}
+                    interval="preserveStartEnd"
+                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
                 />
             ) : (
                 <XAxis
@@ -193,7 +204,7 @@ export function CalorieLineChart({
                             const { payload } = props;
                             if (!payload) return null;
 
-                            if (payload.calories === 0) return null;
+                            if (!payload.meal) return null;
 
                             if (timeframe === 'daily') {
                                 const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
@@ -233,7 +244,7 @@ export function CalorieLineChart({
             {goal && <ReferenceLine y={goal} label={{ value: "Goal", position: 'insideTopLeft' }} stroke="red" strokeDasharray="3 3" />}
             <Line
                 dataKey="calories"
-                type="monotone"
+                type="stepAfter"
                 stroke="var(--color-calories)"
                 strokeWidth={2}
                 dot={<CustomDot onDotClick={handleDotClick} timeframe={timeframe} />}
