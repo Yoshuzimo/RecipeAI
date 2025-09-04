@@ -55,6 +55,9 @@ const formSchema = z.object({
     carbs: z.coerce.number().min(0).optional(),
     fat: z.coerce.number().min(0).optional(),
     fiber: z.coerce.number().min(0).optional(),
+    sugar: z.coerce.number().min(0).optional(),
+    sodium: z.coerce.number().min(0).optional(),
+    cholesterol: z.coerce.number().min(0).optional(),
     saturatedFat: z.coerce.number().min(0).optional(),
     monounsaturatedFat: z.coerce.number().min(0).optional(),
     polyunsaturatedFat: z.coerce.number().min(0).optional(),
@@ -154,6 +157,9 @@ export function ViewInventoryItemDialog({
             carbs: firstItem.servingMacros.carbs,
             fat: firstItem.servingMacros.fat,
             fiber: firstItem.servingMacros?.fiber,
+            sugar: firstItem.servingMacros?.sugar,
+            sodium: firstItem.servingMacros?.sodium,
+            cholesterol: firstItem.servingMacros?.cholesterol,
             saturatedFat: firstItem.servingMacros?.fats?.saturated,
             monounsaturatedFat: firstItem.servingMacros?.fats?.monounsaturated,
             polyunsaturatedFat: firstItem.servingMacros?.fats?.polyunsaturated,
@@ -223,6 +229,9 @@ export function ViewInventoryItemDialog({
         if (nutrition.carbs !== undefined && nutrition.carbs !== null) servingMacros.carbs = nutrition.carbs;
         if (nutrition.fat !== undefined && nutrition.fat !== null) servingMacros.fat = nutrition.fat;
         if (nutrition.fiber !== undefined && nutrition.fiber !== null) servingMacros.fiber = nutrition.fiber;
+        if (nutrition.sugar !== undefined && nutrition.sugar !== null) servingMacros.sugar = nutrition.sugar;
+        if (nutrition.sodium !== undefined && nutrition.sodium !== null) servingMacros.sodium = nutrition.sodium;
+        if (nutrition.cholesterol !== undefined && nutrition.cholesterol !== null) servingMacros.cholesterol = nutrition.cholesterol;
 
         const fats: Partial<DetailedFats> = {};
         const { fat, saturatedFat, monounsaturatedFat, polyunsaturatedFat, transFat } = nutrition;
@@ -460,13 +469,18 @@ export function ViewInventoryItemDialog({
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.sugar" render={({ field }) => ( <FormItem><FormLabel>Sugar</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.sodium" render={({ field }) => ( <FormItem><FormLabel>Sodium</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={control} name="nutrition.cholesterol" render={({ field }) => ( <FormItem><FormLabel>Cholesterol</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
                                 <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
+                                <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             </div>
                         </CollapsibleContent>

@@ -16,6 +16,9 @@ export const MacrosSchema = z.object({
     fat: z.number(),
     fiber: z.number().optional(),
     fats: DetailedFatsSchema.optional(),
+    sodium: z.number().optional(),
+    cholesterol: z.number().optional(),
+    sugar: z.number().optional(),
 });
 
 export const RecipeSchema = z.object({

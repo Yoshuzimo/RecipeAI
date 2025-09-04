@@ -22,6 +22,9 @@ export type Macros = {
     fat: number;
     fiber?: number;
     fats?: DetailedFats;
+    sodium?: number;
+    cholesterol?: number;
+    sugar?: number;
 };
 
 export type InventoryItem = {

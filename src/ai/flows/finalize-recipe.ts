@@ -24,7 +24,7 @@ You are an expert chef and nutritionist AI. Your task is to analyze a recipe and
     ${input.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n    ')}
 
 **YOUR TASK:**
-Based on the ingredients and instructions, determine the number of servings this recipe makes and calculate the estimated macros (calories, protein, carbs, total fat, fiber, and a breakdown of fat types) per serving.
+Based on the ingredients and instructions, determine the number of servings this recipe makes and calculate the estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) per serving.
 
 Provide the output in the following JSON format. Do not include any text outside of the main JSON object.
 
@@ -37,6 +37,9 @@ Provide the output in the following JSON format. Do not include any text outside
     "carbs": <number>,
     "fat": <number>,
     "fiber": <number>,
+    "sugar": <number>,
+    "sodium": <number>,
+    "cholesterol": <number>,
     "fats": {
       "saturated": <number>,
       "monounsaturated": <number>,

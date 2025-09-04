@@ -115,6 +115,9 @@ export async function handleUpdateInventoryGroup(
             if (servingMacros.carbs !== undefined && servingMacros.carbs !== null) normalizedMacros.carbs = servingMacros.carbs * scaleFactor;
             if (servingMacros.fat !== undefined && servingMacros.fat !== null) normalizedMacros.fat = servingMacros.fat * scaleFactor;
             if (servingMacros.fiber !== undefined && servingMacros.fiber !== null) normalizedMacros.fiber = servingMacros.fiber * scaleFactor;
+            if (servingMacros.sugar !== undefined && servingMacros.sugar !== null) normalizedMacros.sugar = servingMacros.sugar * scaleFactor;
+            if (servingMacros.sodium !== undefined && servingMacros.sodium !== null) normalizedMacros.sodium = servingMacros.sodium * scaleFactor;
+            if (servingMacros.cholesterol !== undefined && servingMacros.cholesterol !== null) normalizedMacros.cholesterol = servingMacros.cholesterol * scaleFactor;
             
             const newFats: Partial<DetailedFats> = {};
             if (servingMacros.fats?.saturated !== undefined && servingMacros.fats?.saturated !== null) newFats.saturated = servingMacros.fats.saturated * scaleFactor;
@@ -220,6 +223,9 @@ export async function handleUpdateMealLog(mealId: string, updates: Partial<Daily
                 acc.carbs += dish.carbs || 0;
                 acc.fat += dish.fat || 0;
                 acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+                acc.sugar = (acc.sugar || 0) + (dish.sugar || 0);
+                acc.sodium = (acc.sodium || 0) + (dish.sodium || 0);
+                acc.cholesterol = (acc.cholesterol || 0) + (dish.cholesterol || 0);
                 acc.fats = {
                     saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
                     monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
@@ -227,7 +233,7 @@ export async function handleUpdateMealLog(mealId: string, updates: Partial<Daily
                     trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
                 };
                 return acc;
-            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+            }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, cholesterol: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
         }
         
         const updatedMeal = await dataUpdateMealLog(db, userId, mealId, dataToUpdate);
@@ -386,6 +392,9 @@ export async function handleLogMeal(
             carbs: recipe.macros.carbs / recipe.servings,
             fat: recipe.macros.fat / recipe.servings,
             fiber: (recipe.macros.fiber ?? 0) / recipe.servings,
+            sugar: (recipe.macros.sugar ?? 0) / recipe.servings,
+            sodium: (recipe.macros.sodium ?? 0) / recipe.servings,
+            cholesterol: (recipe.macros.cholesterol ?? 0) / recipe.servings,
             fats: {
                 saturated: (recipe.macros.fats?.saturated ?? 0) / recipe.servings,
                 monounsaturated: (recipe.macros.fats?.monounsaturated ?? 0) / recipe.servings,
@@ -400,6 +409,9 @@ export async function handleLogMeal(
             carbs: macrosPerServing.carbs * servingsEaten,
             fat: macrosPerServing.fat * servingsEaten,
             fiber: macrosPerServing.fiber * servingsEaten,
+            sugar: macrosPerServing.sugar * servingsEaten,
+            sodium: macrosPerServing.sodium * servingsEaten,
+            cholesterol: macrosPerServing.cholesterol * servingsEaten,
             fats: {
                 saturated: macrosPerServing.fats.saturated * servingsEaten,
                 monounsaturated: macrosPerServing.fats.monounsaturated * servingsEaten,
@@ -441,6 +453,9 @@ export async function handleLogMeal(
                  carbs: (recipe.macros.carbs / recipe.servings) || 0,
                  fat: (recipe.macros.fat / recipe.servings) || 0,
                  fiber: (recipe.macros.fiber / recipe.servings) || 0,
+                 sugar: (recipe.macros.sugar / recipe.servings) || 0,
+                 sodium: (recipe.macros.sodium / recipe.servings) || 0,
+                 cholesterol: (recipe.macros.cholesterol / recipe.servings) || 0,
                  fats: {
                      saturated: (recipe.macros.fats?.saturated / recipe.servings) || 0,
                      monounsaturated: (recipe.macros.fats?.monounsaturated / recipe.servings) || 0,
@@ -543,9 +558,12 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             carbs: pendingMeal.recipe.macros.carbs / pendingMeal.recipe.servings,
             fat: pendingMeal.recipe.macros.fat / pendingMeal.recipe.servings,
             fiber: (pendingMeal.recipe.macros.fiber ?? 0) / pendingMeal.recipe.servings,
+            sugar: (pendingMeal.recipe.macros.sugar ?? 0) / pendingMeal.recipe.servings,
+            sodium: (pendingMeal.recipe.macros.sodium ?? 0) / pendingMeal.recipe.servings,
+            cholesterol: (pendingMeal.recipe.macros.cholesterol ?? 0) / pendingMeal.recipe.servings,
             fats: {
                 saturated: (pendingMeal.recipe.macros.fats?.saturated ?? 0) / pendingMeal.recipe.servings,
-                monounsaturated: (pendingMeal.recipe.macros.fats?.monounsaturated ?? 0) / pendingMeal.recipe.servings,
+                monounsaturated: (pendingMeal.recipe.macros.fats?.monounsaturated ?? 0) / recipe.servings,
                 polyunsaturated: (pendingMeal.recipe.macros.fats?.polyunsaturated ?? 0) / recipe.servings,
                 trans: (pendingMeal.recipe.macros.fats?.trans ?? 0) / recipe.servings,
             }
@@ -557,6 +575,9 @@ export async function handleConfirmMeal(pendingMealId: string, servingsEaten: nu
             carbs: macrosPerServing.carbs * servingsEaten,
             fat: macrosPerServing.fat * servingsEaten,
             fiber: macrosPerServing.fiber * servingsEaten,
+            sugar: macrosPerServing.sugar * servingsEaten,
+            sodium: macrosPerServing.sodium * servingsEaten,
+            cholesterol: macrosPerServing.cholesterol * servingsEaten,
             fats: {
                 saturated: macrosPerServing.fats.saturated * servingsEaten,
                 monounsaturated: macrosPerServing.fats.monounsaturated * servingsEaten,
@@ -597,6 +618,9 @@ export async function handleEatSingleItem(
             carbs: (macrosPerServing.carbs || 0) * quantityEaten,
             fat: (macrosPerServing.fat || 0) * quantityEaten,
             fiber: (macrosPerServing.fiber || 0) * quantityEaten,
+            sugar: (macrosPerServing.sugar || 0) * quantityEaten,
+            sodium: (macrosPerServing.sodium || 0) * quantityEaten,
+            cholesterol: (macrosPerServing.cholesterol || 0) * quantityEaten,
             fats: {
                 saturated: (macrosPerServing.fats?.saturated || 0) * quantityEaten,
                 monounsaturated: (macrosPerServing.fats?.monounsaturated || 0) * quantityEaten,
@@ -618,6 +642,9 @@ export async function handleEatSingleItem(
             carbs: (servingMacros.carbs || 0) * scaleFactor,
             fat: (servingMacros.fat || 0) * scaleFactor,
             fiber: (servingMacros.fiber || 0) * scaleFactor,
+            sugar: (servingMacros.sugar || 0) * scaleFactor,
+            sodium: (servingMacros.sodium || 0) * scaleFactor,
+            cholesterol: (servingMacros.cholesterol || 0) * scaleFactor,
             fats: {
                 saturated: (servingMacros.fats?.saturated || 0) * scaleFactor,
                 monounsaturated: (servingMacros.fats?.monounsaturated || 0) * scaleFactor,

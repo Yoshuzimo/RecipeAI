@@ -27,6 +27,9 @@ const formSchema = z.object({
   carbs: z.coerce.number().min(0, "Must be a positive number."),
   fat: z.coerce.number().min(0, "Must be a positive number."),
   fiber: z.coerce.number().min(0).optional(),
+  sugar: z.coerce.number().min(0).optional(),
+  sodium: z.coerce.number().min(0).optional(),
+  cholesterol: z.coerce.number().min(0).optional(),
   fats: z.object({
       saturated: z.coerce.number().min(0).optional(),
       monounsaturated: z.coerce.number().min(0).optional(),
@@ -57,6 +60,9 @@ export function EditMacrosDialog({
       carbs: recipe.macros.carbs,
       fat: recipe.macros.fat,
       fiber: recipe.macros.fiber,
+      sugar: recipe.macros.sugar,
+      sodium: recipe.macros.sodium,
+      cholesterol: recipe.macros.cholesterol,
       fats: recipe.macros.fats,
     },
   });
@@ -69,6 +75,9 @@ export function EditMacrosDialog({
         carbs: recipe.macros.carbs,
         fat: recipe.macros.fat,
         fiber: recipe.macros.fiber,
+        sugar: recipe.macros.sugar,
+        sodium: recipe.macros.sodium,
+        cholesterol: recipe.macros.cholesterol,
         fats: recipe.macros.fats,
       });
     }
@@ -82,6 +91,9 @@ export function EditMacrosDialog({
         carbs: values.carbs,
         fat: values.fat,
         fiber: values.fiber,
+        sugar: values.sugar,
+        sodium: values.sodium,
+        cholesterol: values.cholesterol,
         fats: values.fats,
     };
     onSave(newMacros);
@@ -116,13 +128,20 @@ export function EditMacrosDialog({
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                    <FormField control={form.control} name="fats.saturated" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="sugar" render={({ field }) => ( <FormItem><FormLabel>Sugar (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
+                   <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="sodium" render={({ field }) => ( <FormItem><FormLabel>Sodium (mg)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="cholesterol" render={({ field }) => ( <FormItem><FormLabel>Cholesterol (mg)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="fats.saturated" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={form.control} name="fats.monounsaturated" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                    <FormField control={form.control} name="fats.polyunsaturated" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                   </div>
-                  <FormField control={form.control} name="fats.trans" render={({ field }) => ( <FormItem><FormLabel>Trans Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="fats.polyunsaturated" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={form.control} name="fats.trans" render={({ field }) => ( <FormItem><FormLabel>Trans Fat (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                  </div>
               </div>
             </ScrollArea>
             <DialogFooter>

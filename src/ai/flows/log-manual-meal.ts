@@ -27,7 +27,7 @@ You are an expert nutritionist AI. Your task is to analyze a list of foods that 
 ${input.foods.map(food => `- ${food.quantity} ${food.unit} ${food.name}`).join('\n')}
 
 **YOUR TASK:**
-Based on the list of foods, calculate the estimated macros (calories, protein, carbs, total fat, fiber, and a breakdown of fat types) for the entire meal combined. The result should be for a single serving, representing the total of all foods eaten.
+Based on the list of foods, calculate the estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) for the entire meal combined. The result should be for a single serving, representing the total of all foods eaten.
 
 Provide the output in the following JSON format. Do not include any text outside of the main JSON object. The "servings" value should always be 1.
 
@@ -40,6 +40,9 @@ Provide the output in the following JSON format. Do not include any text outside
     "carbs": <number>,
     "fat": <number>,
     "fiber": <number>,
+    "sugar": <number>,
+    "sodium": <number>,
+    "cholesterol": <number>,
     "fats": {
       "saturated": <number>,
       "monounsaturated": <number>,

@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 import type { DailyMacros, InventoryItem, Macros, PersonalDetails, Settings, Unit, StorageLocation, Recipe, Household, LeaveRequest, RequestedItem, ShoppingListItem, NewInventoryItem, ItemMigrationMapping, PendingMeal, ConversationEntry, LoggedDish } from "./types";
 import type { Firestore, WriteBatch, FieldValue, DocumentReference, DocumentSnapshot, Transaction } from "firebase-admin/firestore";
 import { FieldValue as ClientFieldValue } from "firebase/firestore";
@@ -758,6 +751,9 @@ export async function logDishes(
             acc.carbs += dish.carbs || 0;
             acc.fat += dish.fat || 0;
             acc.fiber = (acc.fiber || 0) + (dish.fiber || 0);
+            acc.sugar = (acc.sugar || 0) + (dish.sugar || 0);
+            acc.sodium = (acc.sodium || 0) + (dish.sodium || 0);
+            acc.cholesterol = (acc.cholesterol || 0) + (dish.cholesterol || 0);
             acc.fats = {
                 saturated: (acc.fats?.saturated || 0) + (dish.fats?.saturated || 0),
                 monounsaturated: (acc.fats?.monounsaturated || 0) + (dish.fats?.monounsaturated || 0),
@@ -765,7 +761,7 @@ export async function logDishes(
                 trans: (acc.fats?.trans || 0) + (dish.fats?.trans || 0),
             };
             return acc;
-        }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, cholesterol: 0, fats: { saturated: 0, monounsaturated: 0, polyunsaturated: 0, trans: 0 } });
 
         if (mealToUpdateDoc) {
             // A recent meal of the same type exists, so we merge with it.
@@ -778,6 +774,9 @@ export async function logDishes(
                 carbs: mealToUpdateData.totals.carbs + newDishesTotal.carbs,
                 fat: mealToUpdateData.totals.fat + newDishesTotal.fat,
                 fiber: (mealToUpdateData.totals.fiber || 0) + (newDishesTotal.fiber || 0),
+                sugar: (mealToUpdateData.totals.sugar || 0) + (newDishesTotal.sugar || 0),
+                sodium: (mealToUpdateData.totals.sodium || 0) + (newDishesTotal.sodium || 0),
+                cholesterol: (mealToUpdateData.totals.cholesterol || 0) + (newDishesTotal.cholesterol || 0),
                 fats: {
                     saturated: (mealToUpdateData.totals.fats?.saturated || 0) + (newDishesTotal.fats?.saturated || 0),
                     monounsaturated: (mealToUpdateData.totals.fats?.monounsaturated || 0) + (newDishesTotal.fats?.monounsaturated || 0),
@@ -847,6 +846,9 @@ export async function moveDishToNewMeal(
                 carbs: dishToMove.carbs,
                 fat: dishToMove.fat,
                 fiber: dishToMove.fiber,
+                sugar: dishToMove.sugar,
+                sodium: dishToMove.sodium,
+                cholesterol: dishToMove.cholesterol,
                 fats: dishToMove.fats,
             },
             loggedAt: newLoggedAt,
