@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -25,42 +26,23 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { InventoryItemGroup, DailyMacros } from "@/lib/types";
-import { handleEatSingleItem, getClientTodaysMacros } from "@/app/actions";
+import { handleEatSingleItem, getClientTodaysMacros, getSettings } from "@/app/actions";
 import { Loader2, UtensilsCrossed, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, differenceInHours } from "date-fns";
+import { isWithinUserDay } from "@/lib/utils";
 
 type MealType = DailyMacros["meal"];
 
 const getDefaultMealType = (todaysMeals: DailyMacros[]): MealType => {
-  const mealTimes: Partial<Record<MealType, Date>> = {};
-  let mostRecentMeal: DailyMacros | null = null;
-  todaysMeals.forEach(meal => {
-    mealTimes[meal.meal] = meal.loggedAt;
-    if (!mostRecentMeal || meal.loggedAt > mostRecentMeal.loggedAt) {
-      mostRecentMeal = meal;
-    }
-  });
-
-  const now = new Date();
-
-  // If a meal was logged in the last hour, default to that meal type.
-  if (mostRecentMeal && differenceInHours(now, mostRecentMeal.loggedAt) < 1) {
-    return mostRecentMeal.meal;
+  const hasLunch = todaysMeals.some(meal => meal.meal === 'Lunch');
+  if (hasLunch) {
+    return 'Dinner';
   }
-
-  // Fallback logic
-  if (!mealTimes.Breakfast) return "Breakfast";
-  if (!mealTimes.Lunch) {
-    return differenceInHours(now, mealTimes.Breakfast) < 3 ? "Snack" : "Lunch";
-  }
-  if (!mealTimes.Dinner) {
-    return differenceInHours(now, mealTimes.Lunch) < 3 ? "Snack" : "Dinner";
-  }
-  return "Snack";
+  return 'Lunch';
 };
 
 const formSchema = z.object({
@@ -83,7 +65,6 @@ export function EatItemDialog({
 }) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
-  const [todaysMeals, setTodaysMeals] = useState<DailyMacros[]>([]);
   
   const totalAvailable = group.items.reduce((sum, item) => sum + item.totalQuantity, 0);
 
@@ -98,19 +79,24 @@ export function EatItemDialog({
   });
 
   useEffect(() => {
-    async function fetchMeals() {
+    async function fetchAndSetDefaults() {
       if (isOpen) {
-        const meals = await getClientTodaysMacros();
-        setTodaysMeals(meals);
+        const [settings, allMeals] = await Promise.all([
+          getSettings(),
+          getClientTodaysMacros()
+        ]);
+        const dayStartTime = settings?.dayStartTime || "00:00";
+        const mealsToday = allMeals.filter(meal => isWithinUserDay(meal.loggedAt, dayStartTime));
+        
         form.reset({
           quantityEaten: group.unit === 'pcs' ? 1 : undefined,
-          mealType: getDefaultMealType(meals),
+          mealType: getDefaultMealType(mealsToday),
           loggedAtDate: new Date(),
           loggedAtTime: format(new Date(), "HH:mm"),
         });
       }
     }
-    fetchMeals();
+    fetchAndSetDefaults();
   }, [isOpen, group, form]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {

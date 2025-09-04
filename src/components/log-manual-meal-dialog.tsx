@@ -19,7 +19,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { handleLogManualMeal, getClientTodaysMacros } from "@/app/actions";
+import { handleLogManualMeal, getClientTodaysMacros, getSettings } from "@/app/actions";
 import { Loader2, PlusCircle, Trash2, UtensilsCrossed, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import type { DailyMacros, Unit } from "@/lib/types";
@@ -28,35 +28,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "./ui/checkbox";
+import { isWithinUserDay } from "@/lib/utils";
 
 type MealType = DailyMacros['meal'];
 
 const getDefaultMealType = (todaysMeals: DailyMacros[]): MealType => {
-  const mealTimes: Partial<Record<MealType, Date>> = {};
-  let mostRecentMeal: DailyMacros | null = null;
-  todaysMeals.forEach(meal => {
-    mealTimes[meal.meal] = meal.loggedAt;
-    if (!mostRecentMeal || meal.loggedAt > mostRecentMeal.loggedAt) {
-      mostRecentMeal = meal;
-    }
-  });
-
-  const now = new Date();
-
-  // If a meal was logged in the last hour, default to that meal type.
-  if (mostRecentMeal && differenceInHours(now, mostRecentMeal.loggedAt) < 1) {
-    return mostRecentMeal.meal;
+  const hasLunch = todaysMeals.some(meal => meal.meal === 'Lunch');
+  if (hasLunch) {
+    return 'Dinner';
   }
-
-  // Fallback logic
-  if (!mealTimes.Breakfast) return "Breakfast";
-  if (!mealTimes.Lunch) {
-    return differenceInHours(now, mealTimes.Breakfast) < 3 ? "Snack" : "Lunch";
-  }
-  if (!mealTimes.Dinner) {
-    return differenceInHours(now, mealTimes.Lunch) < 3 ? "Snack" : "Dinner";
-  }
-  return "Snack";
+  return 'Lunch';
 };
 
 
@@ -91,7 +72,6 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
     const [availableUnits, setAvailableUnits] = useState(usUnits);
-    const [todaysMeals, setTodaysMeals] = useState<DailyMacros[]>([]);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -109,19 +89,24 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     });
 
     useEffect(() => {
-        async function fetchMeals() {
+        async function fetchAndSetDefaults() {
             if (isOpen) {
-                const meals = await getClientTodaysMacros();
-                setTodaysMeals(meals);
+                 const [settings, allMeals] = await Promise.all([
+                    getSettings(),
+                    getClientTodaysMacros()
+                ]);
+                const dayStartTime = settings?.dayStartTime || "00:00";
+                const mealsToday = allMeals.filter(meal => isWithinUserDay(meal.loggedAt, dayStartTime));
+
                 form.reset({
-                    mealType: getDefaultMealType(meals),
+                    mealType: getDefaultMealType(mealsToday),
                     foods: [{ quantity: "1", unit: "pcs", name: "", deduct: true }],
                     loggedAtDate: new Date(),
                     loggedAtTime: format(new Date(), "HH:mm"),
                 });
             }
         }
-        fetchMeals();
+        fetchAndSetDefaults();
     }, [isOpen, form]);
     
     const onSubmit = async (data: FormData) => {
