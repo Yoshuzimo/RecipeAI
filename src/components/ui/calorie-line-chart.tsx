@@ -39,7 +39,8 @@ const chartConfig = {
 const CustomDot = (props: any) => {
     const { cx, cy, payload, onDotClick, timeframe } = props;
 
-    if (!payload.meal || payload.calories === 0) {
+    // Don't render a dot for the 0-calorie start point
+    if (!payload.meal) {
         return null;
     }
 
@@ -91,13 +92,11 @@ export function CalorieLineChart({
   const chartData: ChartDataPoint[] = React.useMemo(() => {
      if (timeframe === 'daily') {
         const sortedData = [...data].sort((a, b) => a.loggedAt.getTime() - b.loggedAt.getTime());
-        let runningTotal = 0;
         
+        let runningTotal = 0;
         const mealPoints = sortedData.map(d => {
-            const mealCalories = (d.totals?.protein * 4 || 0) + (d.totals?.carbs * 4 || 0) + (d.totals?.fat * 9 || 0);
-            if (d.dishes.length > 0) {
-                runningTotal += mealCalories;
-            }
+            const mealCalories = (d.totals?.calories || 0);
+            runningTotal += mealCalories;
             return {
                 ...d,
                 calories: runningTotal,
@@ -105,31 +104,13 @@ export function CalorieLineChart({
             }
         });
 
-        // We need to ensure the line starts at 0 at the beginning of the day.
+        // The first point is always the start of the day at 0 calories.
         const startPoint = {
             time: dayStart.getTime(),
             calories: 0,
         };
 
-        // Find the index of the first meal to insert the start point before it
-        const firstMealIndex = mealPoints.findIndex(p => p.calories > 0);
-
-        if (firstMealIndex === -1) {
-            // No meals with calories, just return the start point
-             return [startPoint];
-        }
-
-        // Insert the start point before the first meal, but only if the first meal isn't already at time 0
-        if(mealPoints[firstMealIndex].time > startPoint.time) {
-            mealPoints.splice(firstMealIndex, 0, {
-                ...mealPoints[firstMealIndex],
-                time: mealPoints[firstMealIndex].time -1, // one millisecond before
-                calories: 0
-            });
-            mealPoints.unshift(startPoint);
-        }
-
-        return mealPoints;
+        return [startPoint, ...mealPoints];
     }
     if (timeframe === 'weekly' || timeframe === 'monthly') {
       return data.map(d => ({
@@ -204,20 +185,25 @@ export function CalorieLineChart({
                             const { payload } = props;
                             if (!payload) return null;
 
-                            if (!payload.meal) return null;
+                            if (!payload.meal) {
+                                if (payload.calories === 0) {
+                                    return <div className="text-sm font-bold">Day Start: 0 calories</div>
+                                }
+                                return null;
+                            };
 
                             if (timeframe === 'daily') {
-                                const mealCalories = (payload.totals.protein * 4) + (payload.totals.carbs * 4) + (payload.totals.fat * 9);
+                                const mealCalories = payload.totals.calories;
                                 const runningTotal = value;
                                 
                                 const calculateDishCalories = (dish: any) => {
-                                    return (dish.protein * 4) + (dish.carbs * 4) + (dish.fat * 9);
+                                    return (dish.calories || 0);
                                 };
 
                                 return (
                                     <div className="text-sm">
                                         <p className="font-bold">{payload?.meal} ({format(payload?.loggedAt, "p")})</p>
-                                        <p>{mealCalories.toFixed(0)} calories ({runningTotal.toFixed(0)} total)</p>
+                                        <p>{mealCalories.toFixed(0)} calories (+{runningTotal.toFixed(0)} total)</p>
                                         <ul className="list-disc list-inside text-muted-foreground">
                                             {payload?.dishes?.map((dish: any) => (
                                                 <li key={dish.name}>
@@ -244,7 +230,7 @@ export function CalorieLineChart({
             {goal && <ReferenceLine y={goal} label={{ value: "Goal", position: 'insideTopLeft' }} stroke="red" strokeDasharray="3 3" />}
             <Line
                 dataKey="calories"
-                type="stepAfter"
+                type="monotone"
                 stroke="var(--color-calories)"
                 strokeWidth={2}
                 dot={<CustomDot onDotClick={handleDotClick} timeframe={timeframe} />}
