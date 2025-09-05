@@ -535,12 +535,16 @@ For each recipe, provide the output in the following JSON format. Do not include
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={isPending}>
+                        <>
                         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Generate Meal Ideas
+                        </>
                     </Button>
                      <Button type="button" variant="outline" onClick={() => setIsCreateRecipeDialogOpen(true)}>
+                        <>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Create a Meal
+                        </>
                     </Button>
                   </div>
               </form>

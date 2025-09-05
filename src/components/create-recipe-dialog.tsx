@@ -224,7 +224,11 @@ export function CreateRecipeDialog({
                                         ))}
                                      </div>
                                      {form.formState.errors.ingredients?.root && ( <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p> )}
-                                     <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}> <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient </Button>
+                                     <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
+                                        <>
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                                        </>
+                                     </Button>
                                 </div>
                                 <FormField control={form.control} name="instructions" render={({ field }) => ( <FormItem> <FormLabel>Instructions</FormLabel> <FormControl><Textarea placeholder="1. Chop vegetables.2. Sauté chicken...3. Serve hot." {...field} rows={6} /></FormControl> <FormMessage /> </FormItem> )}/>
                                 <Collapsible>
@@ -267,8 +271,10 @@ export function CreateRecipeDialog({
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isPending}>
+                                <>
                                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Finalize Recipe
+                                </>
                             </Button>
                         </DialogFooter>
                     </form>
