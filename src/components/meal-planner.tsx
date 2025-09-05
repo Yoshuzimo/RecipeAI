@@ -500,7 +500,7 @@ For each recipe, provide the output in the following JSON format. Do not include
                     </div>
                     <Separator />
                     <div className="flex flex-wrap gap-2">
-                        <Button onClick={()={() => handleCookItClick(recipe)}}>
+                        <Button onClick={() => handleCookItClick(recipe)}>
                             <ChefHat className="mr-2 h-4 w-4" />
                             <span>Cook It</span>
                         </Button>
