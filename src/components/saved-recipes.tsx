@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Bookmark, Users, User, Trash2, AlertCircle, Loader2, ChefHat, Replace, Lock, Unlock, Edit, Minus, Plus } from "lucide-react";
+import { Bookmark, Users, User, Trash2, AlertCircle, Loader2, ChefHat, Replace, Lock, Unlock, Edit, Minus, Plus, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import type { Recipe, InventoryItem, PersonalDetails, DailyMacros, InventoryItemGroup, Macros } from "@/lib/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
@@ -184,6 +185,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
   const [updatingRecipes, setUpdatingRecipes] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   const [inventory, setInventory] = useState<{ privateItems: InventoryItem[], sharedItems: InventoryItem[] } | null>(null);
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
@@ -194,6 +196,8 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
   const [recipeToLog, setRecipeToLog] = useState<Recipe | null>(null);
   const [isUserSubDialogOpen, setIsUserSubDialogOpen] = useState(false);
   const [recipeToSubstitute, setRecipeToSubstitute] = useState<Recipe | null>(null);
+  
+  const hasOutdatedRecipes = useMemo(() => myRecipes.some(isRecipeOutdated), [myRecipes]);
 
   useEffect(() => {
     async function loadData() {
@@ -238,6 +242,50 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
         setUpdatingRecipes(prev => ({...prev, [recipe.title]: false}));
     }
   }
+
+  const handleBulkUpdate = async () => {
+    setIsBulkUpdating(true);
+    const outdatedRecipes = myRecipes.filter(isRecipeOutdated);
+    
+    toast({
+        title: "Starting Bulk Update...",
+        description: `Updating nutritional info for ${outdatedRecipes.length} recipes. This may take a moment.`
+    });
+
+    const updatePromises = outdatedRecipes.map(recipe => 
+        finalizeRecipe({
+            title: recipe.title,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+        }).then(result => ('error' in result ? Promise.reject(result.error) : { ...recipe, macros: result.macros, servings: result.servings }))
+    );
+
+    try {
+        const updatedRecipes = await Promise.all(updatePromises);
+        
+        const savePromises = updatedRecipes.map(handleSaveRecipe);
+        await Promise.all(savePromises);
+
+        setMyRecipes(prev => prev.map(oldRecipe => {
+            const updated = updatedRecipes.find(newRecipe => newRecipe.title === oldRecipe.title);
+            return updated || oldRecipe;
+        }));
+
+        toast({
+            title: "Bulk Update Complete!",
+            description: `Successfully updated ${updatedRecipes.length} recipes.`
+        });
+    } catch (e) {
+        toast({
+            variant: "destructive",
+            title: "Bulk Update Failed",
+            description: "Some recipes could not be updated. Please try again or update them individually."
+        });
+    } finally {
+        setIsBulkUpdating(false);
+    }
+  };
+
 
   const handleRemoveClick = (recipe: Recipe) => {
     setRecipeToDelete(recipe);
@@ -359,6 +407,12 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
                 Your collection of favorite and custom recipes.
             </p>
             </div>
+            {hasOutdatedRecipes && (
+                <Button onClick={handleBulkUpdate} disabled={isBulkUpdating}>
+                    {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Update All
+                </Button>
+            )}
         </div>
         
         <Tabs defaultValue="my-recipes">
@@ -411,3 +465,4 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
     </>
   );
 }
+
