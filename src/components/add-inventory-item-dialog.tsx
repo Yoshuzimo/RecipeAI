@@ -42,6 +42,7 @@ import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros, De
 import { Checkbox } from "./ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Separator } from "./ui/separator";
+import { ScrollArea } from "./ui/scroll-area";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -127,7 +128,9 @@ export function AddInventoryItemDialog({
       quantity: 1,
       doesNotExpire: false,
       isPrivate: false,
-      nutrition: {},
+      nutrition: {
+        servingSizeUnit: '',
+      },
     },
   });
 
@@ -156,7 +159,9 @@ export function AddInventoryItemDialog({
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
             isPrivate: !household, // Default to private if not in a household
-            nutrition: {},
+            nutrition: {
+                servingSizeUnit: '', // Ensure this is initialized
+            },
         });
       }
     }

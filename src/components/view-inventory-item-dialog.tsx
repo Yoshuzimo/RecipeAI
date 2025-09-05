@@ -165,6 +165,8 @@ export function ViewInventoryItemDialog({
             polyunsaturatedFat: firstItem.servingMacros?.fats?.polyunsaturated,
             transFat: firstItem.servingMacros?.fats?.trans,
         }
+    } else {
+        values.nutrition = { servingSizeUnit: '' };
     }
     return values;
   }, [packageGroups, group.items]);
@@ -453,36 +455,39 @@ export function ViewInventoryItemDialog({
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="space-y-4 pt-4">
-                            <Separator />
-                            <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.sugar" render={({ field }) => ( <FormItem><FormLabel>Sugar</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.sodium" render={({ field }) => ( <FormItem><FormLabel>Sodium</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.cholesterol" render={({ field }) => ( <FormItem><FormLabel>Cholesterol</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            </div>
+                            <ScrollArea className="max-h-60">
+                                <div className="space-y-4 pr-4">
+                                    <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.servingSizeUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl><SelectContent>{availableUnits.map(unit => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.protein" render={({ field }) => ( <FormItem><FormLabel>Protein</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.carbs" render={({ field }) => ( <FormItem><FormLabel>Carbs</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.fat" render={({ field }) => ( <FormItem><FormLabel>Total Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.fiber" render={({ field }) => ( <FormItem><FormLabel>Fiber</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.sugar" render={({ field }) => ( <FormItem><FormLabel>Sugar</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.sodium" render={({ field }) => ( <FormItem><FormLabel>Sodium</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.cholesterol" render={({ field }) => ( <FormItem><FormLabel>Cholesterol</FormLabel><FormControl><Input type="number" placeholder="mg" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.saturatedFat" render={({ field }) => ( <FormItem><FormLabel>Saturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.monounsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Monounsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                        <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                    </div>
+                                </div>
+                            </ScrollArea>
                         </CollapsibleContent>
                     </Collapsible>
                 </div>
