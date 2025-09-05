@@ -9,7 +9,7 @@ import type { Recipe, InventoryItem, PersonalDetails, DailyMacros, InventoryItem
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
-import { handleSaveRecipe, handleRemoveSavedRecipe, getClientInventory, getClientPersonalDetails } from "@/app/actions";
+import { getClientInventory, getClientPersonalDetails } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
@@ -24,6 +24,7 @@ import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
 import { EditMacrosDialog } from "./edit-macros-dialog";
 import { Skeleton } from "./ui/skeleton";
+import { useAuth } from "./auth-provider";
 
 const isRecipeOutdated = (recipe: Recipe): boolean => {
     return recipe.macros.fiber === undefined || recipe.macros.fats === undefined || recipe.servingSize === undefined;
@@ -213,6 +214,18 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
     loadData();
   }, []);
 
+  const updateSingleRecipe = async (recipe: Recipe) => {
+    const response = await fetch('/api/saved-recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recipe),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to save recipe: ${recipe.title}`);
+    }
+    return response.json();
+  };
+
   const handleUpdateNutrition = async (recipe: Recipe) => {
     setUpdatingRecipes(prev => ({...prev, [recipe.title]: true}));
     try {
@@ -227,7 +240,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
         }
 
         const updatedRecipe = { ...recipe, ...result };
-        await handleSaveRecipe(updatedRecipe);
+        await updateSingleRecipe(updatedRecipe);
 
         setMyRecipes(prev => prev.map(r => r.title === updatedRecipe.title ? updatedRecipe : r));
         toast({
@@ -266,7 +279,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
     try {
         const updatedRecipes = await Promise.all(updatePromises);
         
-        const savePromises = updatedRecipes.map(handleSaveRecipe);
+        const savePromises = updatedRecipes.map(updateSingleRecipe);
         await Promise.all(savePromises);
 
         setMyRecipes(prev => prev.map(oldRecipe => {
@@ -296,13 +309,17 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
   
   const handleConfirmRemove = async () => {
     if (!recipeToDelete) return;
+    
+    const response = await fetch(`/api/saved-recipes/${encodeURIComponent(recipeToDelete.title)}`, {
+        method: 'DELETE',
+    });
 
-    const result = await handleRemoveSavedRecipe(recipeToDelete.title);
-    if (result.success) {
+    if (response.ok) {
         toast({ title: "Recipe Removed", description: `"${recipeToDelete.title}" has been removed from your recipe book.`});
         setMyRecipes(prev => prev.filter(r => r.title !== recipeToDelete.title));
     } else {
-        toast({ variant: "destructive", title: "Error", description: result.error });
+        const result = await response.json();
+        toast({ variant: "destructive", title: "Error", description: result.error || "Failed to remove recipe." });
     }
     setRecipeToDelete(null);
   };

@@ -1,17 +1,17 @@
 
 import { auth } from "@/lib/firebase-admin";
 import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
-export async function getUserIdFromToken(request: NextRequest): Promise<string | null> {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return null;
-    const idToken = authHeader.split("Bearer ")[1];
+export async function getUserIdFromCookie(): Promise<string | null> {
+    const sessionCookie = cookies().get('__session')?.value;
+    if (!sessionCookie) return null;
+    
     try {
-        const decodedToken = await auth.verifyIdToken(idToken);
+        const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
-        console.error("Error verifying ID token:", error);
+        console.error("Error verifying session cookie:", error);
         return null;
     }
 }
-

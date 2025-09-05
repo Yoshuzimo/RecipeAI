@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientSavedRecipes, handleSaveRecipe } from "@/app/actions";
 import type { Recipe } from "@/lib/types";
-import { getUserIdFromToken } from "@/lib/auth";
+import { getUserIdFromCookie } from "@/lib/auth";
 
 
 export async function GET(request: NextRequest) {
     try {
-        const userId = await getUserIdFromToken(request);
+        const userId = await getUserIdFromCookie();
         if (!userId) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
      try {
-        const userId = await getUserIdFromToken(request);
+        const userId = await getUserIdFromCookie();
         if (!userId) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
