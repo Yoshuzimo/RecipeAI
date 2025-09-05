@@ -1,7 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { handleRemoveSavedRecipe } from "@/app/actions";
 import { getUserIdFromCookie } from "@/lib/auth";
+import { removeSavedRecipe as dataRemoveSavedRecipe } from "@/lib/data";
+import { db } from "@/lib/firebase-admin";
 
 export async function DELETE(
   request: NextRequest,
@@ -16,13 +17,9 @@ export async function DELETE(
     }
 
     const { title } = params;
-    const result = await handleRemoveSavedRecipe(decodeURIComponent(title));
+    await dataRemoveSavedRecipe(db, userId, decodeURIComponent(title));
 
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
-    }
-
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error(`Error in /api/saved-recipes/[title] DELETE:`, error);
     const errorMessage =

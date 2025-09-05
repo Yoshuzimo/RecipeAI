@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientSavedRecipes, handleSaveRecipe } from "@/app/actions";
 import type { Recipe } from "@/lib/types";
 import { getUserIdFromCookie } from "@/lib/auth";
+import { saveRecipe as dataSaveRecipe } from "@/lib/data";
+import { db } from "@/lib/firebase-admin";
 
 
 export async function GET(request: NextRequest) {
@@ -28,13 +30,9 @@ export async function POST(request: NextRequest) {
             return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
         const recipe: Recipe = await request.json();
-        const result = await handleSaveRecipe(recipe);
+        await dataSaveRecipe(db, userId, recipe);
 
-        if (result.error) {
-            return NextResponse.json({ error: result.error }, { status: 500 });
-        }
-
-        return NextResponse.json(result);
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Error in /api/saved-recipes POST:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
