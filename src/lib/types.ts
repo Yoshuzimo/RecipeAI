@@ -109,6 +109,7 @@ export type Recipe = {
     title: string;
     description: string;
     servings: number;
+    servingSize?: string;
     ingredients: string[];
     instructions: string[];
     macros: Macros;

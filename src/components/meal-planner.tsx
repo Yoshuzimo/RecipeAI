@@ -367,7 +367,7 @@ For each recipe, provide the output in the following JSON format. Do not include
                 return;
             }
 
-            const finalUpdatedRecipe = { ...updatedRecipe, macros: finalizationResult.macros, servings: finalizationResult.servings };
+            const finalUpdatedRecipe = { ...updatedRecipe, ...finalizationResult };
             
             if (userRecipe?.title === recipe.title) {
                 setUserRecipe(finalUpdatedRecipe);
@@ -454,11 +454,14 @@ For each recipe, provide the output in the following JSON format. Do not include
                 </CardHeader>
                 <AccordionContent className="px-6 pb-6">
                 <div className="space-y-6">
-                    <div className="flex items-center gap-4">
-                    <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
-                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
-                    <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10) || 1)} />
-                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+                    <div>
+                        <div className="flex items-center gap-4">
+                        <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
+                        <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => handleServingChange(recipe.title, parseInt(e.target.value, 10) || 1)} />
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => handleServingChange(recipe.title, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                        {recipe.servingSize && <p className="text-xs text-muted-foreground mt-1">Serving size: ~{recipe.servingSize}</p>}
                     </div>
                     <div>
                     <h4 className="font-semibold mb-2">Ingredients</h4>

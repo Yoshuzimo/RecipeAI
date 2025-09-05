@@ -99,7 +99,7 @@ export function CreateRecipeDialog({
 
     // State for conflict resolution
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    const [conflictData, setConflictData] = useState<{ user: PartialMacros, ai: Macros, recipeData: Omit<Recipe, 'macros' | 'servings'> & {servings: number} } | null>(null);
+    const [conflictData, setConflictData] = useState<{ user: PartialMacros, ai: Macros, recipeData: Omit<Recipe, 'macros' | 'servings'> & {servings: number, servingSize: string} } | null>(null);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -179,6 +179,7 @@ export function CreateRecipeDialog({
                 ingredients: ingredientArray,
                 instructions: instructionsArray,
                 servings: result.servings,
+                servingSize: result.servingSize,
             };
             
             if (Object.keys(userMacros).length > 0 && detectConflicts(userMacros, result.macros)) {

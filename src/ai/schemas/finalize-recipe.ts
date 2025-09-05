@@ -13,6 +13,7 @@ export type FinalizeRecipeInput = z.infer<typeof FinalizeRecipeInputSchema>;
 
 export const FinalizeRecipeOutputSchema = z.object({
     servings: z.number().int().positive(),
+    servingSize: z.string(),
     macros: MacrosSchema,
 });
 export type FinalizeRecipeOutput = z.infer<typeof FinalizeRecipeOutputSchema>;

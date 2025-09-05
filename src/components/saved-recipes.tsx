@@ -26,7 +26,7 @@ import { EditMacrosDialog } from "./edit-macros-dialog";
 import { Skeleton } from "./ui/skeleton";
 
 const isRecipeOutdated = (recipe: Recipe): boolean => {
-    return recipe.macros.fiber === undefined || recipe.macros.fats === undefined;
+    return recipe.macros.fiber === undefined || recipe.macros.fats === undefined || recipe.servingSize === undefined;
 };
 
 const RecipeCard = ({ 
@@ -108,11 +108,14 @@ const RecipeCard = ({
                 <AccordionContent className="px-6 pb-6">
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-4">
+                             <div>
+                                <div className="flex items-center gap-4">
                                 <Label htmlFor={`servings-${recipe.title}`}>Servings</Label>
                                 <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onServingChange(recipe, recipe.servings - 1)}><Minus className="h-4 w-4" /></Button>
                                 <Input id={`servings-${recipe.title}`} type="number" className="w-16 h-8 text-center" value={recipe.servings} onChange={(e) => onServingChange(recipe, parseInt(e.target.value, 10) || 1)} />
                                 <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onServingChange(recipe, recipe.servings + 1)}><Plus className="h-4 w-4" /></Button>
+                                </div>
+                                {recipe.servingSize && <p className="text-xs text-muted-foreground mt-1">Serving size: ~{recipe.servingSize}</p>}
                             </div>
                             {isOwner && outdated && (
                                 <Button size="sm" variant="outline" onClick={() => onUpdateClick(recipe)} disabled={isUpdating}>
@@ -223,7 +226,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
             throw new Error(result.error);
         }
 
-        const updatedRecipe = { ...recipe, macros: result.macros, servings: result.servings };
+        const updatedRecipe = { ...recipe, ...result };
         await handleSaveRecipe(updatedRecipe);
 
         setMyRecipes(prev => prev.map(r => r.title === updatedRecipe.title ? updatedRecipe : r));
@@ -257,7 +260,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
             title: recipe.title,
             ingredients: recipe.ingredients,
             instructions: recipe.instructions,
-        }).then(result => ('error' in result ? Promise.reject(result.error) : { ...recipe, macros: result.macros, servings: result.servings }))
+        }).then(result => ('error' in result ? Promise.reject(result.error) : { ...recipe, ...result }))
     );
 
     try {
@@ -344,7 +347,7 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
             return;
         }
 
-        const finalUpdatedRecipe = { ...updatedRecipe, macros: result.macros, servings: result.servings };
+        const finalUpdatedRecipe = { ...updatedRecipe, ...result };
         
         setMyRecipes(prev => prev.map(r => r.title === finalUpdatedRecipe.title ? finalUpdatedRecipe : r));
         setHouseholdRecipes(prev => prev.map(r => r.title === finalUpdatedRecipe.title ? finalUpdatedRecipe : r));
@@ -465,4 +468,3 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
     </>
   );
 }
-

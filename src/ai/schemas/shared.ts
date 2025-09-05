@@ -25,6 +25,7 @@ export const RecipeSchema = z.object({
     title: z.string(),
     description: z.string(),
     servings: z.number().int().positive(),
+    servingSize: z.string().optional(),
     ingredients: z.array(z.string()),
     instructions: z.array(z.string()),
     macros: MacrosSchema,

@@ -190,7 +190,7 @@ export function LogMealDialog({
         <DialogHeader>
           <DialogTitle>Log Your Meal: {recipe.title}</DialogTitle>
           <DialogDescription>
-            Account for all servings to deduct ingredients and log leftovers. Total made: {recipe.servings}.
+            Account for all servings to deduct ingredients and log leftovers. Total made: {recipe.servings} serving{recipe.servings > 1 ? 's' : ''} of ~{recipe.servingSize}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -324,4 +324,3 @@ export function LogMealDialog({
     </Dialog>
   );
 }
-
