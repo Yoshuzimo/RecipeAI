@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
@@ -501,13 +500,13 @@ For each recipe, provide the output in the following JSON format. Do not include
                     </div>
                     <Separator />
                     <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => handleCookItClick(recipe)}>
+                        <Button onClick={()={() => handleCookItClick(recipe)}}>
                             <ChefHat className="mr-2 h-4 w-4" />
-                            Cook It
+                            <span>Cook It</span>
                         </Button>
                         <Button variant="outline" onClick={() => { setRecipeToSubstitute(recipe); setIsUserSubDialogOpen(true); }}>
                             <Replace className="mr-2 h-4 w-4" />
-                            Make Substitutions
+                            <span>Make Substitutions</span>
                         </Button>
                     </div>
                 </div>
@@ -535,16 +534,16 @@ For each recipe, provide the output in the following JSON format. Do not include
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={isPending}>
-                        <>
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        Generate Meal Ideas
-                        </>
+                        <span className="flex items-center">
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            <span>Generate Meal Ideas</span>
+                        </span>
                     </Button>
                      <Button type="button" variant="outline" onClick={() => setIsCreateRecipeDialogOpen(true)}>
-                        <>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Create a Meal
-                        </>
+                        <span className="flex items-center">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            <span>Create a Meal</span>
+                        </span>
                     </Button>
                   </div>
               </form>
