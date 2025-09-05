@@ -1,14 +1,9 @@
 
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
 import type { InventoryItem, PersonalDetails, ShoppingListItem, AIShoppingSuggestion } from "@/lib/types";
 import { 
-    addClientShoppingListItem,
-    updateClientShoppingListItem,
-    removeClientShoppingListItem,
-    removeClientCheckedShoppingListItems,
     getAllMacros,
     handleUpdateItemThreshold
 } from "@/app/actions";
@@ -178,9 +173,24 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
     if (data.item.trim() === "") return;
     const newItem = { item: data.item, quantity: "1", checked: false, reason: "Manually added" };
     
-    const addedItem = await addClientShoppingListItem(newItem);
-    setMyShoppingList(prev => [...prev, addedItem]);
-    reset();
+    try {
+        const response = await fetch('/api/shopping-list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to add item.");
+        }
+        
+        const addedItem = await response.json();
+        setMyShoppingList(prev => [...prev, addedItem]);
+        reset();
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: e instanceof Error ? e.message : 'Could not add item.' });
+    }
   };
   
   const handleRemoveClick = (item: ShoppingListItem) => {
@@ -190,8 +200,21 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
   
   const handleConfirmRemove = async () => {
     if (itemToRemove) {
-      await removeClientShoppingListItem(itemToRemove.id);
-      setMyShoppingList(prev => prev.filter(item => item.id !== itemToRemove!.id));
+      try {
+        const response = await fetch(`/api/shopping-list/${itemToRemove.id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to remove item.');
+        }
+
+        setMyShoppingList(prev => prev.filter(item => item.id !== itemToRemove!.id));
+        
+      } catch (e) {
+          toast({ variant: 'destructive', title: 'Error', description: e instanceof Error ? e.message : 'Could not remove item.' });
+      }
     }
     setIsRemoveConfirmOpen(false);
     setItemToRemove(null);
@@ -201,17 +224,42 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
     const itemToToggle = myShoppingList.find(item => item.id === id);
     if (!itemToToggle) return;
 
-    const updatedItem = { ...itemToToggle, checked: !itemToToggle.checked };
-    setMyShoppingList(prev => prev.map(item => item.id === id ? updatedItem : item));
+    const updatedItemData = { ...itemToToggle, checked: !itemToToggle.checked };
     
-    await updateClientShoppingListItem(updatedItem);
+    try {
+        const response = await fetch(`/api/shopping-list/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedItemData)
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to update item status.");
+        }
+        const updatedItem = await response.json();
+        setMyShoppingList(prev => prev.map(item => item.id === id ? updatedItem : item));
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: e instanceof Error ? e.message : 'Could not update item.' });
+    }
   };
 
   const handleConfirmAdd = async () => {
     if (itemToAdd) {
         const newItem = { ...itemToAdd, checked: false };
-        const addedItem = await addClientShoppingListItem(newItem);
-        setMyShoppingList(prev => [...prev, addedItem]);
+        try {
+            const response = await fetch('/api/shopping-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newItem)
+            });
+
+            if (!response.ok) throw new Error("Failed to add item.");
+            
+            const addedItem = await response.json();
+            setMyShoppingList(prev => [...prev, addedItem]);
+        } catch(e) {
+            toast({ variant: 'destructive', title: 'Error', description: e instanceof Error ? e.message : 'Could not add suggested item.' });
+        }
     }
     setIsConfirmOpen(false);
     setItemToAdd(null);
@@ -223,10 +271,20 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
   }
 
   const handlePurchaseComplete = async () => {
-    await removeClientCheckedShoppingListItems();
-    setMyShoppingList(prev => prev.filter(item => !item.checked));
-    setIsBuyModalOpen(false);
-    toast({ title: "Purchase Complete", description: "Checked items have been removed from your list."})
+      try {
+        const response = await fetch('/api/shopping-list', {
+            method: 'DELETE',
+        });
+        if (response.status === 204) {
+            setMyShoppingList(prev => prev.filter(item => !item.checked));
+            setIsBuyModalOpen(false);
+            toast({ title: "Purchase Complete", description: "Checked items have been removed from your list."})
+        } else {
+            throw new Error("Failed to clear checked items.");
+        }
+      } catch (e) {
+         toast({ variant: 'destructive', title: 'Error', description: e instanceof Error ? e.message : 'Could not clear purchased items.' });
+      }
   }
 
   const handleThresholdsUpdate = (itemId: string, newThreshold: number | null) => {

@@ -4,7 +4,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addClientInventoryItem, getClientStorageLocations, getClientHousehold } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,7 +40,7 @@ import { useEffect, useState } from "react";
 import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros, DetailedFats } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Separator } from "./ui/separator";
+import { getClientStorageLocations, getClientHousehold } from "@/app/actions";
 import { ScrollArea } from "./ui/scroll-area";
 
 const formSchema = z.object({
@@ -126,6 +125,8 @@ export function AddInventoryItemDialog({
       name: "",
       isUntracked: false,
       quantity: 1,
+      unit: "pcs",
+      locationId: "",
       doesNotExpire: false,
       isPrivate: false,
       nutrition: {
@@ -154,7 +155,7 @@ export function AddInventoryItemDialog({
             name: "",
             isUntracked: false,
             quantity: 1,
-            unit: system === 'us' ? 'lbs' : 'kg',
+            unit: system === 'us' ? 'pcs' : 'pcs',
             expiryDate: addDays(new Date(), 7),
             locationId: locations.find(l => l.type === 'Pantry')?.id || locations[0]?.id,
             doesNotExpire: false,
@@ -237,7 +238,20 @@ export function AddInventoryItemDialog({
           }
       }
 
-      const newItem = await addClientInventoryItem(newItemData as NewInventoryItem);
+      const response = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newItemData),
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add item.');
+      }
+
+      const newItem = await response.json();
       
       onItemAdded(newItem, values.isPrivate);
       toast({
