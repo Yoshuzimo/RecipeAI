@@ -82,7 +82,7 @@ const RecipeCard = ({
                                 {outdated && !isUpdating && (
                                     <TooltipProvider>
                                         <Tooltip>
-                                            <TooltipTrigger>
+                                            <TooltipTrigger asChild>
                                                 <AlertCircle className="h-4 w-4 text-amber-500" />
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -120,8 +120,10 @@ const RecipeCard = ({
                             </div>
                             {isOwner && outdated && (
                                 <Button size="sm" variant="outline" onClick={() => onUpdateClick(recipe)} disabled={isUpdating}>
-                                    {isUpdating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                                    <span className="flex items-center gap-2">
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                     Update Nutrition
+                                    </span>
                                 </Button>
                             )}
                         </div>
@@ -156,12 +158,16 @@ const RecipeCard = ({
                         <Separator />
                         <div className="flex flex-wrap gap-2">
                             <Button onClick={() => onCook(recipe)}>
-                                <ChefHat className="mr-2 h-4 w-4" />
+                                <span className="flex items-center gap-2">
+                                <ChefHat className="h-4 w-4" />
                                 Cook It
+                                </span>
                             </Button>
                             <Button variant="outline" onClick={() => onSubstitute(recipe)}>
-                                <Replace className="mr-2 h-4 w-4" />
+                                <span className="flex items-center gap-2">
+                                <Replace className="h-4 w-4" />
                                 Make Substitutions
+                                </span>
                             </Button>
                         </div>
                     </div>
@@ -429,8 +435,10 @@ export function SavedRecipes({ initialRecipes, initialHouseholdRecipes }: {
             </div>
             {hasOutdatedRecipes && (
                 <Button onClick={handleBulkUpdate} disabled={isBulkUpdating}>
-                    {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    <span className="flex items-center gap-2">
+                    {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Update All
+                    </span>
                 </Button>
             )}
         </div>
