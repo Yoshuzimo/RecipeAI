@@ -88,7 +88,7 @@ Provide the output in the following JSON format. Do not include any text outside
     const llmResponse = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       prompt,
-      config: { temperature: 0.3, responseMimeType: "application/json" },
+      config: { temperature: 0.3 },
       output: {
           schema: FinalizeRecipeAiOutputSchema,
       }
