@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -9,10 +8,37 @@ import {
   type FinalizeRecipeInput,
   type FinalizeRecipeResponse,
 } from '@/ai/schemas/finalize-recipe';
+import { MacrosSchema } from '@/ai/schemas/shared';
+import { z } from 'zod';
+
+const FullMacrosSchema = MacrosSchema.extend({
+  servings: z.number().int().positive(),
+});
+
+const FinalizeRecipeAiOutputSchema = z.object({
+  servings: z.number().int().positive().describe("The number of servings this recipe makes."),
+  macros: MacrosSchema,
+});
+
 
 export async function finalizeRecipe(
   input: FinalizeRecipeInput
 ): Promise<FinalizeRecipeResponse> {
+  let partialMacrosPrompt = '';
+  if (input.macros) {
+    const provided = Object.entries(input.macros)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => `*   ${key}: ${value}`)
+      .join('\n    ');
+    if (provided) {
+      partialMacrosPrompt = `
+**USER'S ESTIMATES (per serving):**
+    *   The user has provided some estimates. Please verify them and use them as a reference. If they are significantly incorrect, provide the corrected values.
+    ${provided}
+`;
+    }
+  }
+
   const prompt = `
 You are an expert chef and nutritionist AI. Your task is to analyze a recipe and determine a reasonable number of servings and calculate the nutritional information per serving.
 
@@ -23,8 +49,10 @@ You are an expert chef and nutritionist AI. Your task is to analyze a recipe and
 *   **Instructions:**
     ${input.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n    ')}
 
+${partialMacrosPrompt}
+
 **YOUR TASK:**
-Based on the ingredients and instructions, determine the number of servings this recipe makes and calculate the estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) per serving.
+Based on all the details, determine the number of servings and calculate the estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) per serving.
 
 Provide the output in the following JSON format. Do not include any text outside of the main JSON object.
 
@@ -55,23 +83,19 @@ Provide the output in the following JSON format. Do not include any text outside
     const llmResponse = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       prompt,
-      config: { temperature: 0.3 },
+      config: { temperature: 0.3, responseMimeType: "application/json" },
+      output: {
+          schema: FinalizeRecipeAiOutputSchema,
+      }
     });
 
-    const responseText = llmResponse.text;
-     if (!responseText) {
-      return { error: "The AI returned an empty response. Please try again." };
+    const aiOutput = llmResponse.output;
+
+    if (!aiOutput) {
+      return { error: "The AI returned an invalid response. Please try again." };
     }
     
-    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-    const jsonString = jsonMatch ? jsonMatch[1] : responseText;
-    
-    if (!jsonString.trim()) {
-        return { error: "The AI returned an empty JSON response. Please try again." };
-    }
-    
-    const parsedJson = JSON.parse(jsonString);
-    return FinalizeRecipeResponseSchema.parse(parsedJson);
+    return FinalizeRecipeResponseSchema.parse(aiOutput);
 
   } catch (e: any) {
     console.error("Error in finalizeRecipe:", e);
