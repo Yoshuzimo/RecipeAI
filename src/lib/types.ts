@@ -97,6 +97,7 @@ export type Settings = {
     fatGoal: number;
     fiberGoal?: number;
     dayStartTime: string;
+    chartVisibleMacros?: string[];
 }
 
 export type RecipeIngredient = {
