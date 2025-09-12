@@ -110,7 +110,9 @@ export function MealPlanner({
         const regularInventory = allItems.filter(item => !priorityItems.find(p => p.id === item.id));
 
         const prompt = `
-You are an expert chef and nutritionist AI. Your task is to generate 3-5 creative and delicious meal recipes based on the user's available inventory, preferences, and health data.
+You are an expert chef and nutritionist AI. Your task is to generate 3-5 creative and delicious recipes based on a user's request and their available inventory.
+
+**Crucially, you must adhere to the user's specific request in the 'Cravings / Mood' section. If they ask for a drink, provide ONLY drink recipes. If they ask for a dessert, provide ONLY dessert recipes. Do not suggest meals if a non-meal item is requested.**
 
 **USER'S CONTEXT:**
 
@@ -177,7 +179,18 @@ For each recipe, provide the output in the following JSON format. Do not include
         setRawAiResponse(null);
         
         try {
-            const response = await generateMealSuggestions(finalPrompt);
+            const apiResponse = await fetch('/api/ai/meal-suggestions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(finalPrompt),
+            });
+
+            if (!apiResponse.ok) {
+                const errorData = await apiResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to generate suggestions.");
+            }
+
+            const response = await apiResponse.text();
             
             if (typeof response === 'string') {
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
@@ -199,9 +212,9 @@ For each recipe, provide the output in the following JSON format. Do not include
               toast({
                   variant: "destructive",
                   title: "AI Error",
-                  description: response.error || "An unknown AI error occurred.",
+                  description: "An unknown AI error occurred.",
               });
-              setRawAiResponse(response);
+              setRawAiResponse({ error: "An unknown AI error occurred." });
             }
           } catch (error) {
             console.error("AI Generation Error:", error);
@@ -420,7 +433,7 @@ For each recipe, provide the output in the following JSON format. Do not include
             }
             return newPrivacy;
         });
-    };
+    }
     
     return (
         <Card className="relative">
@@ -501,12 +514,16 @@ For each recipe, provide the output in the following JSON format. Do not include
                     <Separator />
                     <div className="flex flex-wrap gap-2">
                         <Button onClick={() => handleCookItClick(recipe)}>
-                            <ChefHat className="mr-2 h-4 w-4" />
-                            <span>Cook It</span>
+                            <span className="flex items-center">
+                                <ChefHat className="mr-2 h-4 w-4" />
+                                Cook It
+                            </span>
                         </Button>
                         <Button variant="outline" onClick={() => { setRecipeToSubstitute(recipe); setIsUserSubDialogOpen(true); }}>
-                            <Replace className="mr-2 h-4 w-4" />
-                            <span>Make Substitutions</span>
+                            <span className="flex items-center">
+                                <Replace className="mr-2 h-4 w-4" />
+                                Make Substitutions
+                            </span>
                         </Button>
                     </div>
                 </div>
@@ -536,13 +553,13 @@ For each recipe, provide the output in the following JSON format. Do not include
                     <Button type="submit" disabled={isPending}>
                         <span className="flex items-center">
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            <span>Generate Meal Ideas</span>
+                            Generate Meal Ideas
                         </span>
                     </Button>
                      <Button type="button" variant="outline" onClick={() => setIsCreateRecipeDialogOpen(true)}>
                         <span className="flex items-center">
                             <PlusCircle className="mr-2 h-4 w-4" />
-                            <span>Create a Meal</span>
+                            Create a Meal
                         </span>
                     </Button>
                   </div>
