@@ -3,7 +3,6 @@
 
 import React, { useState, useTransition, useRef, useMemo } from "react";
 import { handleSaveRecipe, getClientInventory, getClientPersonalDetails, getClientTodaysMacros, handleRemoveSavedRecipe } from "@/app/actions";
-import { generateMealSuggestions } from "@/ai/flows/generate-meal-suggestions";
 import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 import type { InventoryItem, Recipe, InventoryItemGroup, Substitution, PersonalDetails, DailyMacros, AISuggestion, Macros } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -110,9 +109,9 @@ export function MealPlanner({
         const regularInventory = allItems.filter(item => !priorityItems.find(p => p.id === item.id));
 
         const prompt = `
-You are an expert chef and nutritionist AI. Your task is to generate 3-5 creative and delicious recipes based on a user's request and their available inventory.
+You are an expert chef and nutritionist AI. Your primary task is to generate 3-5 creative and delicious recipes based on a user's request and their available inventory.
 
-**Crucially, you must adhere to the user's specific request in the 'Cravings / Mood' section. If they ask for a drink, provide ONLY drink recipes. If they ask for a dessert, provide ONLY dessert recipes. Do not suggest meals if a non-meal item is requested.**
+**Crucially, you must adhere to the user's specific request in the 'Cravings / Mood' section.** If they ask for a drink, provide ONLY drink recipes. If they ask for a quick snack, provide snack recipes. If they don't specify, suggest a variety of meals (breakfast, lunch, dinner).
 
 **USER'S CONTEXT:**
 
@@ -141,11 +140,11 @@ You are an expert chef and nutritionist AI. Your task is to generate 3-5 creativ
 
 **YOUR TASK:**
 
-Generate 3-5 diverse recipes using ONLY the ingredients listed in the user's inventory. Do not suggest recipes that require ingredients the user does not have.
+**Constraint #1: You are strictly forbidden from using any ingredient that is not explicitly listed in the 'Inventory to Use First' or 'Main Inventory' sections.** Do not assume the user has common staples like salt, pepper, or oil unless they are listed. Your primary goal is to use what the user has.
 
-If the user's inventory is empty or contains fewer than 5 items, you may assume they have common pantry staples like: salt, pepper, olive oil, all-purpose flour, sugar, onions, and garlic.
+Based on this strict constraint and the user's context, generate 3-5 diverse recipes.
 
-For each recipe, provide the output in the following JSON format. Do not include any text outside of the main JSON array.
+For each recipe, provide the output in the following JSON format. Do not include any text outside of the main JSON array. Remember to only use ingredients the user has.
 
 \`\`\`json
 [
@@ -531,7 +530,7 @@ For each recipe, provide the output in the following JSON format. Do not include
             </AccordionItem>
         </Card>
     );
-}
+  }
 
   return (
     <>
@@ -551,13 +550,13 @@ For each recipe, provide the output in the following JSON format. Do not include
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={isPending}>
-                        <span className="flex items-center">
+                        <span className="flex items-center justify-center">
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                             Generate Meal Ideas
                         </span>
                     </Button>
                      <Button type="button" variant="outline" onClick={() => setIsCreateRecipeDialogOpen(true)}>
-                        <span className="flex items-center">
+                        <span className="flex items-center justify-center">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Create a Meal
                         </span>
