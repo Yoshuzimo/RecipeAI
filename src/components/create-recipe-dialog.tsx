@@ -225,7 +225,7 @@ export function CreateRecipeDialog({
                                      </div>
                                      {form.formState.errors.ingredients?.root && ( <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p> )}
                                      <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
-                                        <span className="flex items-center">
+                                        <span className="flex items-center justify-center">
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
                                         </span>
                                      </Button>
@@ -302,4 +302,3 @@ export function CreateRecipeDialog({
         </>
     );
 }
-
