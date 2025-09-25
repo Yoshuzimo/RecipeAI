@@ -455,7 +455,7 @@ export function ViewInventoryItemDialog({
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="space-y-4 pt-4">
-                            <ScrollArea className="max-h-60">
+                            <ScrollArea className="h-72">
                                 <div className="space-y-4 pr-4">
                                     <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
                                     <div className="grid grid-cols-2 gap-4">
@@ -578,3 +578,5 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
+
+    
