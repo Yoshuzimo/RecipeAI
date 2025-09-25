@@ -226,7 +226,8 @@ export function CreateRecipeDialog({
                                      {form.formState.errors.ingredients?.root && ( <p className="text-sm font-medium text-destructive">{form.formState.errors.ingredients.root.message}</p> )}
                                      <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
                                         <span className="flex items-center justify-center">
-                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Add Ingredient
                                         </span>
                                      </Button>
                                 </div>
@@ -269,15 +270,14 @@ export function CreateRecipeDialog({
                                         </ScrollArea>
                                     </CollapsibleContent>
                                 </Collapsible>
-                                <FormField control={form.control} name="isPrivate" render={({ field }) => ( <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"> <div className="space-y-0.5"> <FormLabel className="text-base"> Private Recipe </FormLabel> <p className="text-sm text-muted-foreground"> Private recipes will only be visible to you. </p> </div> <FormControl> <Switch checked={field.value} onCheckedChange={field.onChange} /> </FormControl> </FormItem> )}/>
+                                <FormField control={form.control} name="isPrivate" render={({ field }) => ( <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"> <div className="space-y-0.5"> <FormLabel className="text-base"> Private Recipe </FormLabel> <p className="text-sm text-muted-foreground"> Private recipes will only be visible to you. </p> d</div> <FormControl> <Switch checked={field.value} onCheckedChange={field.onChange} /> </FormControl> </FormItem> )}/>
                             </div>
                         </ScrollArea>
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isPending}>
                                 <span className="flex items-center justify-center">
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Finalize Recipe
+                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Finalize Recipe"}
                                 </span>
                             </Button>
                         </DialogFooter>
@@ -302,3 +302,5 @@ export function CreateRecipeDialog({
         </>
     );
 }
+
+    
