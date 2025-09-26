@@ -297,7 +297,7 @@ export function CreateRecipeDialog({
                                         </div>
                                     </CollapsibleTrigger>
                                     <CollapsibleContent className="space-y-4 pt-4">
-                                        <ScrollArea className="max-h-60 pr-4">
+                                        <ScrollArea className="h-72 pr-4">
                                             <div className="space-y-4">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <FormField control={form.control} name="nutrition.calories" render={({ field }) => ( <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="kcal" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -334,7 +334,8 @@ export function CreateRecipeDialog({
                             <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isPending}>
                                 <span className="flex items-center justify-center">
-                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Finalize Recipe"}
+                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Finalize Recipe
                                 </span>
                             </Button>
                         </DialogFooter>
