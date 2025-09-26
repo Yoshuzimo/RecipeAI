@@ -145,8 +145,10 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <UtensilsCrossed className="mr-2 h-4 w-4" />
-                    Log Meal
+                    <span className="flex items-center">
+                        <UtensilsCrossed className="mr-2 h-4 w-4" />
+                        Log Meal
+                    </span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-xl">
@@ -297,7 +299,9 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                          <p className="text-sm font-medium text-destructive">{form.formState.errors.foods.root.message}</p>
                                      )}
                                      <Button type="button" variant="outline" className="w-full" onClick={() => append({ quantity: "1", unit: "pcs", name: "", deduct: true })}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Food Item
+                                        <span className="flex items-center justify-center">
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Food Item
+                                        </span>
                                     </Button>
                                 </div>
                             </div>
@@ -305,8 +309,10 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isPending}>
-                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Analyze & Log
+                                <span className="flex items-center justify-center">
+                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Analyze & Log
+                                </span>
                             </Button>
                         </DialogFooter>
                     </form>
@@ -315,3 +321,5 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         </Dialog>
     );
 }
+
+    
