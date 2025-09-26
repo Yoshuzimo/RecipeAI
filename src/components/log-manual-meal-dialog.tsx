@@ -182,11 +182,9 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <span className="flex items-center">
-                        <UtensilsCrossed className="mr-2 h-4 w-4" />
+                <Button className="flex items-center">
+                    <UtensilsCrossed className="mr-2 h-4 w-4" />
                         Log Meal
-                    </span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-xl">

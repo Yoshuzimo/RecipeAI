@@ -52,7 +52,7 @@ export function ConfirmNutritionDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onCancel}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Confirm Nutritional Information</DialogTitle>
