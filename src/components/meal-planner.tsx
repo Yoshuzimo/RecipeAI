@@ -513,13 +513,13 @@ For each recipe, provide the output in the following JSON format. Do not include
                     <Separator />
                     <div className="flex flex-wrap gap-2">
                         <Button onClick={() => handleCookItClick(recipe)}>
-                            <span className="flex items-center">
-                                <ChefHat className="mr-2 h-4 w-4" />
+                            <span className="flex items-center gap-2">
+                                <ChefHat className="h-4 w-4" />
                                 Cook It
                             </span>
                         </Button>
                         <Button variant="outline" onClick={() => { setRecipeToSubstitute(recipe); setIsUserSubDialogOpen(true); }}>
-                            <span className="flex items-center">
+                            <span className="flex items-center gap-2">
                                 <Replace className="mr-2 h-4 w-4" />
                                 Make Substitutions
                             </span>

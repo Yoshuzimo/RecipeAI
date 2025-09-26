@@ -106,8 +106,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       className: "font-body",
                     }}
                 >
+                  <>
                     <LogOut className="h-5 w-5" />
                     <span className="group-data-[state=collapsed]:hidden">Log Out</span>
+                  </>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

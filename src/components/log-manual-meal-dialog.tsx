@@ -382,8 +382,7 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                             <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isPending}>
                                 <span className="flex items-center justify-center">
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Analyze & Log
+                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Analyze & Log"}
                                 </span>
                             </Button>
                         </DialogFooter>

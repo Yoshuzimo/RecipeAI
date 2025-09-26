@@ -363,7 +363,9 @@ export function ViewInventoryItemDialog({
                                 setGroupToDelete(group.items[0].originalQuantity);
                                 setIsConfirmDeleteOpen(true);
                             }}>
-                                <Trash2 className="mr-2 h-4 w-4" /> I'm Out of This
+                                <span className="flex items-center gap-2">
+                                <Trash2 className="h-4 w-4" /> I'm Out of This
+                                </span>
                             </Button>
                         </div>
                     ) : Object.keys(packageGroups).length > 0 ? (
@@ -455,8 +457,7 @@ export function ViewInventoryItemDialog({
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="space-y-4 pt-4">
-                            <ScrollArea className="h-72">
-                                <div className="space-y-4 pr-4">
+                            <div className="h-72 pr-4 space-y-4">
                                     <p className="text-sm text-muted-foreground">Enter values per serving size.</p>
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={control} name="nutrition.servingSizeQuantity" render={({ field }) => ( <FormItem><FormLabel>Serving Size</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -486,8 +487,7 @@ export function ViewInventoryItemDialog({
                                         <FormField control={control} name="nutrition.polyunsaturatedFat" render={({ field }) => ( <FormItem><FormLabel>Polyunsaturated Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                         <FormField control={control} name="nutrition.transFat" render={({ field }) => ( <FormItem><FormLabel>Trans Fat</FormLabel><FormControl><Input type="number" placeholder="grams" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                     </div>
-                                </div>
-                            </ScrollArea>
+                            </div>
                         </CollapsibleContent>
                     </Collapsible>
                 </div>
@@ -496,21 +496,29 @@ export function ViewInventoryItemDialog({
                 {!isUntracked && (
                     <div className="flex gap-2">
                     <Button type="button" variant="default" onClick={() => setIsEatItemDialogOpen(true)}>
-                        <UtensilsCrossed className="mr-2 h-4 w-4" /> Eat This
+                        <span className="flex items-center gap-2">
+                        <UtensilsCrossed className="h-4 w-4" /> Eat This
+                        </span>
                     </Button>
                     <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(true)}>
-                        <Move className="mr-2 h-4 w-4" /> Move To...
+                        <span className="flex items-center gap-2">
+                        <Move className="h-4 w-4" /> Move To...
+                        </span>
                     </Button>
                     <Button type="button" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setIsSpoilageDialogOpen(true)}>
-                        <Biohazard className="mr-2 h-4 w-4" /> Report Spoilage
+                        <span className="flex items-center gap-2">
+                        <Biohazard className="h-4 w-4" /> Report Spoilage
+                        </span>
                     </Button>
                     </div>
                 )}
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending || !isDirty}>
-                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <span className="flex items-center gap-2">
+                        {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                         Save Changes
+                        </span>
                     </Button>
                 </div>
             </DialogFooter>
@@ -578,5 +586,3 @@ export function ViewInventoryItemDialog({
     </>
   );
 }
-
-    
