@@ -48,7 +48,7 @@ const usUnits: { value: Unit, label: string }[] = [
     { value: 'tsp', label: 'tsp' }, { value: 'gallon', label: 'gallon' }
 ];
 const metricUnits: { value: Unit, label: string }[] = [
-    { value: 'pcs', label: 'pcs' }, { value: 'g', label: 'g' }, { value: 'kg', label: 'kg' },
+    { value: 'pcs', label: 'pcs' }, { value: 'g', label: 'g' }, { value: 'kg' },
     { value: 'ml', label: 'ml' }, { value: 'l', label: 'l' }
 ];
 
@@ -183,8 +183,10 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button className="flex items-center">
-                    <UtensilsCrossed className="mr-2 h-4 w-4" />
+                    <span className="flex items-center justify-center">
+                        <UtensilsCrossed className="mr-2 h-4 w-4" />
                         Log Meal
+                    </span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-xl">
@@ -390,3 +392,5 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         </Dialog>
     );
 }
+
+    
