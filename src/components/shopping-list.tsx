@@ -128,8 +128,32 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const { register, handleSubmit, reset } = useForm<AddItemForm>();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<AddItemForm>();
+  
+  const searchTerm = watch('item');
+
+  const filteredSuggestions = useMemo(() => {
+    if (!searchTerm || searchTerm.length < 2) return [];
+    
+    const lowerCaseSearch = searchTerm.toLowerCase();
+    const uniqueNames = new Set<string>();
+
+    return inventory.filter(item => {
+        const lowerCaseName = item.name.toLowerCase();
+        if (lowerCaseName.includes(lowerCaseSearch) && !uniqueNames.has(lowerCaseName)) {
+            uniqueNames.add(lowerCaseName);
+            return true;
+        }
+        return false;
+    }).slice(0, 5);
+  }, [searchTerm, inventory]);
+
+  const handleSuggestionClick = (itemName: string) => {
+    setValue('item', itemName);
+    setShowSuggestions(false);
+  }
 
   const lowOnStockItems = useMemo(() => {
     return inventory.filter(item => {
@@ -265,7 +289,7 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
     setItemToAdd(null);
   }
 
-  const handleSuggestionClick = (item: Omit<ShoppingListItem, 'id' | 'addedAt' | 'checked'>) => {
+  const handleSuggestionClickFromList = (item: Omit<ShoppingListItem, 'id' | 'addedAt' | 'checked'>) => {
     setItemToAdd(item);
     setIsConfirmOpen(true);
   }
@@ -318,7 +342,31 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onAddItem)} className="flex items-center gap-2 mb-4">
-                        <Input {...register("item")} placeholder="e.g., Olive Oil" autoComplete="off" />
+                        <div className="relative w-full">
+                            <Input 
+                                {...register("item")} 
+                                placeholder="e.g., Olive Oil" 
+                                autoComplete="off" 
+                                onFocus={() => setShowSuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                            />
+                             {showSuggestions && filteredSuggestions.length > 0 && (
+                                <Card className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto">
+                                    {filteredSuggestions.map(item => (
+                                        <div 
+                                            key={item.id} 
+                                            className="p-2 hover:bg-accent cursor-pointer"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                handleSuggestionClick(item.name);
+                                            }}
+                                        >
+                                            {item.name}
+                                        </div>
+                                    ))}
+                                </Card>
+                            )}
+                        </div>
                         <Button type="submit" size="icon" aria-label="Add item">
                             <PlusCircle className="h-4 w-4" />
                         </Button>
@@ -360,7 +408,7 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
                           </TableHeader>
                           <TableBody>
                               {lowOnStockItems.map(item => (
-                              <TableRow key={item.id} onClick={() => handleSuggestionClick({ item: item.name, quantity: `1 package`, reason: "Restock"})} className="cursor-pointer">
+                              <TableRow key={item.id} onClick={() => handleSuggestionClickFromList({ item: item.name, quantity: `1 package`, reason: "Restock"})} className="cursor-pointer">
                                   <TableCell className="font-medium">{item.name}</TableCell>
                                   <TableCell>{item.totalQuantity.toFixed(2)}{item.unit}</TableCell>
                                   <TableCell>{item.restockThreshold ? `${item.restockThreshold} ${item.unit}` : "< 25%"}</TableCell>
@@ -381,7 +429,7 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
                 </CardHeader>
                 <CardContent>
                     <Button onClick={handleGenerateAISuggestions} disabled={isAiPending}>
-                        {isAiPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        <Sparkles className="mr-2 h-4 w-4" />
                         Ask AI for Recommendations
                     </Button>
                     {isAiPending && (
@@ -394,7 +442,7 @@ export function ShoppingList({ initialInventoryData, personalDetails, initialSho
                     {aiSuggestions.length > 0 && (
                         <div className="mt-4 space-y-2">
                             {aiSuggestions.map((s, i) => (
-                                <div key={i} className="p-3 border rounded-md cursor-pointer hover:bg-muted/50" onClick={() => handleSuggestionClick({ item: s.item, quantity: s.quantity, reason: s.reason })}>
+                                <div key={i} className="p-3 border rounded-md cursor-pointer hover:bg-muted/50" onClick={() => handleSuggestionClickFromList({ item: s.item, quantity: s.quantity, reason: s.reason })}>
                                     <p className="font-semibold">{s.item} <span className="font-normal text-muted-foreground">({s.quantity})</span></p>
                                     <p className="text-sm text-muted-foreground">{s.reason}</p>
                                 </div>

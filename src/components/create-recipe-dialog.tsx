@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,6 +26,7 @@ import { finalizeRecipe } from "@/ai/flows/finalize-recipe";
 import { Switch } from "./ui/switch";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./ui/collapsible";
 import { ConfirmNutritionDialog } from "./confirm-nutrition-dialog";
+import { Card } from "./ui/card";
 
 const formSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters."),
@@ -96,6 +97,7 @@ export function CreateRecipeDialog({
     const { toast } = useToast();
     const [isPending, setIsPending] = useState(false);
     const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
+    const [activeInputIndex, setActiveInputIndex] = useState<number | null>(null);
 
     // State for conflict resolution
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -113,10 +115,39 @@ export function CreateRecipeDialog({
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, update } = useFieldArray({
         control: form.control,
         name: "ingredients",
     });
+
+    const watchedIngredients = form.watch("ingredients");
+
+    const filteredSuggestions = useMemo(() => {
+        if (activeInputIndex === null || !watchedIngredients[activeInputIndex]?.value) {
+            return [];
+        }
+        const searchTerm = watchedIngredients[activeInputIndex].value.toLowerCase();
+        if (searchTerm.length < 2) return [];
+
+        const uniqueNames = new Set<string>();
+        return inventory
+            .filter(item => {
+                const name = item.name.toLowerCase();
+                if (name.includes(searchTerm) && !uniqueNames.has(name)) {
+                    uniqueNames.add(name);
+                    return true;
+                }
+                return false;
+            })
+            .slice(0, 5);
+    }, [activeInputIndex, watchedIngredients, inventory]);
+    
+    const handleSuggestionClick = (item: InventoryItem) => {
+        if (activeInputIndex !== null) {
+            update(activeInputIndex, { value: item.name });
+            setActiveInputIndex(null); // Close suggestions
+        }
+    };
     
     const handleAddIngredient = (ingredient: string) => {
         append({ value: ingredient });
@@ -217,9 +248,35 @@ export function CreateRecipeDialog({
                                      <FormLabel>Ingredients</FormLabel>
                                      <div className="space-y-2">
                                         {fields.map((field, index) => (
-                                            <div key={field.id} className="flex items-center gap-2">
-                                                <Input {...form.register(`ingredients.${index}.value`)} className="flex-1" placeholder="e.g., 1 cup flour"/>
+                                            <div key={field.id} className="flex items-center gap-2 relative">
+                                                <Input 
+                                                    {...form.register(`ingredients.${index}.value`)} 
+                                                    className="flex-1" 
+                                                    placeholder="e.g., 1 cup flour"
+                                                    onFocus={() => setActiveInputIndex(index)}
+                                                    onBlur={() => setTimeout(() => { if (document.activeElement?.ariaRole !== 'option') { setActiveInputIndex(null); }}, 150)}
+                                                    autoComplete="off"
+                                                />
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}> <Trash2 className="h-4 w-4" /> </Button>
+                                                {activeInputIndex === index && filteredSuggestions.length > 0 && (
+                                                    <Card className="absolute z-10 w-full mt-1 top-full max-h-48 overflow-y-auto">
+                                                        {filteredSuggestions.map(item => (
+                                                            <div 
+                                                                key={item.id} 
+                                                                className="p-2 hover:bg-accent cursor-pointer"
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    handleSuggestionClick(item);
+                                                                }}
+                                                                role="option"
+                                                                aria-selected="false"
+                                                                tabIndex={0}
+                                                            >
+                                                                {item.name}
+                                                            </div>
+                                                        ))}
+                                                    </Card>
+                                                )}
                                             </div>
                                         ))}
                                      </div>
