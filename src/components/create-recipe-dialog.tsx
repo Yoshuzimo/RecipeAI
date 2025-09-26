@@ -270,7 +270,7 @@ export function CreateRecipeDialog({
                                         </ScrollArea>
                                     </CollapsibleContent>
                                 </Collapsible>
-                                <FormField control={form.control} name="isPrivate" render={({ field }) => ( <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"> <div className="space-y-0.5"> <FormLabel className="text-base"> Private Recipe </FormLabel> <p className="text-sm text-muted-foreground"> Private recipes will only be visible to you. </p> d</div> <FormControl> <Switch checked={field.value} onCheckedChange={field.onChange} /> </FormControl> </FormItem> )}/>
+                                <FormField control={form.control} name="isPrivate" render={({ field }) => ( <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"> <div className="space-y-0.5"> <FormLabel className="text-base"> Private Recipe </FormLabel> <p className="text-sm text-muted-foreground"> Private recipes will only be visible to you. </p> </div> <FormControl> <Switch checked={field.value} onCheckedChange={field.onChange} /> </FormControl> </FormItem> )}/>
                             </div>
                         </ScrollArea>
                         <DialogFooter>
