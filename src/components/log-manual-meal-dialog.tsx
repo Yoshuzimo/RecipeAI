@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,16 +19,17 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { handleLogManualMeal, getClientTodaysMacros, getSettings } from "@/app/actions";
+import { handleLogManualMeal, getClientTodaysMacros, getSettings, getClientInventory } from "@/app/actions";
 import { Loader2, PlusCircle, Trash2, UtensilsCrossed, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import type { DailyMacros, Unit } from "@/lib/types";
-import { format, differenceInHours } from "date-fns";
+import type { DailyMacros, Unit, InventoryItem } from "@/lib/types";
+import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "./ui/checkbox";
 import { isWithinUserDay } from "@/lib/utils";
+import { Card } from "./ui/card";
 
 type MealType = DailyMacros['meal'];
 
@@ -72,6 +73,8 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
     const [availableUnits, setAvailableUnits] = useState(usUnits);
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [activeInputIndex, setActiveInputIndex] = useState<number | null>(null);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -83,20 +86,24 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, update } = useFieldArray({
         control: form.control,
         name: "foods",
     });
+    
+    const watchedFoods = form.watch("foods");
 
     useEffect(() => {
         async function fetchAndSetDefaults() {
             if (isOpen) {
-                 const [settings, allMeals] = await Promise.all([
+                 const [settings, allMeals, clientInventory] = await Promise.all([
                     getSettings(),
-                    getClientTodaysMacros()
+                    getClientTodaysMacros(),
+                    getClientInventory()
                 ]);
                 const dayStartTime = settings?.dayStartTime || "00:00";
                 const mealsToday = allMeals.filter(meal => isWithinUserDay(meal.loggedAt, dayStartTime));
+                setInventory([...clientInventory.privateItems, ...clientInventory.sharedItems]);
 
                 form.reset({
                     mealType: getDefaultMealType(mealsToday),
@@ -108,6 +115,37 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         }
         fetchAndSetDefaults();
     }, [isOpen, form]);
+
+    const filteredSuggestions = useMemo(() => {
+        if (activeInputIndex === null || !watchedFoods[activeInputIndex]?.name) {
+            return [];
+        }
+        const searchTerm = watchedFoods[activeInputIndex].name.toLowerCase();
+        if (searchTerm.length < 2) return [];
+
+        const uniqueNames = new Set<string>();
+        return inventory
+            .filter(item => {
+                const name = item.name.toLowerCase();
+                if (name.includes(searchTerm) && !uniqueNames.has(name)) {
+                    uniqueNames.add(name);
+                    return true;
+                }
+                return false;
+            })
+            .slice(0, 5);
+    }, [activeInputIndex, watchedFoods, inventory]);
+
+    const handleSuggestionClick = (item: InventoryItem) => {
+        if (activeInputIndex !== null) {
+            update(activeInputIndex, {
+                ...watchedFoods[activeInputIndex],
+                name: item.name,
+                unit: item.unit,
+            });
+            setActiveInputIndex(null); // Close suggestions
+        }
+    };
     
     const onSubmit = async (data: FormData) => {
         setIsPending(true);
@@ -238,12 +276,12 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                      <FormLabel>Foods Eaten</FormLabel>
                                      <div className="space-y-2">
                                         {fields.map((field, index) => (
-                                            <div key={field.id} className="grid grid-cols-[auto_1fr_1fr_2fr_auto] items-center gap-2">
+                                            <div key={field.id} className="grid grid-cols-[auto_80px_80px_1fr_auto] items-start gap-2">
                                                  <FormField
                                                     control={form.control}
                                                     name={`foods.${index}.deduct`}
                                                     render={({ field }) => (
-                                                        <FormItem className="flex items-center h-full">
+                                                        <FormItem className="flex items-center h-10">
                                                             <FormControl>
                                                                 <Checkbox
                                                                     checked={field.value}
@@ -278,16 +316,50 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
                                                         </FormItem>
                                                     )}
                                                 />
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`foods.${index}.name`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormControl><Input placeholder="e.g., apple, slice of toast" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
+                                                <div className="relative">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`foods.${index}.name`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <Input
+                                                                        placeholder="e.g., apple, slice of toast"
+                                                                        {...field}
+                                                                        onFocus={() => setActiveInputIndex(index)}
+                                                                        onBlur={() => setTimeout(() => {
+                                                                            if (document.activeElement?.ariaRole !== 'option') {
+                                                                                setActiveInputIndex(null)
+                                                                            }
+                                                                        }, 150)}
+                                                                        autoComplete="off"
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    {activeInputIndex === index && filteredSuggestions.length > 0 && (
+                                                        <Card className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto">
+                                                            {filteredSuggestions.map(item => (
+                                                                <div 
+                                                                    key={item.id} 
+                                                                    className="p-2 hover:bg-accent cursor-pointer"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleSuggestionClick(item);
+                                                                    }}
+                                                                    role="option"
+                                                                    aria-selected={false}
+                                                                    tabIndex={0}
+                                                                >
+                                                                    {item.name}
+                                                                </div>
+                                                            ))}
+                                                        </Card>
                                                     )}
-                                                />
+                                                </div>
+
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -321,5 +393,3 @@ export function LogManualMealDialog({ onMealLogged }: { onMealLogged: () => void
         </Dialog>
     );
 }
-
-    
