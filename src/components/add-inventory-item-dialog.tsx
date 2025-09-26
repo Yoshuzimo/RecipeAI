@@ -36,12 +36,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { Unit, StorageLocation, NewInventoryItem, InventoryItem, Macros, DetailedFats } from "@/lib/types";
 import { Checkbox } from "./ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { getClientStorageLocations, getClientHousehold } from "@/app/actions";
+import { getClientStorageLocations, getClientHousehold, getClientInventory } from "@/app/actions";
 import { ScrollArea } from "./ui/scroll-area";
+import { Card } from "./ui/card";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -118,6 +119,8 @@ export function AddInventoryItemDialog({
   const [availableUnits, setAvailableUnits] = useState(usUnits);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [isInHousehold, setIsInHousehold] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -137,7 +140,47 @@ export function AddInventoryItemDialog({
 
   const doesNotExpire = form.watch("doesNotExpire");
   const isUntracked = form.watch("isUntracked");
+  const itemName = form.watch("name");
 
+  const filteredSuggestions = useMemo(() => {
+    if (!itemName || itemName.length < 2) return [];
+    
+    const lowerCaseSearch = itemName.toLowerCase();
+    const uniqueNames = new Set<string>();
+
+    return inventory.filter(item => {
+        const lowerCaseName = item.name.toLowerCase();
+        if (lowerCaseName.includes(lowerCaseSearch) && !uniqueNames.has(lowerCaseName)) {
+            uniqueNames.add(lowerCaseName);
+            return true;
+        }
+        return false;
+    }).slice(0, 5);
+  }, [itemName, inventory]);
+
+  const handleSuggestionClick = (item: InventoryItem) => {
+    form.setValue("name", item.name);
+    form.setValue("unit", item.unit);
+    if(item.servingMacros) {
+      form.setValue("nutrition", {
+            servingSizeQuantity: item.servingSize?.quantity,
+            servingSizeUnit: item.servingSize?.unit || '',
+            calories: item.servingMacros.calories,
+            protein: item.servingMacros.protein,
+            carbs: item.servingMacros.carbs,
+            fat: item.servingMacros.fat,
+            fiber: item.servingMacros?.fiber,
+            sugar: item.servingMacros?.sugar,
+            sodium: item.servingMacros?.sodium,
+            cholesterol: item.servingMacros?.cholesterol,
+            saturatedFat: item.servingMacros?.fats?.saturated,
+            monounsaturatedFat: item.servingMacros?.fats?.monounsaturated,
+            polyunsaturatedFat: item.servingMacros?.fats?.polyunsaturated,
+            transFat: item.servingMacros?.fats?.trans,
+      })
+    }
+    setShowSuggestions(false);
+  };
 
   useEffect(() => {
     const system: 'us' | 'metric' = 'us'; 
@@ -145,10 +188,14 @@ export function AddInventoryItemDialog({
     setAvailableUnits(system === 'us' ? usUnits : metricUnits);
 
     async function fetchData() {
-      const locations = await getClientStorageLocations();
+      const [locations, household, clientInventory] = await Promise.all([
+          getClientStorageLocations(),
+          getClientHousehold(),
+          getClientInventory()
+      ]);
       setStorageLocations(locations);
-      const household = await getClientHousehold();
       setIsInHousehold(!!household);
+      setInventory([...clientInventory.privateItems, ...clientInventory.sharedItems]);
       
        if (isOpen) {
         form.reset({
@@ -270,27 +317,48 @@ export function AddInventoryItemDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-xl grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90vh]">
+        <DialogHeader className="p-6 pb-4">
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
             Add a new container to your inventory. You can manage individual quantities later.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <ScrollArea className="h-[70vh] pr-4">
-              <div className="space-y-4">
+        <ScrollArea className="pr-6 pl-6 border-y">
+            <Form {...form}>
+            <form id="add-item-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="relative">
                       <FormLabel>Item Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Chicken Breast, Olive Oil" {...field} />
+                        <Input 
+                            placeholder="e.g., Chicken Breast, Olive Oil" 
+                            {...field} 
+                            onFocus={() => setShowSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                            autoComplete="off"
+                        />
                       </FormControl>
                       <FormMessage />
+                      {showSuggestions && filteredSuggestions.length > 0 && (
+                        <Card className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto">
+                            {filteredSuggestions.map(item => (
+                                <div 
+                                    key={item.id} 
+                                    className="p-2 hover:bg-accent cursor-pointer"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleSuggestionClick(item);
+                                    }}
+                                >
+                                    {item.name}
+                                </div>
+                            ))}
+                        </Card>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -515,15 +583,14 @@ export function AddInventoryItemDialog({
                     )}
                   />
                 )}
-              </div>
-            </ScrollArea>
-            <DialogFooter>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Adding..." : "Add Item"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+            </form>
+            </Form>
+        </ScrollArea>
+        <DialogFooter className="p-6 pt-4">
+            <Button type="submit" form="add-item-form" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? "Adding..." : "Add Item"}
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
