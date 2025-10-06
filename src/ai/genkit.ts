@@ -1,32 +1,16 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
-import {
-  MealSuggestionOutputSchema,
-  type MealSuggestionInput,
-  type MealSuggestionOutput,
-} from '@/ai/schemas/meal-suggestions';
+import { genkit } from 'genkit';
+import { firebase } from '@genkit-ai/firebase';
+import { googleAI } from '@genkit-ai/google-genai';
 
-export async function generateMealSuggestions(
-  prompt: MealSuggestionInput
-): Promise<MealSuggestionOutput> {
-  try {
-    const llmResponse = await ai.generate({
-      model: 'gemini-1.5-pro', // ✅ Use the correct v1 model name
-      prompt,
-      config: { temperature: 0.8 },
-      output: { schema: MealSuggestionOutputSchema },
-    });
-
-    const output = llmResponse.output;
-
-    if (!output) {
-      return { error: 'The AI returned an invalid response. Please try again.' };
-    }
-
-    return output;
-  } catch (e: any) {
-    console.error('Error in generateMealSuggestions:', e);
-    return { error: e.message || 'Unknown AI error' };
-  }
-}
+// This is the single, global Genkit instance for the application.
+export const ai = genkit({
+  plugins: [
+    firebase(), // The Firebase plugin handles security and authentication.
+    googleAI({ apiVersion: 'v1' }), // The Google AI plugin, configured to use the stable 'v1' API.
+  ],
+  // These settings are for development and disable storing flow states and traces.
+  flowStateStore: 'none',
+  traceStore: 'none',
+});
