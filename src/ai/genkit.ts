@@ -1,15 +1,32 @@
-/**
- * @fileoverview Initializes Genkit AI with the Google AI plugin.
- */
+'use server';
 
+import { ai } from '@/ai/genkit';
+import {
+  MealSuggestionOutputSchema,
+  type MealSuggestionInput,
+  type MealSuggestionOutput,
+} from '@/ai/schemas/meal-suggestions';
 
-import { genkit } from "genkit";
-import { googleAI } from "@genkit-ai/google-genai";
+export async function generateMealSuggestions(
+  prompt: MealSuggestionInput
+): Promise<MealSuggestionOutput> {
+  try {
+    const llmResponse = await ai.generate({
+      model: 'gemini-1.5-pro', // ✅ Use the correct v1 model name
+      prompt,
+      config: { temperature: 0.8 },
+      output: { schema: MealSuggestionOutputSchema },
+    });
 
-export const ai = genkit({
-  plugins: [
-    googleAI({ apiVersion: "v1" }),  // call the Google AI plugin
-  ],
-  flowStateStore: "none",
-  traceStore: "none",
-});
+    const output = llmResponse.output;
+
+    if (!output) {
+      return { error: 'The AI returned an invalid response. Please try again.' };
+    }
+
+    return output;
+  } catch (e: any) {
+    console.error('Error in generateMealSuggestions:', e);
+    return { error: e.message || 'Unknown AI error' };
+  }
+}

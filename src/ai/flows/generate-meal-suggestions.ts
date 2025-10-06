@@ -1,4 +1,3 @@
-
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -9,23 +8,23 @@ export async function generateMealSuggestions(
 ): Promise<MealSuggestionOutput> {
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'gemini-1.5-pro', // ✅ FIXED: remove "googleai/" prefix
       prompt,
       config: { temperature: 0.8 },
       output: {
-          schema: MealSuggestionOutputSchema,
-      }
+        schema: MealSuggestionOutputSchema,
+      },
     });
 
     const output = llmResponse.output;
 
     if (!output) {
-      return { error: "The AI returned an invalid response. Please try again." };
+      return { error: 'The AI returned an invalid response. Please try again.' };
     }
 
     return output;
   } catch (e: any) {
-    console.error("Error in generateMealSuggestions:", e);
-    return { error: e.message || "Unknown AI error" };
+    console.error('Error in generateMealSuggestions:', e);
+    return { error: e.message || 'Unknown AI error' };
   }
 }
