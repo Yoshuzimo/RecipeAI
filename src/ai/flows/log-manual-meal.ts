@@ -34,7 +34,7 @@ The "servings" value in your output should always be 1. Provide the output in th
 
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-pro',
       prompt,
       config: { temperature: 0.3 },
       output: {

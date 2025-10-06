@@ -9,7 +9,7 @@ export async function generateMealSuggestions(
 ): Promise<MealSuggestionOutput> {
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-pro',
       prompt,
       config: { temperature: 0.8 },
       output: {
