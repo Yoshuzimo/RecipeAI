@@ -57,7 +57,7 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
   
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-pro',
+      model: 'googleai/gemini-1.5-pro',
       prompt: composedPrompt,
       config: { temperature: 0.5 },
       output: {

@@ -60,7 +60,7 @@ Provide the output in the specified JSON format.
 
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-pro',
+      model: 'googleai/gemini-1.5-pro',
       prompt,
       config: { temperature: 0.3 },
       output: {
