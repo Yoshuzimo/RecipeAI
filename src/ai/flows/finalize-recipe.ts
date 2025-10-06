@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -9,10 +10,6 @@ import {
 } from '@/ai/schemas/finalize-recipe';
 import { MacrosSchema } from '@/ai/schemas/shared';
 import { z } from 'zod';
-
-const FullMacrosSchema = MacrosSchema.extend({
-  servings: z.number().int().positive(),
-});
 
 const FinalizeRecipeAiOutputSchema = z.object({
   servings: z.number().int().positive().describe("The number of servings this recipe makes."),

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -25,4 +26,6 @@ export async function generateMealSuggestions(
     return output;
   } catch (e: any) {
     console.error('Error in generateMealSuggestions:', e);
-    return { error: e.message || 'Unknown AI error
+    return { error: e.message || 'Unknown AI error' };
+  }
+}

@@ -49,4 +49,8 @@ The "servings" value in your output should always be 1. Provide the output in th
     
     return FinalizeRecipeResponseSchema.parse(aiOutput);
 
-  } catch (e: any
+  } catch (e: any) {
+    console.error("Error in logManualMeal:", e);
+    return { error: e.message || "Unknown AI error" };
+  }
+}

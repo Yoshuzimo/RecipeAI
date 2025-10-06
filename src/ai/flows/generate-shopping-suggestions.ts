@@ -63,3 +63,4 @@ Provide the output in the specified JSON format.
     console.error("Error in generateShoppingSuggestions:", e);
     return { error: e.message || "Unknown AI error" };
   }
+}

@@ -78,4 +78,6 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
     if (typeof e.message === 'string' && e.message.includes("question")) {
         return { question: e.message };
     }
-    return { error: e.message ||
+    return { error: e.message || "Unknown AI error" };
+  }
+}
