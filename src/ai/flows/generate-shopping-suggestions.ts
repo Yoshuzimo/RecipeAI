@@ -38,24 +38,7 @@ For each suggestion, provide:
 2.  **quantity**: A reasonable quantity to purchase (e.g., "1 lb", "2 containers", "a bunch").
 3.  **reason**: A short, helpful reason why you're suggesting this item (e.g., "Pairs well with the chicken you have," "You're running low and use it often," "To complement your health goals.").
 
-Provide the output in the following JSON format. Do not include any text outside of the main JSON object.
-
-\`\`\`json
-{
-  "suggestions": [
-    {
-      "item": "Avocado",
-      "quantity": "2-3",
-      "reason": "You have tomatoes and onions, perfect for guacamole or to add to salads."
-    },
-    {
-      "item": "Brown Rice",
-      "quantity": "1 bag",
-      "reason": "A healthy grain that pairs well with the chicken and beef in your inventory."
-    }
-  ]
-}
-\`\`\`
+Provide the output in the specified JSON format.
 `;
 
   try {
@@ -63,22 +46,18 @@ Provide the output in the following JSON format. Do not include any text outside
       model: 'googleai/gemini-1.5-flash',
       prompt,
       config: { temperature: 0.9 },
+      output: {
+          schema: GenerateShoppingSuggestionsOutputSchema,
+      }
     });
 
-    const responseText = llmResponse.text;
-     if (!responseText) {
-      return { error: "The AI returned an empty response. Please try again." };
-    }
+    const aiOutput = llmResponse.output;
 
-    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-    const jsonString = jsonMatch ? jsonMatch[1] : responseText;
-    
-    if (!jsonString.trim()) {
-        return { error: "The AI returned an empty JSON response. Please try again." };
+    if (!aiOutput) {
+      return { error: "The AI returned an invalid response. Please try again." };
     }
     
-    const parsedJson = JSON.parse(jsonString);
-    return GenerateShoppingSuggestionsOutputSchema.parse(parsedJson);
+    return GenerateShoppingSuggestionsOutputSchema.parse(aiOutput);
 
   } catch (e: any) {
     console.error("Error in generateShoppingSuggestions:", e);

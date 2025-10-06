@@ -41,7 +41,10 @@ export async function finalizeRecipe(
   }
 
   const prompt = `
-You are an expert chef and nutritionist AI. Your task is to analyze a recipe and determine a reasonable number of servings and calculate the nutritional information per serving.
+You are an expert chef and nutritionist AI. Your task is to analyze a recipe and determine the following:
+1.  A reasonable number of servings the recipe makes.
+2.  A simple, human-readable description of a single serving (e.g., "1 cup", "250g", "2 tacos").
+3.  The estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) per serving.
 
 **RECIPE DETAILS:**
 *   **Title:** ${input.title}
@@ -52,36 +55,7 @@ You are an expert chef and nutritionist AI. Your task is to analyze a recipe and
 
 ${partialMacrosPrompt}
 
-**YOUR TASK:**
-Based on all the details, determine the following:
-1.  A reasonable number of servings the recipe makes.
-2.  A simple, human-readable description of a single serving (e.g., "1 cup", "250g", "2 tacos").
-3.  The estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) per serving.
-
-Provide the output in the following JSON format. Do not include any text outside of the main JSON object.
-
-\`\`\`json
-{
-  "servings": <number_of_servings>,
-  "servingSize": "<description_of_serving_size>",
-  "macros": {
-    "calories": <number>,
-    "protein": <number>,
-    "carbs": <number>,
-    "fat": <number>,
-    "fiber": <number>,
-    "sugar": <number>,
-    "sodium": <number>,
-    "cholesterol": <number>,
-    "fats": {
-      "saturated": <number>,
-      "monounsaturated": <number>,
-      "polyunsaturated": <number>,
-      "trans": <number>
-    }
-  }
-}
-\`\`\`
+Provide the output in the specified JSON format.
 `;
 
   try {

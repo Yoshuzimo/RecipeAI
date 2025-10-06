@@ -60,30 +60,17 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
       model: 'googleai/gemini-1.5-flash',
       prompt: composedPrompt,
       config: { temperature: 0.5 },
+      output: {
+          schema: GenerateGoalSuggestionsResponseSchema
+      }
     });
 
-    const responseText = llmResponse.text.trim();
+    const responseText = llmResponse.output;
     if (!responseText) {
       return { error: "The AI returned an empty response. Please try again." };
     }
-
-    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-    let jsonString = jsonMatch ? jsonMatch[1] : responseText;
     
-    if (!jsonString.trim()) {
-      return { error: "The AI returned an empty JSON response. Please try again." };
-    }
-
-    // Sometimes the model returns a valid JSON without the markdown block
-    if (!jsonString.startsWith('{')) {
-        jsonString = `{${jsonString.split('{').pop()}`;
-    }
-     if (!jsonString.endsWith('}')) {
-        jsonString = `${jsonString.split('}').slice(0,-1).join('}')}}`;
-    }
-
-    const parsedJson = JSON.parse(jsonString);
-    return GenerateGoalSuggestionsResponseSchema.parse(parsedJson);
+    return GenerateGoalSuggestionsResponseSchema.parse(responseText);
 
   } catch (e: any) {
     console.error("Error in generateGoalSuggestions:", e);

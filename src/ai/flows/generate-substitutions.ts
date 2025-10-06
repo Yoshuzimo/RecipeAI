@@ -4,6 +4,7 @@
 import { ai } from '@/ai/genkit';
 import {
   GenerateSubstitutionsInputSchema,
+  GenerateSubstitutionsOutputSchema,
   GenerateSubstitutionsResponseSchema,
   type GenerateSubstitutionsInput,
   type GenerateSubstitutionsResponse,
@@ -37,23 +38,7 @@ For each suggestion, provide:
 2.  A brief note explaining any changes to the recipe (e.g., "Use half the amount," "May alter the texture slightly," "A great vegan alternative.").
 3.  An estimation of how it changes the nutritional profile (e.g., "Adds more fiber," "Lower in fat," "Slightly higher in sugar.").
 
-Provide the output in the following JSON format. Do not include any text outside of the main JSON object.
-
-\`\`\`json
-{
-  "originalIngredient": "${input.ingredientToReplace}",
-  "suggestedSubstitutions": [
-    {
-      "name": "Suggestion 1",
-      "note": "Note about how to use suggestion 1 and its nutritional impact."
-    },
-    {
-      "name": "Suggestion 2",
-      "note": "Note about how to use suggestion 2 and its nutritional impact."
-    }
-  ]
-}
-\`\`\`
+Provide the output in the specified JSON format.
 `;
 
   try {
@@ -61,22 +46,18 @@ Provide the output in the following JSON format. Do not include any text outside
       model: 'googleai/gemini-1.5-flash',
       prompt,
       config: { temperature: 0.7 },
+      output: {
+          schema: GenerateSubstitutionsOutputSchema
+      }
     });
 
-    const responseText = llmResponse.text;
-    if (!responseText) {
-      return { error: "The AI returned an empty response. Please try again." };
-    }
+    const aiOutput = llmResponse.output;
 
-    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-    const jsonString = jsonMatch ? jsonMatch[1] : responseText;
-    
-    if (!jsonString.trim()) {
-        return { error: "The AI returned an empty JSON response. Please try again." };
+    if (!aiOutput) {
+      return { error: "The AI returned an invalid response. Please try again." };
     }
     
-    const parsedJson = JSON.parse(jsonString);
-    return GenerateSubstitutionsResponseSchema.parse(parsedJson);
+    return GenerateSubstitutionsResponseSchema.parse(aiOutput);
 
   } catch (e: any) {
     console.error("Error in generateSubstitutions:", e);

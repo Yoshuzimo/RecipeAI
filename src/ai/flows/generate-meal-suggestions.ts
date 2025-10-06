@@ -2,7 +2,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import type { MealSuggestionInput, MealSuggestionOutput } from '@/ai/schemas/meal-suggestions';
+import { MealSuggestionOutputSchema, type MealSuggestionInput, type MealSuggestionOutput } from '@/ai/schemas/meal-suggestions';
 
 export async function generateMealSuggestions(
   prompt: MealSuggestionInput
@@ -12,9 +12,18 @@ export async function generateMealSuggestions(
       model: 'googleai/gemini-1.5-flash',
       prompt,
       config: { temperature: 0.8 },
+      output: {
+          schema: MealSuggestionOutputSchema,
+      }
     });
 
-    return llmResponse.text;
+    const output = llmResponse.output;
+
+    if (!output) {
+      return { error: "The AI returned an invalid response. Please try again." };
+    }
+
+    return output;
   } catch (e: any) {
     console.error("Error in generateMealSuggestions:", e);
     return { error: e.message || "Unknown AI error" };

@@ -3,7 +3,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { FinalizeRecipeResponseSchema, type FinalizeRecipeResponse } from '@/ai/schemas/finalize-recipe';
+import { FinalizeRecipeResponseSchema, FinalizeRecipeOutputSchema, type FinalizeRecipeResponse } from '@/ai/schemas/finalize-recipe';
 
 const foodItemSchema = z.object({
     quantity: z.string(),
@@ -29,29 +29,7 @@ ${input.foods.map(food => `- ${food.quantity} ${food.unit} ${food.name}`).join('
 **YOUR TASK:**
 Based on the list of foods, calculate the estimated macros (calories, protein, carbs, total fat, fiber, sugar, sodium, cholesterol, and a breakdown of fat types) for the entire meal combined. The result should be for a single serving, representing the total of all foods eaten.
 
-Provide the output in the following JSON format. Do not include any text outside of the main JSON object. The "servings" value should always be 1.
-
-\`\`\`json
-{
-  "servings": 1,
-  "macros": {
-    "calories": <number>,
-    "protein": <number>,
-    "carbs": <number>,
-    "fat": <number>,
-    "fiber": <number>,
-    "sugar": <number>,
-    "sodium": <number>,
-    "cholesterol": <number>,
-    "fats": {
-      "saturated": <number>,
-      "monounsaturated": <number>,
-      "polyunsaturated": <number>,
-      "trans": <number>
-    }
-  }
-}
-\`\`\`
+The "servings" value in your output should always be 1. Provide the output in the specified JSON format.
 `;
 
   try {
@@ -59,22 +37,17 @@ Provide the output in the following JSON format. Do not include any text outside
       model: 'googleai/gemini-1.5-flash',
       prompt,
       config: { temperature: 0.3 },
+      output: {
+          schema: FinalizeRecipeOutputSchema
+      }
     });
 
-    const responseText = llmResponse.text;
-    if (!responseText) {
+    const aiOutput = llmResponse.output;
+    if (!aiOutput) {
       return { error: "The AI returned an empty response. Please try again." };
     }
-
-    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-    const jsonString = jsonMatch ? jsonMatch[1] : responseText;
     
-    if (!jsonString.trim()) {
-        return { error: "The AI returned an empty JSON response. Please try again." };
-    }
-    
-    const parsedJson = JSON.parse(jsonString);
-    return FinalizeRecipeResponseSchema.parse(parsedJson);
+    return FinalizeRecipeResponseSchema.parse(aiOutput);
 
   } catch (e: any) {
     console.error("Error in logManualMeal:", e);
