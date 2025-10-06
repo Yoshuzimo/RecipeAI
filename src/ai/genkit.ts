@@ -8,7 +8,7 @@ import { googleAI } from "@genkit-ai/google-genai";
 
 export const ai = genkit({
   plugins: [
-    googleAI(),  // call the Google AI plugin
+    googleAI({ apiVersion: "v1" }),  // call the Google AI plugin
   ],
   flowStateStore: "none",
   traceStore: "none",
