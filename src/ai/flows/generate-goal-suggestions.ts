@@ -57,7 +57,7 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
   
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'gemini-pro',
       prompt: composedPrompt,
       config: { temperature: 0.5 },
       output: {
@@ -78,6 +78,4 @@ ${input.history.map(entry => `${entry.role}: ${entry.content}`).join('\n')}
     if (typeof e.message === 'string' && e.message.includes("question")) {
         return { question: e.message };
     }
-    return { error: e.message || "Unknown AI error" };
-  }
-}
+    return { error: e.message ||

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -60,7 +59,7 @@ Provide the output in the specified JSON format.
 
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'gemini-pro',
       prompt,
       config: { temperature: 0.3 },
       output: {

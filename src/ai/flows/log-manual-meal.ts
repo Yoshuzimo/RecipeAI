@@ -34,7 +34,7 @@ The "servings" value in your output should always be 1. Provide the output in th
 
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'gemini-pro',
       prompt,
       config: { temperature: 0.3 },
       output: {
@@ -49,8 +49,4 @@ The "servings" value in your output should always be 1. Provide the output in th
     
     return FinalizeRecipeResponseSchema.parse(aiOutput);
 
-  } catch (e: any) {
-    console.error("Error in logManualMeal:", e);
-    return { error: e.message || "Unknown AI error" };
-  }
-}
+  } catch (e: any

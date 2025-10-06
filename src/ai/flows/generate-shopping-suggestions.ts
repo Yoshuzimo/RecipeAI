@@ -43,7 +43,7 @@ Provide the output in the specified JSON format.
 
   try {
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'gemini-pro',
       prompt,
       config: { temperature: 0.9 },
       output: {
@@ -63,4 +63,3 @@ Provide the output in the specified JSON format.
     console.error("Error in generateShoppingSuggestions:", e);
     return { error: e.message || "Unknown AI error" };
   }
-}

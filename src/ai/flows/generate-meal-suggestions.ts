@@ -8,7 +8,7 @@ export async function generateMealSuggestions(
 ): Promise<MealSuggestionOutput> {
   try {
     const llmResponse = await ai.generate({
-      model: 'gemini-1.5-pro', // ✅ FIXED: remove "googleai/" prefix
+      model: 'gemini-pro',
       prompt,
       config: { temperature: 0.8 },
       output: {
@@ -25,6 +25,4 @@ export async function generateMealSuggestions(
     return output;
   } catch (e: any) {
     console.error('Error in generateMealSuggestions:', e);
-    return { error: e.message || 'Unknown AI error' };
-  }
-}
+    return { error: e.message || 'Unknown AI error
