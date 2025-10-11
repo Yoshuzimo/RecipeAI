@@ -1,35 +1,23 @@
-'use server';
+/**
+ * @fileoverview Initializes Genkit AI with the Google AI plugin.
+ */
 
-import { ai } from '@/ai/genkit';
-import {
-  MealSuggestionOutputSchema,
-  type MealSuggestionInput,
-  type MealSuggestionOutput,
-} from '@/ai/schemas/meal-suggestions';
+import { genkit } from "genkit";
+import { googleAI } from "@genkit-ai/google-genai";
 
-export async function generateMealSuggestions(
-  prompt: MealSuggestionInput
-): Promise<MealSuggestionOutput> {
-  try {
-    const llmResponse = await ai.generate({
-      // You can use either alias or full ID now — both are registered
-      model: 'gemini-pro',
-      prompt,
-      config: { temperature: 0.8 },
-      output: {
-        schema: MealSuggestionOutputSchema,
-      },
-    });
-
-    const output = llmResponse.output;
-
-    if (!output) {
-      return { error: 'The AI returned an invalid response. Please try again.' };
-    }
-
-    return output;
-  } catch (e: any) {
-    console.error('Error in generateMealSuggestions:', e);
-    return { error: e.message || 'Unknown AI error' };
-  }
+// Ensure GEMINI_API_KEY is loaded
+if (!process.env.GEMINI_API_KEY) {
+  console.error("❌ Missing GEMINI_API_KEY in environment variables");
+  throw new Error("GEMINI_API_KEY not found. Please add it to .env.local or Vercel env vars.");
 }
+
+export const ai = genkit({
+  plugins: [
+    googleAI({
+      apiVersion: "v1",
+      apiKey: process.env.GEMINI_API_KEY, // ✅ Add API key here
+    }),
+  ],
+  flowStateStore: "none",
+  traceStore: "none",
+});
