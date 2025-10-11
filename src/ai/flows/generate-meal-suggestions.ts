@@ -1,14 +1,18 @@
-
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { MealSuggestionOutputSchema, type MealSuggestionInput, type MealSuggestionOutput } from '@/ai/schemas/meal-suggestions';
+import {
+  MealSuggestionOutputSchema,
+  type MealSuggestionInput,
+  type MealSuggestionOutput,
+} from '@/ai/schemas/meal-suggestions';
 
 export async function generateMealSuggestions(
   prompt: MealSuggestionInput
 ): Promise<MealSuggestionOutput> {
   try {
     const llmResponse = await ai.generate({
+      // You can use either alias or full ID now — both are registered
       model: 'gemini-pro',
       prompt,
       config: { temperature: 0.8 },
